@@ -1,0 +1,201 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/lexend';
+@import 'katex/dist/katex.min.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Palette pensée pour de longues sessions de révision :
+   fond neutre peu lumineux, un seul accent (indigo, associé à la concentration),
+   couleurs vives réservées aux matières et aux retours (juste / faux). */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --border: #e1e4ea;
+  --text: #111827;
+  --muted: #576170;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eceefe;
+  --accent-ink: #4338ca;
+  --success: #126b34;
+  --success-soft: #e6f5ec;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --warning: #a15c07;
+  --warning-soft: #fdf3e1;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-2: #20242d;
+  --border: #2b303b;
+  --text: #e8ebf0;
+  --muted: #9ba3af;
+  --accent: #5b54e8;
+  --accent-hover: #6a64f0;
+  --accent-soft: #24234a;
+  --accent-ink: #a9a5ff;
+  --success: #4ade80;
+  --success-soft: #14271c;
+  --danger: #f87171;
+  --danger-soft: #2d1716;
+  --warning: #fbbf24;
+  --warning-soft: #2b2212;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Lexend Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: var(--shadow);
+  --radius-card: 18px;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Animations courtes, désactivées si l'utilisateur le demande */
+@keyframes pop {
+  0% { transform: scale(0.96); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.anim-pop { animation: pop 180ms ease-out; }
+
+.flip { perspective: 1200px; }
+.flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 240ms ease;
+}
+.flip-inner.flipped { transform: rotateY(180deg); }
+.flip-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-back { transform: rotateY(180deg); position: absolute; inset: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------- Éditeur de notes */
+.prose-note {
+  font-size: 1.02rem;
+  line-height: 1.7;
+  outline: none;
+  min-height: 50vh;
+}
+.prose-note > * + * { margin-top: 0.75em; }
+.prose-note h1 { font-size: 1.75rem; font-weight: 700; margin-top: 1.2em; }
+.prose-note h2 { font-size: 1.4rem; font-weight: 650; margin-top: 1.1em; }
+.prose-note h3 { font-size: 1.15rem; font-weight: 650; margin-top: 1em; }
+.prose-note ul { list-style: disc; padding-left: 1.4em; }
+.prose-note ol { list-style: decimal; padding-left: 1.4em; }
+.prose-note li > p { margin: 0.15em 0; }
+.prose-note blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 0.2em 0 0.2em 1em;
+  color: var(--muted);
+}
+.prose-note code {
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.prose-note pre {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+}
+.prose-note pre code { background: none; padding: 0; }
+.prose-note mark { background: #fde68a; color: #111827; border-radius: 3px; padding: 0 2px; }
+.prose-note a { color: var(--accent-ink); text-decoration: underline; }
+.prose-note hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+.prose-note img { max-width: 100%; border-radius: 12px; }
+.prose-note img.ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.prose-note table { border-collapse: collapse; width: 100%; table-layout: fixed; overflow: hidden; }
+.prose-note td,
+.prose-note th {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+  position: relative;
+}
+.prose-note th { background: var(--surface-2); font-weight: 600; text-align: left; }
+.prose-note .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-soft);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.prose-note .tableWrapper { overflow-x: auto; }
+.prose-note ul[data-type='taskList'] { list-style: none; padding-left: 0.2em; }
+.prose-note ul[data-type='taskList'] li { display: flex; gap: 0.5em; align-items: flex-start; }
+.prose-note ul[data-type='taskList'] li > label { margin-top: 0.3em; }
+.prose-note ul[data-type='taskList'] li > div { flex: 1; }
+.prose-note p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.prose-note .tiptap-mathematics-render { cursor: pointer; padding: 0 2px; border-radius: 4px; }
+.prose-note .tiptap-mathematics-render:hover { background: var(--accent-soft); }
+.prose-note [data-type='block-math'] { text-align: center; margin: 1em 0; }

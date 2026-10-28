@@ -1,0 +1,43 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
+import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
+import { supabase } from '@/lib/supabase'
+
+export function Onboarding() {
+  const qc = useQueryClient()
+  const [name, setName] = useState('TBS')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    const { error } = await supabase.from('spaces').insert({ name: name.trim() })
+    setBusy(false)
+    if (error) setError(error.message)
+    else qc.invalidateQueries({ queryKey: ['spaces'] })
+  }
+
+  return (
+    <div className="flex min-h-dvh items-center justify-center px-4">
+      <Card className="w-full max-w-sm p-6">
+        <h1 className="text-xl font-bold">Bienvenue 👋</h1>
+        <p className="mt-1 text-muted">
+          Crée ton premier espace. Un espace = un établissement (TBS, puis Hull…). Les données d’un espace restent séparées des autres.
+        </p>
+        <form onSubmit={submit} className="mt-5 flex flex-col gap-4">
+          <Field label="Nom de l’espace" id="space">
+            <Input id="space" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <ErrorBox error={error} />
+          <Button type="submit" loading={busy}>
+            Commencer
+          </Button>
+        </form>
+        <button type="button" onClick={() => supabase.auth.signOut()} className="mt-4 w-full text-center text-sm text-muted hover:underline">
+          Se déconnecter
+        </button>
+      </Card>
+    </div>
+  )
+}
