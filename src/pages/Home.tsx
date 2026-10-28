@@ -105,7 +105,7 @@ export function HomePage() {
             </Card>
           </Link>
         ) : (
-          <Link to="/reviser" className="group">
+          <Link to="/reviser?vue=erreurs" className="group">
             <Card className="flex h-full items-center gap-4 transition-shadow group-hover:shadow-md">
               <AlertTriangle className="size-9 shrink-0 text-warning" aria-hidden />
               <div className="min-w-0 flex-1">

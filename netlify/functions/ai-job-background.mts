@@ -129,14 +129,28 @@ export default async (req: Request) => {
   const progress: Progress = async (value, phase) => {
     await db.from('ai_jobs').update({ result: { progress: value, phase } }).eq('id', job_id)
   }
+  // Pendant la rédaction, la barre avance avec le temps écoulé : on voit que ça travaille
+  let beat: ReturnType<typeof setInterval> | undefined
   const prepare = async (p: { course_ids?: string[]; note_ids?: string[]; text?: string }) => {
     await waitForCourses(db, p.course_ids, progress)
     const source = await loadSource(db, p)
     await progress(0.1, 'L’IA rédige…')
+    const t0 = Date.now()
+    beat = setInterval(() => {
+      const sec = Math.round((Date.now() - t0) / 1000)
+      const value = 0.1 + 0.8 * (1 - Math.exp(-sec / 90))
+      const elapsed = sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')}`
+      progress(value, `L’IA rédige… (${elapsed})`).catch(() => {})
+    }, 8000)
     return source
   }
+  // Netlify arrête la fonction à 15 min : on s'arrête avant, avec un message clair
+  let guard: ReturnType<typeof setTimeout> | undefined
+  const watchdog = new Promise<never>((_, reject) => {
+    guard = setTimeout(() => reject(new Error('La génération a pris trop de temps (service IA saturé). Réessaie dans quelques minutes.')), 13 * 60_000)
+  })
 
-  try {
+  const run = async () => {
     if (job.kind === 'quiz') {
       const p = job.params as QuizParams
       try {
@@ -229,8 +243,21 @@ export default async (req: Request) => {
         throw e
       }
     }
+  }
+
+  try {
+    await Promise.race([run(), watchdog])
   } catch (e) {
+    // Arrêt de sécurité : les éléments en attente passent en erreur, pour pouvoir relancer
+    const p = job.params as { quiz_id?: string; output_id?: string; note_id?: string; course_id?: string }
     const message = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String(e.message) : String(e)
+    if (p.output_id) await db.from('note_outputs').update({ status: 'error', error: message }).eq('id', p.output_id).eq('status', 'generating')
+    if (p.quiz_id) await db.from('quizzes').update({ status: 'error', error: message }).eq('id', p.quiz_id).neq('status', 'ready')
+    if (p.note_id && job.kind === 'sheet') await db.from('notes').delete().eq('id', p.note_id)
+    if (p.course_id && job.kind === 'course_images') await db.from('courses').update({ status: 'ready' }).eq('id', p.course_id).eq('status', 'processing')
     await db.from('ai_jobs').update({ status: 'error', error: message }).eq('id', job_id)
+  } finally {
+    clearInterval(beat)
+    clearTimeout(guard)
   }
 }

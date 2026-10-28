@@ -1,8 +1,8 @@
 import { AlertTriangle, Brain, ListChecks, Network, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { planProgress } from '@/components/Plans'
-import { Badge, Button, Card, EmptyState, ErrorBox, PageHeader, ProgressBar, SubjectDot } from '@/components/ui'
+import { Badge, Button, Card, cx, EmptyState, ErrorBox, PageHeader, ProgressBar, SubjectDot } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { countdown } from '@/lib/dates'
 import { useErrorItems, useFlashcards, usePlanItems, usePlans, useQuizSessions, useSubjects } from '@/lib/data'
@@ -18,13 +18,31 @@ export default function ReviewPage() {
   const { data: items = [] } = usePlanItems()
   const { data: sessions = [] } = useQuizSessions()
   const [error, setError] = useState<unknown>(null)
+  // Arrivée depuis « erreurs à retravailler » sur l'accueil
+  const [params] = useSearchParams()
+  const errorsView = params.get('vue') === 'erreurs'
 
   const now = new Date()
   const due = cards.filter((c) => new Date(c.due_at) <= now)
   const openErrors = errors.filter((e) => !e.resolved_at)
 
-  // Les matières dont l'examen approche passent en premier
-  const ordered = [...subjects].sort((a, b) => (a.exam_date ?? '9999').localeCompare(b.exam_date ?? '9999'))
+  const errorCount = (id: string) => openErrors.filter((e) => e.subject_id === id).length
+  // Vue erreurs : la matière avec le plus d'erreurs en premier.
+  // Sinon : l'examen le plus proche d'abord, puis le plus d'erreurs.
+  const ordered = [...subjects].sort((a, b) =>
+    errorsView
+      ? errorCount(b.id) - errorCount(a.id)
+      : (a.exam_date ?? '9999').localeCompare(b.exam_date ?? '9999') || errorCount(b.id) - errorCount(a.id),
+  )
+  const worst = ordered.find((s) => errorCount(s.id) > 0)
+
+  async function startErrors(subjectId: string) {
+    try {
+      navigate(`/qcm/session/${await startErrorSession(spaceId, subjectId)}`)
+    } catch (e) {
+      setError(e)
+    }
+  }
 
   if (!subjects.length) {
     return (
@@ -55,6 +73,25 @@ export default function ReviewPage() {
           </Button>
         </Link>
       </Card>
+
+      {errorsView && (
+        <Card className="mb-5 flex flex-wrap items-center gap-4 bg-warning-soft">
+          <AlertTriangle className="size-9 text-warning" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-xl font-bold">
+              {openErrors.length} erreur{openErrors.length > 1 ? 's' : ''} à retravailler
+            </p>
+            <p className="text-sm text-muted">
+              {worst ? `Commence par ${worst.name} : c’est là qu’il y en a le plus.` : 'Aucune erreur en attente, bravo !'}
+            </p>
+          </div>
+          {worst && (
+            <Button size="lg" onClick={() => startErrors(worst.id)}>
+              Revoir {worst.name} ({errorCount(worst.id)})
+            </Button>
+          )}
+        </Card>
+      )}
 
       <ErrorBox error={error} />
 
@@ -87,22 +124,17 @@ export default function ReviewPage() {
               )}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link to={`/reviser/cartes?matiere=${s.id}`}>
-                  <Button size="sm" variant={sd ? 'primary' : 'secondary'} disabled={!sd} icon={<Brain className="size-4" />}>
+                  <Button size="sm" variant={sd && !errorsView ? 'primary' : 'secondary'} disabled={!sd} icon={<Brain className="size-4" />}>
                     {sd} carte{sd > 1 ? 's' : ''}
                   </Button>
                 </Link>
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant={se && errorsView ? 'primary' : 'secondary'}
                   disabled={!se}
                   icon={<AlertTriangle className="size-4" />}
-                  onClick={async () => {
-                    try {
-                      navigate(`/qcm/session/${await startErrorSession(spaceId, s.id)}`)
-                    } catch (e) {
-                      setError(e)
-                    }
-                  }}
+                  className={cx(se > 0 && !errorsView && 'border-warning bg-warning-soft font-semibold text-warning hover:bg-warning-soft')}
+                  onClick={() => startErrors(s.id)}
                 >
                   {se} erreur{se > 1 ? 's' : ''}
                 </Button>

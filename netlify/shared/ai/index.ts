@@ -38,17 +38,22 @@ export function getAi(opts: { quick?: boolean; bulk?: boolean } = {}): AiProvide
   if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
   // quick : un seul tour (fonctions qui doivent répondre en quelques secondes)
   const rounds = opts.quick ? 1 : 3
+  // Au-delà, on abandonne avec un message clair plutôt que de laisser tourner
+  const budgetMs = opts.quick ? 25_000 : 6 * 60_000
   return {
     name: 'gemini',
     async generateJson(req: JsonRequest) {
       let last: unknown
       let dailyOnly = true
-      for (let round = 0; round < rounds; round++) {
+      const deadline = Date.now() + budgetMs
+      for (let round = 0; round < rounds && Date.now() < deadline; round++) {
         const models = await modelChain(key, !!opts.bulk)
         if (!models.length) break
         for (const m of models) {
+          const left = deadline - Date.now()
+          if (left < 5000) break
           try {
-            return await createGeminiProvider(key, m).generateJson(req)
+            return await createGeminiProvider(key, m).generateJson({ ...req, timeoutMs: Math.min(req.timeoutMs ?? 120_000, left) })
           } catch (e) {
             last = e
             if (e instanceof QuotaAiError) {
@@ -62,12 +67,12 @@ export function getAi(opts: { quick?: boolean; bulk?: boolean } = {}): AiProvide
           }
         }
         // Tous les modèles sont saturés pour la minute : on attend un peu avant un nouveau tour
-        if (round < rounds - 1 && !dailyOnly) await sleep(20_000)
+        if (round < rounds - 1 && !dailyOnly && deadline - Date.now() > 30_000) await sleep(20_000)
       }
       if (last instanceof QuotaAiError && dailyOnly)
         throw new Error("Quota gratuit de l'IA épuisé pour aujourd'hui sur tous les modèles. Réessaie demain (remise à zéro vers 9 h).")
       throw new Error(
-        last instanceof QuotaAiError || (last instanceof Error && /surchargé|Limite/.test(last.message))
+        last instanceof QuotaAiError || (last instanceof Error && /surchargé|Limite|Délai|incomplète/.test(last.message))
           ? 'Le service IA de Google est saturé en ce moment. Réessaie dans quelques minutes.'
           : last instanceof Error
             ? last.message
@@ -286,7 +291,8 @@ const level = (child: JsonSchema): JsonSchema => ({
   properties: { title: { type: 'string' }, detail: { type: 'string' }, children: { type: 'array', items: child } },
   required: ['title'],
 })
-const mindmapSchema = level(level(level(level(leaf))))
+// Racine → branches → sous-notions → détails : assez riche, et bien plus rapide à produire qu'un niveau de plus
+const mindmapSchema = level(level(level(leaf)))
 
 const clip = (t: string, max: number) => (t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t)
 
@@ -299,6 +305,9 @@ export const nodeValidator: z.ZodType<MindNode, unknown> = z.lazy(() =>
   }),
 )
 
+// Une carte mentale résume : inutile d'envoyer un cours entier très long (plus lent)
+const MINDMAP_SOURCE_CHARS = 120_000
+
 export async function generateMindmap(opts: { source: string; title: string }): Promise<MindNode> {
   const ai = getAi()
   const system = [
@@ -308,7 +317,7 @@ export async function generateMindmap(opts: { source: string; title: string }): 
     'title : 2 à 8 mots. detail : une phrase courte (moins de 200 caractères) qui explique, seulement si utile.',
     'Uniquement à partir du contenu fourni, dans sa langue. Couvre tout le contenu.',
   ].join('\n')
-  const prompt = `Thème : ${opts.title}\n\n=== CONTENU ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
+  const prompt = `Thème : ${opts.title}\n\n=== CONTENU ===\n${opts.source.slice(0, MINDMAP_SOURCE_CHARS)}`
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
     try {

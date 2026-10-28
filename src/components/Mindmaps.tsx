@@ -1,7 +1,7 @@
 import { Network, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { jobProgress, useJobs } from '@/context/jobs'
+import { jobProgress, STALE_MS, useJobs } from '@/context/jobs'
 import { fmt } from '@/lib/dates'
 import { useNoteOutputs, useTrash } from '@/lib/data'
 import type { MindNode } from '@/lib/types'
@@ -12,7 +12,7 @@ export function GeneratingBar({ job }: { job?: ReturnType<ReturnType<typeof useJ
   return (
     <div className="mt-2 max-w-xs">
       <ProgressBar value={job ? jobProgress(job) : 50} label="Génération en cours" />
-      <p className="mt-1 text-xs text-muted">Génération en cours…</p>
+      <p className="mt-1 text-xs text-muted">{job?.result?.phase ?? 'Génération en cours…'}</p>
     </div>
   )
 }
@@ -26,7 +26,14 @@ export function MindmapsPanel({ subjectId }: { subjectId: string }) {
   const { find } = useJobs()
   const trash = useTrash('note_outputs')
   const [open, setOpen] = useState(false)
-  const maps = data.filter((m) => m.subject_id === subjectId && m.kind === 'mindmap')
+  // Restée « en cours » trop longtemps : le serveur s'est arrêté, on propose de relancer
+  const maps = data
+    .filter((m) => m.subject_id === subjectId && m.kind === 'mindmap')
+    .map((m) =>
+      m.status === 'generating' && Date.now() - new Date(m.created_at).getTime() > STALE_MS
+        ? { ...m, status: 'error' as const, error: 'Génération interrompue (trop longue)' }
+        : m,
+    )
 
   return (
     <div className="flex flex-col gap-3">

@@ -16,6 +16,8 @@ export type JsonRequest = {
   schema: JsonSchema
   images?: InlineImage[]
   temperature?: number
+  // délai maximal d'un appel avant de passer à un autre modèle
+  timeoutMs?: number
 }
 
 export interface AiProvider {

@@ -49,6 +49,8 @@ export function jobProgress(j: TrackedJob, now = Date.now()) {
 
 // Sans démarrage côté serveur après ce délai, la génération est considérée bloquée
 const START_TIMEOUT_MS = 60_000
+// Le serveur s'arrête au bout de 15 min : au-delà, la génération est perdue
+export const STALE_MS = 16 * 60_000
 
 export function JobsProvider({ children }: { children: ReactNode }) {
   const { spaceId } = useSpace()
@@ -72,7 +74,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('space_id', spaceId)
       .in('status', ['pending', 'running'])
-      .gt('created_at', new Date(Date.now() - 20 * 60_000).toISOString())
+      .gt('created_at', new Date(Date.now() - 30 * 60_000).toISOString())
       .then(({ data }) => {
         if (!data?.length) return
         setJobs((cur) => [
@@ -132,6 +134,14 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           r.status = 'error'
           r.error = 'Le service de génération n’a pas démarré. Vérifie que le site est bien déployé depuis GitHub, puis réessaie.'
           await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)
+          toast({ message: `${j.meta.label} : échec`, tone: 'error' })
+        }
+        if (r?.status === 'running' && now - j.startedAt > STALE_MS) {
+          r.status = 'error'
+          r.error = 'La génération a été interrompue (trop longue). Relance-la.'
+          await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)
+          if (j.params.output_id) await supabase.from('note_outputs').update({ status: 'error', error: r.error }).eq('id', j.params.output_id as string).eq('status', 'generating')
+          invalidate(...AFFECTS[j.kind])
           toast({ message: `${j.meta.label} : échec`, tone: 'error' })
         }
       }

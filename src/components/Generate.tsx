@@ -173,7 +173,7 @@ export function GenerateCardsModal(props: GenerateProps) {
 
 export function GenerateMindmapModal(props: GenerateProps) {
   const { spaceId } = useSpace()
-  const { start } = useJobs()
+  const { start, find } = useJobs()
   const invalidate = useInvalidate()
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useNotesList()
@@ -185,6 +185,14 @@ export function GenerateMindmapModal(props: GenerateProps) {
 
   const go = () =>
     f.run(async () => {
+      const ids = [...f.courseIds, ...f.noteIds]
+      const busy = find(
+        (j) =>
+          j.kind === 'mindmap' &&
+          (j.status === 'pending' || j.status === 'running') &&
+          [...((j.params.course_ids as string[]) ?? []), ...((j.params.note_ids as string[]) ?? [])].some((id) => ids.includes(id)),
+      )
+      if (busy) throw new Error('Une carte mentale est déjà en cours pour ce contenu : suis son avancement en bas de l’écran.')
       const t = title.trim() || defaultTitle()
       const out = must(
         await supabase
