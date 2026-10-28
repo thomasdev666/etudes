@@ -7,8 +7,11 @@ import App from './App'
 import { AuthProvider } from './context/auth'
 import { ToastProvider } from './context/toast'
 import './index.css'
+import { applyTheme } from './lib/theme'
 
 registerSW({ immediate: true })
+applyTheme()
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme())
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: true } },

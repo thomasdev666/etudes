@@ -2,7 +2,9 @@ import { generateHTML, type JSONContent } from '@tiptap/react'
 import { buildExtensions } from '@/components/editor/extensions'
 import { safeFilename } from './exportNote'
 import { downloadBlob, STORAGE_PREFIX } from './storage'
+import { toOutline } from './mindmap'
 import { must, supabase } from './supabase'
+import type { MindNode } from './types'
 
 const TABLES = [
   'spaces',
@@ -22,6 +24,7 @@ const TABLES = [
   'note_versions',
   'files',
   'calendar_links',
+  'note_outputs',
 ] as const
 
 type Row = Record<string, unknown> & { id: string; space_id?: string; subject_id?: string | null; deleted_at?: string | null }
@@ -81,6 +84,11 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
     )
   }
 
+  for (const m of data.note_outputs.filter(live)) {
+    if (m.status !== 'ready') continue
+    zip.file(unique(`${dir(m)}/cartes-mentales/${safeFilename(String(m.title))}.txt`), toOutline(m.content as MindNode))
+  }
+
   for (const c of data.courses.filter(live)) zip.file(unique(`${dir(c)}/cours/${safeFilename(String(c.title))}.txt`), String(c.content ?? ''))
 
   for (const s of data.subjects.filter(live)) {
@@ -128,7 +136,7 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
       'Export complet — Études',
       `Créé le ${new Date().toLocaleString('fr')}`,
       '',
-      'lisible/       Notes (.html), cours (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',
+      'lisible/       Notes (.html), cours (.txt), cartes mentales (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',
       'fichiers/      Fichiers originaux (PDF de cours, images et pièces jointes des notes)',
       'donnees-json/  Toutes les données brutes, table par table',
       '',

@@ -1,36 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, CalendarPlus, Download, LogOut, Monitor, Moon, Pencil, Sun, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Coffee, Download, LogOut, Monitor, Moon, Pencil, Sun, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getDailyBudget, setDailyBudget } from '@/components/AssignmentForm'
+import { CalendarConnect } from '@/components/CalendarConnect'
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Tabs } from '@/components/ui'
 import { useAuth, useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
 import { useToast } from '@/context/toast'
-import { fetchIcs, parseIcs } from '@/lib/calendar'
 import { fmt } from '@/lib/dates'
-import { useCalendarLinks, useInvalidate } from '@/lib/data'
 import { exportEverything } from '@/lib/exportAll'
 import { saveBlob } from '@/lib/exportNote'
+import { applyTheme, readTheme, type Theme } from '@/lib/theme'
 import { must, supabase } from '@/lib/supabase'
-
-type Theme = 'system' | 'light' | 'dark'
-function applyTheme(t: Theme) {
-  try {
-    localStorage.setItem('etudes.theme', t)
-  } catch {
-    /* ignoré */
-  }
-  const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
-  document.documentElement.classList.toggle('dark', dark)
-}
-function readTheme(): Theme {
-  try {
-    return (localStorage.getItem('etudes.theme') as Theme) || 'system'
-  } catch {
-    return 'system'
-  }
-}
 
 function Section({ id, title, children, description }: { id?: string; title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -122,78 +104,6 @@ function Spaces() {
         </Button>
       </form>
       <ErrorBox error={error} />
-    </div>
-  )
-}
-
-function Calendar() {
-  const { spaceId } = useSpace()
-  const { data: links = [] } = useCalendarLinks()
-  const invalidate = useInvalidate()
-  const [url, setUrl] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<unknown>(null)
-  const [info, setInfo] = useState('')
-
-  async function add() {
-    setBusy(true)
-    setError(null)
-    setInfo('')
-    try {
-      const clean = url.trim()
-      const events = parseIcs(await fetchIcs(clean), new Date(Date.now() - 30 * 86_400_000), new Date(Date.now() + 120 * 86_400_000))
-      must(await supabase.from('calendar_links').insert({ space_id: spaceId, url: clean, label: 'Outlook', last_synced_at: new Date().toISOString() }))
-      await invalidate('calendar_links')
-      setInfo(`Calendrier connecté : ${events.length} événements trouvés.`)
-      setUrl('')
-    } catch (e) {
-      setError(e)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      {links.map((l) => (
-        <div key={l.id} className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2">
-          <CalendarPlus className="size-4 text-muted" aria-hidden />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{l.label}</p>
-            <p className="truncate text-xs text-muted">{l.last_synced_at ? `Synchronisé le ${fmt(l.last_synced_at, "d MMM 'à' HH'h'mm")}` : 'Jamais synchronisé'}</p>
-          </div>
-          <IconButton
-            label="Déconnecter"
-            onClick={async () => {
-              await supabase.from('calendar_links').delete().eq('id', l.id)
-              invalidate('calendar_links')
-            }}
-          >
-            <Trash2 className="size-4" />
-          </IconButton>
-        </div>
-      ))}
-      <details className="rounded-xl border border-border px-3 py-2 text-sm">
-        <summary className="cursor-pointer font-medium">Comment obtenir le lien de mon calendrier Outlook ?</summary>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
-          <li>Ouvre Outlook sur le web (outlook.office.com) avec ton compte de l’école.</li>
-          <li>Paramètres (⚙️) → Calendrier → Calendriers partagés.</li>
-          <li>Dans « Publier un calendrier », choisis ton calendrier et « Peut afficher tous les détails », puis Publier.</li>
-          <li>Copie le lien <strong>ICS</strong> et colle-le ci-dessous.</li>
-        </ol>
-        <p className="mt-2 text-muted">Si l’option est grisée, ton école l’a désactivée : demande au service informatique, ou exporte tes cours depuis l’ENT s’il propose un lien iCal.</p>
-      </details>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" aria-label="Lien ICS" />
-        <Button onClick={add} loading={busy} disabled={!/^(https|webcal):\/\//i.test(url.trim())}>
-          Connecter
-        </Button>
-      </div>
-      {info && <p className="text-sm text-success">{info}</p>}
-      <ErrorBox error={error} />
-      <p className="text-xs text-muted">
-        Lecture seule. Les cours prennent la couleur de la matière dont le nom (ou un mot-clé) apparaît dans leur titre.
-      </p>
     </div>
   )
 }
@@ -301,6 +211,12 @@ export default function SettingsPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <PageHeader title="Paramètres" />
 
+      <Section title="Guide de démarrage" description="Revoir les étapes et toutes les fonctionnalités de l’application.">
+        <Link to="/bienvenue">
+          <Button variant="secondary">Ouvrir le guide</Button>
+        </Link>
+      </Section>
+
       <Section title="Apparence">
         <Tabs
           label="Thème"
@@ -311,12 +227,16 @@ export default function SettingsPage() {
           }}
           items={[
             { value: 'system', label: 'Automatique' },
+            { value: 'cream', label: 'Crème' },
             { value: 'light', label: 'Clair' },
             { value: 'dark', label: 'Sombre' },
           ]}
         />
-        <p className="mt-2 flex items-center gap-3 text-xs text-muted">
-          <Monitor className="size-3.5" aria-hidden /> suit l’appareil · <Sun className="size-3.5" aria-hidden /> clair · <Moon className="size-3.5" aria-hidden /> sombre, plus reposant le soir
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+          <span className="inline-flex items-center gap-1"><Monitor className="size-3.5" aria-hidden /> crème le jour, sombre si ton appareil l’est</span>
+          <span className="inline-flex items-center gap-1"><Coffee className="size-3.5" aria-hidden /> crème : doux pour les yeux</span>
+          <span className="inline-flex items-center gap-1"><Sun className="size-3.5" aria-hidden /> clair</span>
+          <span className="inline-flex items-center gap-1"><Moon className="size-3.5" aria-hidden /> sombre, reposant le soir</span>
         </p>
       </Section>
 
@@ -325,7 +245,7 @@ export default function SettingsPage() {
       </Section>
 
       <Section id="calendrier" title="Calendrier Outlook" description="Affiche tes cours dans l’agenda, gratuitement, via le lien de publication du calendrier.">
-        <Calendar />
+        <CalendarConnect />
       </Section>
 
       <Section title="Planification" description="Temps de travail personnel visé par jour, utilisé pour répartir les devoirs.">

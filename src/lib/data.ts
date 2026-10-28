@@ -9,6 +9,7 @@ import type {
   ErrorItem,
   Flashcard,
   Note,
+  NoteOutput,
   PlanItem,
   Quiz,
   QuizSession,
@@ -30,6 +31,7 @@ export type Table =
   | 'quiz_sessions'
   | 'error_items'
   | 'notes'
+  | 'note_outputs'
   | 'files'
   | 'calendar_links'
   | 'ai_jobs'
@@ -59,6 +61,7 @@ export const useFlashcards = () => useTable<Flashcard>('flashcards', { order: 'c
 export const useQuizzes = () => useTable<Quiz>('quizzes', { order: 'created_at', ascending: false })
 export const useQuizSessions = () => useTable<QuizSession>('quiz_sessions', { order: 'started_at', ascending: false })
 export const useErrorItems = () => useTable<ErrorItem>('error_items')
+export const useNoteOutputs = () => useTable<NoteOutput>('note_outputs', { order: 'created_at', ascending: false })
 export const useCalendarLinks = () => useTable<CalendarLink>('calendar_links')
 
 // Notes sans le contenu complet (liste)

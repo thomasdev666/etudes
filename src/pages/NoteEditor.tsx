@@ -1,18 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react'
-import { ArrowLeft, Download, FileDown, History, ListChecks, MoreHorizontal, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, FileDown, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
 import { Toolbar } from '@/components/editor/Toolbar'
-import { GenerateCardsModal } from '@/components/Generate'
+import { GenerateCardsModal, GenerateMindmapModal } from '@/components/Generate'
 import { Button, ErrorBox, IconButton, Modal, Select, Spinner } from '@/components/ui'
 import { useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
 import { useToast } from '@/context/toast'
 import { fmt } from '@/lib/dates'
 import { useInvalidate, useSubjects, useTrash } from '@/lib/data'
-import { noteToDocx, printNoteAsPdf, safeFilename, saveBlob } from '@/lib/exportNote'
+import { noteToDocx, safeFilename, saveBlob } from '@/lib/exportNote'
+import { noteToPdf } from '@/lib/pdfExport'
 import { signedUrl, STORAGE_PREFIX, uploadNoteFile } from '@/lib/storage'
 import { must, supabase } from '@/lib/supabase'
 import type { Note, NoteVersion } from '@/lib/types'
@@ -72,6 +73,7 @@ function NoteEditor({ id }: { id: string }) {
   const [menu, setMenu] = useState(false)
   const [versions, setVersions] = useState(false)
   const [gen, setGen] = useState(false)
+  const [mind, setMind] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<unknown>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -197,7 +199,14 @@ function NoteEditor({ id }: { id: string }) {
   async function exportPdf() {
     if (!editor) return
     setMenu(false)
-    await printNoteAsPdf(title || 'Note', editor.view.dom.innerHTML)
+    setBusy('Création du PDF…')
+    try {
+      saveBlob(await noteToPdf(title || 'Note', editor.view.dom.innerHTML), `${safeFilename(title)}.pdf`)
+    } catch (e) {
+      setError(e)
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function restore(v: NoteVersion) {
@@ -254,7 +263,6 @@ function NoteEditor({ id }: { id: string }) {
               </MenuItem>
               <MenuItem
                 icon={<Sparkles className="size-4" />}
-                disabled={!subjectId}
                 onClick={async () => {
                   setMenu(false)
                   await save()
@@ -265,13 +273,23 @@ function NoteEditor({ id }: { id: string }) {
               </MenuItem>
               <MenuItem
                 icon={<ListChecks className="size-4" />}
-                disabled={!subjectId}
                 onClick={async () => {
+                  setMenu(false)
                   await save()
-                  navigate(`/qcm/nouveau?matiere=${subjectId}`)
+                  navigate(`/qcm/nouveau?note=${id}${subjectId ? `&matiere=${subjectId}` : ''}`)
                 }}
               >
                 Générer un QCM
+              </MenuItem>
+              <MenuItem
+                icon={<Network className="size-4" />}
+                onClick={async () => {
+                  setMenu(false)
+                  await save()
+                  setMind(true)
+                }}
+              >
+                Générer une carte mentale
               </MenuItem>
               <MenuItem
                 icon={<History className="size-4" />}
@@ -326,7 +344,8 @@ function NoteEditor({ id }: { id: string }) {
       <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0], 'image')} />
       <input ref={fileInput} type="file" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0], 'file')} />
       <Versions noteId={id} open={versions} onClose={() => setVersions(false)} onRestore={restore} />
-      {subjectId && <GenerateCardsModal open={gen} onClose={() => setGen(false)} subjectId={subjectId} initialNoteIds={[id]} />}
+      <GenerateCardsModal open={gen} onClose={() => setGen(false)} subjectId={subjectId || undefined} initialNoteIds={[id]} />
+      <GenerateMindmapModal open={mind} onClose={() => setMind(false)} subjectId={subjectId || undefined} initialNoteIds={[id]} />
       <p className="mt-4 px-4 text-xs text-muted sm:px-0">
         Astuce : sélectionne du texte et utilise Ctrl+B / Ctrl+I. Clique sur une formule pour la modifier.{' '}
         <Link to="/notes" className="underline">

@@ -41,6 +41,15 @@ export default function FlashcardSession() {
   const [error, setError] = useState<unknown>(null)
   const shownAt = useRef(Date.now())
   const celebrated = useRef(false)
+  // Un pavé tactile peut envoyer deux clics : on ignore les actions trop rapprochées
+  const lockUntil = useRef(0)
+  const locked = () => Date.now() < lockUntil.current
+  const lock = () => (lockUntil.current = Date.now() + 450)
+  function flip() {
+    if (flipped || locked()) return
+    lock()
+    setFlipped(true)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['flashcards', spaceId, 'due', subjectId],
@@ -72,7 +81,8 @@ export default function FlashcardSession() {
   }, [finished])
 
   async function grade(g: Grade) {
-    if (!card || !queue) return
+    if (!card || !queue || !flipped || locked()) return
+    lock()
     const r = review(card, g)
     const updated: Flashcard = { ...card, ...r, due_at: r.due_at.toISOString(), last_reviewed_at: new Date().toISOString() }
     // Carte ratée : elle revient en fin de session
@@ -115,7 +125,7 @@ export default function FlashcardSession() {
       if (!card) return
       if (!flipped && (e.key === ' ' || e.key === 'Enter')) {
         e.preventDefault()
-        setFlipped(true)
+        flip()
       } else if (flipped && ['1', '2', '3', '4'].includes(e.key)) {
         grade((Number(e.key) - 1) as Grade)
       }
@@ -166,7 +176,7 @@ export default function FlashcardSession() {
               <div className="flip flex-1">
                 <button
                   type="button"
-                  onClick={() => setFlipped(true)}
+                  onClick={flip}
                   aria-label={flipped ? 'Réponse affichée' : 'Afficher la réponse'}
                   className={cx('flip-inner block h-full min-h-72 w-full text-left', flipped && 'flipped')}
                 >
@@ -198,7 +208,7 @@ export default function FlashcardSession() {
                     ))}
                   </div>
                 ) : (
-                  <Button size="lg" className="w-full" onClick={() => setFlipped(true)}>
+                  <Button size="lg" className="w-full" onClick={flip}>
                     Afficher la réponse
                   </Button>
                 )}

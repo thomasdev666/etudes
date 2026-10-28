@@ -1,7 +1,7 @@
 import { isSameDay } from 'date-fns'
 import { AlertTriangle, Brain, CalendarClock, CheckCircle2, Play, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { AssignmentForm } from '@/components/AssignmentForm'
 import { planProgress } from '@/components/Plans'
 import { Badge, Button, Card, Checkbox, EmptyState, ProgressBar, SubjectChip, SubjectDot } from '@/components/ui'
@@ -19,7 +19,9 @@ import {
   useUpdate,
   useWorkBlocks,
 } from '@/lib/data'
+import { useOnboarding } from '@/lib/onboarding'
 import { MASTERED_DAYS } from '@/lib/sm2'
+import { GuideSummary } from './Guide'
 import type { Assignment, WorkBlock } from '@/lib/types'
 
 function greeting() {
@@ -40,6 +42,7 @@ export function HomePage() {
   const updateA = useUpdate<Assignment>('assignments')
   const updateB = useUpdate<WorkBlock>('work_blocks')
   const [form, setForm] = useState(false)
+  const onboarding = useOnboarding()
 
   const now = new Date()
   const pending = assignments.filter((a) => a.status !== 'done')
@@ -64,8 +67,12 @@ export function HomePage() {
     })
     .filter((x) => x.pct !== null)
 
+  // Tant que la configuration de base n'est pas faite, on suit le guide
+  if (!onboarding.loading && !onboarding.setupDone) return <Navigate to="/bienvenue" replace />
+
   return (
     <>
+      <GuideSummary />
       <div className="mb-5">
         <p className="text-muted">{capitalize(fmt(now, 'EEEE d MMMM'))}</p>
         <h1 className="text-2xl font-bold sm:text-3xl">{greeting()} 👋</h1>

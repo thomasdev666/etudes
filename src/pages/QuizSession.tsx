@@ -134,6 +134,8 @@ export default function QuizSessionPage() {
   const [finishing, setFinishing] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const shownAt = useRef(Date.now())
+  // Un pavé tactile peut envoyer deux clics : pas deux questions d'un coup
+  const lockUntil = useRef(0)
 
   const { data, isLoading, error: loadError } = useQuery({
     queryKey: ['quiz_session', id],
@@ -177,6 +179,8 @@ export default function QuizSessionPage() {
   }
 
   async function next() {
+    if (Date.now() < lockUntil.current || finishing) return
+    lockUntil.current = Date.now() + 500
     if (index < questions.length - 1) {
       setIndex(index + 1)
       shownAt.current = Date.now()

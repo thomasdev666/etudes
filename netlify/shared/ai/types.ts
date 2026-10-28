@@ -8,14 +8,27 @@ export type JsonSchema = {
   enum?: string[]
 }
 
+export type InlineImage = { mime: string; base64: string }
+
 export type JsonRequest = {
   system: string
   prompt: string
   schema: JsonSchema
+  images?: InlineImage[]
   temperature?: number
 }
 
 export interface AiProvider {
   name: string
   generateJson(req: JsonRequest): Promise<unknown>
+}
+
+// Erreur temporaire (service surchargé, quota par minute) : on peut réessayer
+export class RetryableAiError extends Error {
+  constructor(
+    message: string,
+    public waitMs = 3000,
+  ) {
+    super(message)
+  }
 }

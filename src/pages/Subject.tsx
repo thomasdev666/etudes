@@ -1,18 +1,22 @@
 import { AlertTriangle, FileText, ListChecks, NotebookPen, Pencil, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CardsPanel } from '@/components/Cards'
+import { startQuizJob } from '@/components/Generate'
+import { GeneratingBar, MindmapsPanel } from '@/components/Mindmaps'
 import { CourseImport } from '@/components/CourseImport'
 import { PlansPanel } from '@/components/Plans'
 import { SubjectForm } from '@/components/SubjectForm'
 import { Badge, Button, Card, EmptyState, ErrorBox, IconButton, Spinner, Tabs } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { useToast } from '@/context/toast'
+import { useJobs } from '@/context/jobs'
 import { countdown, fmt } from '@/lib/dates'
 import {
   useCourses,
   useErrorItems,
   useFlashcards,
+  useInvalidate,
   useNotesList,
   useQuizSessions,
   useQuizzes,
@@ -23,7 +27,7 @@ import { startErrorSession, startQuizSession } from '@/lib/quiz'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
 
-type Tab = 'cours' | 'notes' | 'qcm' | 'cartes' | 'plans' | 'erreurs'
+type Tab = 'cours' | 'notes' | 'qcm' | 'cartes' | 'mentales' | 'plans' | 'erreurs'
 
 const DIFF = { easy: 'Facile', medium: 'Moyen', hard: 'Difficile' }
 
@@ -34,13 +38,33 @@ function QuizList({ subjectId }: { subjectId: string }) {
   const { data: quizzes = [] } = useQuizzes()
   const { data: sessions = [] } = useQuizSessions()
   const trash = useTrash('quizzes')
+  const { find, start: startJob } = useJobs()
+  const invalidate = useInvalidate()
   const mine = quizzes.filter((q) => q.subject_id === subjectId)
+  const lock = useRef(false)
+
+  async function retry(q: Quiz) {
+    if (lock.current) return
+    lock.current = true
+    try {
+      must(await supabase.from('quizzes').update({ status: 'generating', error: null }).eq('id', q.id))
+      await invalidate('quizzes')
+      await startQuizJob(startJob, q)
+    } catch (e) {
+      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+    } finally {
+      lock.current = false
+    }
+  }
 
   async function start(q: Quiz) {
+    if (lock.current) return
+    lock.current = true
     try {
       navigate(`/qcm/session/${await startQuizSession(spaceId, q)}`)
     } catch (e) {
       toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+      lock.current = false
     }
   }
 
@@ -68,11 +92,18 @@ function QuizList({ subjectId }: { subjectId: string }) {
                   {q.question_count} questions · {q.qtype === 'mcq' ? 'QCM' : 'Vrai / faux'} · {DIFF[q.difficulty]} · {fmt(q.created_at, 'd MMM')}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {q.status === 'generating' && <Badge tone="warning">Génération en cours…</Badge>}
-                  {q.status === 'error' && <Badge tone="danger">Échec : {q.error?.slice(0, 80)}</Badge>}
+                  {q.status === 'error' && <Badge tone="danger">Échec : {q.error?.slice(0, 120)}</Badge>}
                   {done.length > 0 && <Badge tone={best >= 80 ? 'success' : 'muted'}>Meilleur score {Math.round(best)} %</Badge>}
                 </div>
+                {q.status === 'generating' && (
+                  <GeneratingBar job={find((j) => j.params.quiz_id === q.id)} />
+                )}
               </div>
+              {q.status === 'error' && (
+                <Button variant="secondary" icon={<RotateCcw className="size-4" />} onClick={() => retry(q)}>
+                  Réessayer
+                </Button>
+              )}
               {q.status === 'ready' &&
                 (open ? (
                   <Link to={`/qcm/session/${open.id}`}>
@@ -143,7 +174,7 @@ export default function SubjectPage() {
   const { data: notes = [] } = useNotesList()
   const { data: cards = [] } = useFlashcards()
   const { data: errors = [] } = useErrorItems()
-  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes'])
+  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs'])
   const [edit, setEdit] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
@@ -203,7 +234,8 @@ export default function SubjectPage() {
           { value: 'cours', label: 'Cours', count: sc.length },
           { value: 'notes', label: 'Notes', count: sn.length },
           { value: 'qcm', label: 'QCM' },
-          { value: 'cartes', label: 'Cartes', count: due },
+          { value: 'cartes', label: 'Flash cards', count: due },
+          { value: 'mentales', label: 'Cartes mentales' },
           { value: 'erreurs', label: 'Erreurs', count: errs },
           { value: 'plans', label: 'Plans' },
         ]}
@@ -230,6 +262,7 @@ export default function SubjectPage() {
                       <p className="truncate font-medium">{c.title}</p>
                       <p className="text-sm text-muted">
                         {c.content.length.toLocaleString('fr')} caractères · ajouté le {fmt(c.created_at, 'd MMM yyyy')}
+                        {c.status === 'processing' && ' · lecture des images…'}
                       </p>
                     </div>
                   </Card>
@@ -261,6 +294,7 @@ export default function SubjectPage() {
         )}
         {tab === 'qcm' && <QuizList subjectId={id} />}
         {tab === 'cartes' && <CardsPanel subject={subject} />}
+        {tab === 'mentales' && <MindmapsPanel subjectId={id} />}
         {tab === 'erreurs' && <ErrorsPanel subjectId={id} />}
         {tab === 'plans' && <PlansPanel subject={subject} />}
       </div>

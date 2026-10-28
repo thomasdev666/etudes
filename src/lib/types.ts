@@ -21,6 +21,7 @@ export type Course = Base & {
   subject_id: string
   title: string
   content: string
+  status: 'processing' | 'ready' | 'error'
   file_path: string | null
   file_name: string | null
 }
@@ -61,6 +62,7 @@ export type Quiz = Base & {
   qtype: 'mcq' | 'truefalse'
   question_count: number
   source_course_ids: string[]
+  source_note_ids: string[]
   status: 'generating' | 'ready' | 'error'
   error: string | null
 }
@@ -118,12 +120,26 @@ export type Note = Base & {
 
 export type NoteVersion = Base & { note_id: string; title: string; content: unknown }
 
-export type FileRow = Base & { path: string; name: string; mime: string; size: number; note_id: string | null }
+export type FileRow = Base & { path: string; name: string; mime: string; size: number; note_id: string | null; course_id: string | null }
 
 export type CalendarLink = Base & { label: string; url: string; last_synced_at: string | null }
 
+export type MindNode = { id?: string; title: string; detail?: string; children?: MindNode[]; collapsed?: boolean }
+
+export type NoteOutput = Base & {
+  subject_id: string
+  kind: 'mindmap' | 'sheet'
+  title: string
+  content: MindNode
+  source_note_ids: string[]
+  source_course_ids: string[]
+  sources_updated_at: string | null
+  status: 'generating' | 'ready' | 'error'
+  error: string | null
+}
+
 export type AiJob = Base & {
-  kind: 'quiz' | 'flashcards'
+  kind: 'quiz' | 'flashcards' | 'course_images' | 'mindmap'
   params: Record<string, unknown>
   status: 'pending' | 'running' | 'done' | 'error'
   error: string | null

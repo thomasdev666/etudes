@@ -1,18 +1,19 @@
 import { Sparkles } from 'lucide-react'
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { SourcePicker, useGenerateQuiz } from '@/components/Generate'
 import { Button, Card, ErrorBox, Field, Input, PageHeader, Select, Tabs } from '@/components/ui'
-import { useCourses, useSubjects } from '@/lib/data'
+import { useCourses, useNotesList, useSubjects } from '@/lib/data'
 import type { Quiz } from '@/lib/types'
 
 export default function QuizNewPage() {
   const [params] = useSearchParams()
   const { data: subjects = [] } = useSubjects()
   const { data: courses = [] } = useCourses()
+  const { data: notes = [] } = useNotesList()
   const [subjectId, setSubjectId] = useState(params.get('matiere') ?? '')
   const [courseIds, setCourseIds] = useState<string[]>(params.get('cours') ? [params.get('cours')!] : [])
-  const [noteIds, setNoteIds] = useState<string[]>([])
+  const [noteIds, setNoteIds] = useState<string[]>(params.get('note') ? [params.get('note')!] : [])
   const [count, setCount] = useState(15)
   const [difficulty, setDifficulty] = useState<Quiz['difficulty']>('medium')
   const [qtype, setQtype] = useState<Quiz['qtype']>('mcq')
@@ -20,21 +21,27 @@ export default function QuizNewPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const generate = useGenerateQuiz()
+  const navigate = useNavigate()
+  const lock = useRef(false)
 
   const sid = subjectId || subjects[0]?.id || ''
   const defaultTitle = () => {
-    const first = courses.find((c) => c.id === courseIds[0])
+    const first = courses.find((c) => c.id === courseIds[0]) ?? notes.find((n) => n.id === noteIds[0])
     return first ? `QCM — ${first.title}` : `QCM du ${new Date().toLocaleDateString('fr')}`
   }
 
   async function go() {
+    if (lock.current) return
+    lock.current = true
     setBusy(true)
     setError(null)
     try {
       await generate({ subjectId: sid, title: title.trim() || defaultTitle(), courseIds, noteIds, count, difficulty, qtype })
+      navigate(`/matieres/${sid}?onglet=qcm`)
     } catch (e) {
       setError(e)
       setBusy(false)
+      lock.current = false
     }
   }
 
@@ -92,9 +99,9 @@ export default function QuizNewPage() {
           <Input id="qtitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={defaultTitle()} />
         </Field>
         <ErrorBox error={error} />
-        {busy && <p className="text-sm text-muted">Génération en cours… en général 15 à 60 secondes. Tu peux rester sur cette page.</p>}
+        <p className="text-sm text-muted">La génération continue en arrière-plan (environ 1 à 3 minutes) : tu peux naviguer, une barre de progression reste visible.</p>
         <Button size="lg" icon={<Sparkles className="size-5" />} loading={busy} disabled={!sid || (!courseIds.length && !noteIds.length)} onClick={go}>
-          {busy ? 'Génération…' : 'Générer et commencer'}
+          Générer le QCM
         </Button>
       </Card>
     </div>

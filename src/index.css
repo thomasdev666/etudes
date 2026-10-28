@@ -29,6 +29,40 @@
   color-scheme: light;
 }
 
+.cream {
+  --bg: #f4ecdc;
+  --surface: #faf5ea;
+  --surface-2: #ece2cd;
+  --border: #e0d3b8;
+  --text: #2b2118;
+  --muted: #66563f;
+  --accent: #b9472c;
+  --accent-hover: #a23d25;
+  --accent-soft: #f6e1d6;
+  --accent-ink: #9c3a22;
+  --success: #2f6b3c;
+  --success-soft: #e3eedb;
+  --danger: #a8352a;
+  --danger-soft: #f6e0da;
+  --warning: #8a5508;
+  --warning-soft: #f5e6c8;
+  --shadow: 0 1px 2px rgb(80 60 30 / 0.06), 0 1px 3px rgb(80 60 30 / 0.08);
+  color-scheme: light;
+}
+
+/* Rendu des exports PDF : toujours clair, quel que soit le thème */
+.force-light {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #dfe3ea;
+  --text: #111827;
+  --muted: #4b5563;
+  --accent: #4f46e5;
+  --accent-ink: #4338ca;
+  --accent-soft: #eceefe;
+}
+
 .dark {
   --bg: #0f1115;
   --surface: #171a21;
@@ -199,3 +233,23 @@ h3,
 .prose-note .tiptap-mathematics-render { cursor: pointer; padding: 0 2px; border-radius: 4px; }
 .prose-note .tiptap-mathematics-render:hover { background: var(--accent-soft); }
 .prose-note [data-type='block-math'] { text-align: center; margin: 1em 0; }
+
+/* ---------------------------------------------------------- Cartes mentales */
+.mm-row { display: flex; align-items: center; }
+.mm-children { position: relative; display: flex; flex-direction: column; gap: 6px; padding-left: 36px; }
+.mm-children::before {
+  content: ''; position: absolute; left: 0; top: 50%; width: 18px;
+  border-top: 2px solid var(--c, var(--border));
+}
+.mm-child { position: relative; }
+.mm-child::before {
+  content: ''; position: absolute; left: -18px; top: 50%; width: 18px;
+  border-top: 2px solid var(--c, var(--border));
+}
+.mm-child::after {
+  content: ''; position: absolute; left: -18px; top: 0; bottom: 0;
+  border-left: 2px solid var(--c, var(--border));
+}
+.mm-child:first-child::after { top: 50%; }
+.mm-child:last-child::after { bottom: 50%; }
+.mm-child:only-child::after { display: none; }

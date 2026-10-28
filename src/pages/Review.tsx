@@ -1,4 +1,4 @@
-import { AlertTriangle, Brain, ListChecks, Plus } from 'lucide-react'
+import { AlertTriangle, Brain, ListChecks, Network, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { planProgress } from '@/components/Plans'
@@ -109,6 +109,11 @@ export default function ReviewPage() {
                 <Link to={`/qcm/nouveau?matiere=${s.id}`}>
                   <Button size="sm" variant="secondary" icon={<ListChecks className="size-4" />}>
                     QCM
+                  </Button>
+                </Link>
+                <Link to={`/matieres/${s.id}?onglet=mentales`}>
+                  <Button size="sm" variant="secondary" icon={<Network className="size-4" />}>
+                    Cartes mentales
                   </Button>
                 </Link>
                 <Link to={`/matieres/${s.id}?onglet=plans`}>

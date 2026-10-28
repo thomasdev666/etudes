@@ -1,7 +1,9 @@
-import { Download, ListChecks, Sparkles, Trash2 } from 'lucide-react'
+import { Download, ImageIcon, ListChecks, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { GenerateCardsModal } from '@/components/Generate'
+import { GenerateCardsModal, GenerateMindmapModal } from '@/components/Generate'
+import { GeneratingBar } from '@/components/Mindmaps'
+import { useJobs } from '@/context/jobs'
 import { Button, Card, EmptyState, IconButton, Spinner, SubjectChip } from '@/components/ui'
 import { fmt } from '@/lib/dates'
 import { useCourses, useSubjectMap, useTrash } from '@/lib/data'
@@ -14,6 +16,8 @@ export default function CoursePage() {
   const subjects = useSubjectMap()
   const trash = useTrash('courses')
   const [gen, setGen] = useState(false)
+  const [mind, setMind] = useState(false)
+  const { find } = useJobs()
 
   if (isLoading) return <Spinner />
   const course = courses?.find((c) => c.id === id)
@@ -60,10 +64,27 @@ export default function CoursePage() {
         <Button variant="secondary" icon={<Sparkles className="size-4" />} onClick={() => setGen(true)}>
           Générer des flash cards
         </Button>
+        <Button variant="secondary" icon={<Network className="size-4" />} onClick={() => setMind(true)}>
+          Générer une carte mentale
+        </Button>
       </div>
+      {course.status === 'processing' && (
+        <Card className="mb-4 flex items-start gap-3 bg-accent-soft">
+          <ImageIcon className="mt-0.5 size-5 text-accent-ink" aria-hidden />
+          <div className="flex-1">
+            <p className="font-medium">L’IA lit les images du cours (formules, schémas)…</p>
+            <p className="text-sm text-muted">Tu peux déjà générer, mais attends la fin pour des QCM et cartes plus complets.</p>
+            <GeneratingBar job={find((j) => j.params.course_id === course.id)} />
+          </div>
+        </Card>
+      )}
+      {course.status === 'error' && (
+        <p className="mb-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">Les images n’ont pas pu être lues (service IA indisponible). Le texte du cours reste utilisable.</p>
+      )}
       <Card>
-        <div className="whitespace-pre-wrap break-words leading-relaxed">{course.content || <span className="text-muted">Aucun texte.</span>}</div>
+        <div className="whitespace-pre-wrap break-words leading-relaxed">{course.content.replace(/\[\[image:\d+\]\]/g, '⏳ [image en cours de lecture]') || <span className="text-muted">Aucun texte.</span>}</div>
       </Card>
+      <GenerateMindmapModal open={mind} onClose={() => setMind(false)} subjectId={course.subject_id} initialCourseIds={[course.id]} />
       <GenerateCardsModal open={gen} onClose={() => setGen(false)} subjectId={course.subject_id} initialCourseIds={[course.id]} />
     </>
   )

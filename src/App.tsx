@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { Spinner } from './components/ui'
 import { useAuth } from './context/auth'
+import { JobsProvider } from './context/jobs'
 import { SpaceProvider, useSpace } from './context/space'
 import { configMissing } from './lib/supabase'
 import { AuthPage, UpdatePasswordPage } from './pages/Auth'
@@ -21,6 +22,9 @@ const NotesPage = lazy(() => import('./pages/Notes'))
 const NoteEditorPage = lazy(() => import('./pages/NoteEditor'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const TrashPage = lazy(() => import('./pages/Trash'))
+const MindmapPage = lazy(() => import('./pages/Mindmap'))
+const QuizStart = lazy(() => import('./pages/QuizStart'))
+const GuidePage = lazy(() => import('./pages/Guide'))
 
 export default function App() {
   const { session, loading, recovery } = useAuth()
@@ -50,6 +54,7 @@ function SpaceGate() {
   if (!space) return <Onboarding />
 
   return (
+    <JobsProvider>
     <Suspense fallback={<Spinner />}>
       <Routes>
         {/* Sessions de révision en mode focus, sans navigation */}
@@ -67,9 +72,13 @@ function SpaceGate() {
           <Route path="/notes/:id" element={<NoteEditorPage />} />
           <Route path="/parametres" element={<SettingsPage />} />
           <Route path="/corbeille" element={<TrashPage />} />
+          <Route path="/cartes-mentales/:id" element={<MindmapPage />} />
+          <Route path="/qcm/demarrer/:id" element={<QuizStart />} />
+          <Route path="/bienvenue" element={<GuidePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </Suspense>
+    </JobsProvider>
   )
 }

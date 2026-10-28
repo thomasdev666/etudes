@@ -23,7 +23,8 @@ import {
   Underline,
   Undo2,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { cx } from '../ui'
 
 function Btn({ label, active, onClick, children, disabled }: { label: string; active?: boolean; onClick: () => void; children: ReactNode; disabled?: boolean }) {
@@ -43,6 +44,72 @@ function Btn({ label, active, onClick, children, disabled }: { label: string; ac
     >
       {children}
     </button>
+  )
+}
+
+// Choix de la taille du tableau en survolant une grille, comme dans Word / Excel
+function TablePicker({ active, onPick }: { active: boolean; onPick: (rows: number, cols: number) => void }) {
+  const [open, setOpen] = useState(false)
+  const [hover, setHover] = useState({ r: 2, c: 2 })
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const ref = useRef<HTMLDivElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
+  const N = 8
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && !pop.current?.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      <Btn
+        label="Insérer un tableau"
+        active={active || open}
+        onClick={() => {
+          // La barre d'outils défile horizontalement : le menu est positionné par rapport à l'écran
+          const r = ref.current!.getBoundingClientRect()
+          setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 268)) })
+          setOpen(!open)
+        }}
+      >
+        <Table2 className="size-[18px]" />
+      </Btn>
+      {open &&
+        createPortal(
+        <div ref={pop} className="anim-pop fixed z-50 rounded-2xl border border-border bg-surface p-3 shadow-lg" style={pos}>
+          <p className="mb-2 text-center text-sm font-medium tabular-nums">
+            {hover.r} × {hover.c}
+          </p>
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${N}, 1.4rem)` }} onMouseLeave={() => setHover({ r: 2, c: 2 })}>
+            {Array.from({ length: N * N }, (_, i) => {
+              const r = Math.floor(i / N) + 1
+              const c = (i % N) + 1
+              const on = r <= hover.r && c <= hover.c
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Tableau de ${r} ligne${r > 1 ? 's' : ''} et ${c} colonne${c > 1 ? 's' : ''}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHover({ r, c })}
+                  onFocus={() => setHover({ r, c })}
+                  onClick={() => {
+                    onPick(r, c)
+                    setOpen(false)
+                  }}
+                  className={cx('size-[1.4rem] rounded-[5px] border', on ? 'border-accent bg-accent-soft' : 'border-border bg-surface-2')}
+                />
+              )
+            })}
+          </div>
+          <p className="mt-2 text-center text-xs text-muted">La première ligne sert d’en-tête</p>
+        </div>,
+          document.body,
+        )}
+    </div>
   )
 }
 
@@ -152,9 +219,7 @@ export function Toolbar({ editor, onImage, onAttach }: { editor: Editor; onImage
       <Btn label="Formule centrée" onClick={() => math('block')}>
         <SquareFunction className={i} />
       </Btn>
-      <Btn label="Tableau" active={s.table} onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
-        <Table2 className={i} />
-      </Btn>
+      <TablePicker active={s.table} onPick={(rows, cols) => c().insertTable({ rows, cols, withHeaderRow: true }).run()} />
       <Btn label="Image" onClick={onImage}>
         <ImagePlus className={i} />
       </Btn>
