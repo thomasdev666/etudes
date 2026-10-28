@@ -9,7 +9,7 @@ Stack : React + Vite + TypeScript + Tailwind, Supabase (base, authentification, 
 ### 1. Base de données Supabase
 
 1. Ouvrir le projet Supabase, puis **SQL Editor → New query**.
-2. Coller tout le contenu de `supabase/migrations/0001_schema.sql` et cliquer sur **Run**, puis faire de même avec `0002_mindmaps_onboarding.sql` et `0003_imported_events.sql` (relançables sans danger).
+2. Coller tout le contenu de `supabase/migrations/0001_schema.sql` et cliquer sur **Run**, puis faire de même avec `0002_mindmaps_onboarding.sql`, `0003_imported_events.sql` et `0004_sessions_sheets.sql` (relançables sans danger).
 3. **Authentication → URL Configuration** :
    - *Site URL* : l'adresse du site (par ex. `https://jadecaruana.fr`).
    - *Redirect URLs* : ajouter `https://jadecaruana.fr/**` et l'adresse Netlify (`https://<nom>.netlify.app/**`).
@@ -57,7 +57,7 @@ src/
   lib/calendar.ts   lecture du calendrier Outlook (ICS) (testée)
 netlify/
   shared/ai/        couche IA unique ; changer de fournisseur = ajouter un fichier à côté de gemini.ts
-  functions/        ai-job-background (génération), ics (relais calendrier), cleanup (tâche quotidienne)
+  functions/        ai-job-background (génération), ai-subjects, cleanup (tâche quotidienne)
 supabase/migrations schéma, RLS, corbeille, purge à 30 jours
 ```
 

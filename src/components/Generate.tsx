@@ -283,3 +283,27 @@ export function startQuizJob(start: ReturnType<typeof useJobs>['start'], quiz: Q
     { label: `QCM « ${quiz.title} »`, estimateSec: estimateSeconds('quiz', quiz.question_count), link: `/qcm/demarrer/${quiz.id}`, linkLabel: 'Commencer' },
   )
 }
+
+// Fiche de révision : une nouvelle note (le cours ou la note d'origine ne sont jamais modifiés)
+export function useGenerateSheet() {
+  const { spaceId } = useSpace()
+  const { start } = useJobs()
+  const invalidate = useInvalidate()
+  return async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[] }) => {
+    const t = `Fiche — ${o.title}`
+    const note = must(
+      await supabase
+        .from('notes')
+        .insert({ space_id: spaceId, subject_id: o.subjectId, title: t, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Fiche en cours de rédaction par l’IA…' }] }] } })
+        .select('id')
+        .single(),
+    ) as { id: string }
+    await start(
+      'sheet',
+      { note_id: note.id, course_ids: o.courseIds ?? [], note_ids: o.noteIds ?? [], title: o.title },
+      { label: `Fiche de révision « ${o.title} »`, estimateSec: estimateSeconds('sheet'), link: `/notes/${note.id}`, linkLabel: 'Ouvrir la fiche' },
+    )
+    await invalidate('notes')
+    return note.id
+  }
+}

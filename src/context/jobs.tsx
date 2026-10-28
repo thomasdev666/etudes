@@ -34,6 +34,7 @@ const AFFECTS: Record<AiJob['kind'], Table[]> = {
   flashcards: ['flashcards'],
   course_images: ['courses'],
   mindmap: ['note_outputs'],
+  sheet: ['notes'],
 }
 
 // Progression : celle envoyée par le serveur quand elle existe, sinon une estimation

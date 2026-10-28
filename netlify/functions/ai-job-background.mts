@@ -1,7 +1,8 @@
 // Fonction d'arrière-plan Netlify (jusqu'à 15 min) : traite une tâche ai_jobs.
 // Le client crée la tâche, appelle cette fonction (réponse 202 immédiate),
 // puis suit le statut de la tâche dans la base.
-import { describeImages, generateFlashcards, generateMindmap, generateQuiz, type Difficulty, type QuizType } from '../shared/ai'
+import { describeImages, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
+import { sheetToDoc } from '../shared/sheetDoc'
 import { userClient } from '../shared/supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -22,6 +23,7 @@ type CardsParams = {
 }
 
 type ImagesParams = { course_id: string; images: { path: string; label: string; marker: string }[] }
+type SheetParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 type MindmapParams = { output_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 
 const IMAGE_BATCH = 10
@@ -187,6 +189,19 @@ export default async (req: Request) => {
         await db.from('ai_jobs').update({ status: 'done', result }).eq('id', job_id)
       } catch (e) {
         await db.from('courses').update({ status: 'error' }).eq('id', p.course_id)
+        throw e
+      }
+    } else if (job.kind === 'sheet') {
+      const p = job.params as SheetParams
+      try {
+        const source = await prepare(p)
+        const { doc, text } = sheetToDoc(await generateSheet({ source, title: p.title }))
+        const { error } = await db.from('notes').update({ content: doc, content_text: text }).eq('id', p.note_id)
+        if (error) throw error
+        await db.from('ai_jobs').update({ status: 'done', result: { count: 1 } }).eq('id', job_id)
+      } catch (e) {
+        // La note vide préparée pour la fiche est retirée
+        await db.from('notes').delete().eq('id', p.note_id)
         throw e
       }
     } else if (job.kind === 'mindmap') {

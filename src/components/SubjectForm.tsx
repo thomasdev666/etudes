@@ -109,7 +109,7 @@ export function SubjectForm({ open, onClose, subject }: { open: boolean; onClose
         <Field
           label="Mots-clés du calendrier (optionnel)"
           id="skw"
-          hint="Les cours Outlook dont le titre contient le nom de la matière ou l’un de ces mots prennent sa couleur. Séparés par des virgules."
+          hint="Les cours de l’emploi du temps dont le titre contient le nom de la matière ou l’un de ces mots prennent sa couleur. Séparés par des virgules."
         >
           <Input id="skw" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="FIN301, Corporate Finance" />
         </Field>

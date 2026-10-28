@@ -10,7 +10,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns'
-import { ChevronLeft, ChevronRight, Clock, MapPin, Plus, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AssignmentForm, STATUS_LABEL } from '@/components/AssignmentForm'
@@ -28,6 +28,7 @@ type Item =
   | { kind: 'block'; at: Date; b: WorkBlock; a?: Assignment }
 
 const WEEK = { weekStartsOn: 1 as const }
+const MONTH_MAX = 4
 
 function useItems() {
   const { data: assignments = [] } = useAssignments()
@@ -60,6 +61,7 @@ function ItemRow({ it, onOpen, compact }: { it: Item; onOpen: (a: Assignment) =>
           <p className={cx('font-medium', compact ? 'line-clamp-2 break-words' : 'truncate')}>{it.ev.title}</p>
           {!compact && (
             <p className="flex flex-wrap gap-x-2 text-xs text-muted">
+              {it.ev.detail && <span className="font-medium text-text/80">{it.ev.detail}</span>}
               <span className="inline-flex items-center gap-1">
                 <Clock className="size-3" aria-hidden />
                 {it.ev.allDay ? 'Journée' : `${fmt(it.ev.start, "HH'h'mm")} – ${fmt(it.ev.end, "HH'h'mm")}`}
@@ -72,7 +74,12 @@ function ItemRow({ it, onOpen, compact }: { it: Item; onOpen: (a: Assignment) =>
               )}
             </p>
           )}
-          {compact && !it.ev.allDay && <p className="text-xs text-muted">{fmt(it.ev.start, "HH'h'mm")}</p>}
+          {compact && !it.ev.allDay && (
+            <p className="text-xs text-muted">
+              {fmt(it.ev.start, "HH'h'mm")}
+              {it.ev.detail && ` · ${it.ev.detail}`}
+            </p>
+          )}
         </div>
       </div>
     )
@@ -169,13 +176,9 @@ export default function AgendaPage() {
         )}
         <h2 className="ml-1 font-display text-lg font-semibold">{title}</h2>
         <span className="flex-1" />
-        {cal.hasLinks ? (
-          <IconButton label="Actualiser Outlook" onClick={() => cal.refetch()}>
-            <RefreshCw className={cx('size-4', cal.isFetching && 'animate-spin')} />
-          </IconButton>
-        ) : (
+        {!cal.hasLinks && (
           <Link to="/parametres#calendrier" className="text-sm text-accent-ink hover:underline">
-            Connecter Outlook
+            Importer mon emploi du temps
           </Link>
         )}
       </div>
@@ -246,6 +249,18 @@ function MonthView({ cursor, byDay, onPick }: { cursor: Date; byDay: Map<string,
   const end = endOfWeek(endOfMonth(cursor), WEEK)
   const days: Date[] = []
   for (let d = start; d <= end; d = addDays(d, 1)) days.push(d)
+  const colorOf = (it: Item) =>
+    it.kind === 'event'
+      ? (it.ev.color ?? 'var(--muted)')
+      : it.kind === 'assignment'
+        ? (it.a.subject_id && subjects.get(it.a.subject_id)?.color) || 'var(--accent)'
+        : 'var(--border)'
+  const label = (it: Item) =>
+    it.kind === 'event'
+      ? `${it.ev.title}${it.ev.detail ? ` · ${it.ev.detail.replace(' n°', ' ')}` : ''}`
+      : it.kind === 'assignment'
+        ? `📌 ${it.a.title}`
+        : `⏱ ${it.a?.title ?? 'Séance'}`
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="grid grid-cols-7 border-b border-border text-center text-xs font-semibold text-muted">
@@ -258,7 +273,6 @@ function MonthView({ cursor, byDay, onPick }: { cursor: Date; byDay: Map<string,
       <div className="grid grid-cols-7">
         {days.map((d) => {
           const items = byDay.get(dayKey(d)) ?? []
-          const deadlines = items.filter((i) => i.kind === 'assignment')
           return (
             <button
               key={d.toISOString()}
@@ -268,18 +282,25 @@ function MonthView({ cursor, byDay, onPick }: { cursor: Date; byDay: Map<string,
               aria-label={`${fmt(d, 'EEEE d MMMM')} : ${items.length} élément(s)`}
             >
               <span className={cx('flex size-6 items-center justify-center rounded-full text-xs font-semibold', isToday(d) && 'bg-accent text-white')}>{d.getDate()}</span>
-              <div className="flex flex-wrap gap-0.5">
-                {items.slice(0, 6).map((it, i) => {
-                  const color =
-                    it.kind === 'event'
-                      ? (it.ev.color ?? 'var(--muted)')
-                      : it.kind === 'assignment'
-                        ? (it.a.subject_id && subjects.get(it.a.subject_id)?.color) || 'var(--accent)'
-                        : 'var(--border)'
-                  return <span key={i} className={cx('size-1.5 rounded-full', it.kind === 'assignment' && 'size-2')} style={{ background: color }} />
-                })}
+              {/* Téléphone : pastilles ; écran plus large : nom court des cours */}
+              <div className="flex flex-wrap gap-0.5 sm:hidden">
+                {items.slice(0, 6).map((it, i) => (
+                  <span key={i} className={cx('size-1.5 rounded-full', it.kind === 'assignment' && 'size-2')} style={{ background: colorOf(it) }} />
+                ))}
               </div>
-              {deadlines[0]?.kind === 'assignment' && <span className="hidden w-full truncate text-[11px] sm:block">📌 {deadlines[0].a.title}</span>}
+              <div className="hidden w-full min-w-0 flex-col gap-0.5 sm:flex">
+                {items.slice(0, MONTH_MAX).map((it, i) => (
+                  <span
+                    key={i}
+                    className="line-clamp-2 w-full break-words rounded-md px-1 py-px text-[11px] leading-[14px]"
+                    style={{ background: it.kind === 'event' ? `color-mix(in srgb, ${colorOf(it)} 18%, transparent)` : undefined, borderLeft: `3px solid ${colorOf(it)}` }}
+                    title={it.kind === 'event' && !it.ev.allDay ? `${fmt(it.ev.start, "H'h'mm")} ${label(it)}` : label(it)}
+                  >
+                    {label(it)}
+                  </span>
+                ))}
+                {items.length > MONTH_MAX && <span className="px-1 text-[11px] text-muted">+{items.length - MONTH_MAX} autre{items.length - MONTH_MAX > 1 ? 's' : ''}</span>}
+              </div>
             </button>
           )
         })}
@@ -315,7 +336,7 @@ function ListView({ assignments, byDay, onOpen }: { assignments: Assignment[]; b
           </div>
         </section>
       )}
-      {!days.length && <EmptyState title="Rien à venir">Ajoute un devoir ou connecte ton calendrier Outlook.</EmptyState>}
+      {!days.length && <EmptyState title="Rien à venir">Ajoute un devoir ou importe ton emploi du temps (Paramètres).</EmptyState>}
       {days.map((k) => {
         const items = (byDay.get(k) ?? []).filter((it) => showDone || !(it.kind === 'assignment' && it.a.status === 'done'))
         if (!items.length) return null

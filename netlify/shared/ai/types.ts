@@ -32,3 +32,16 @@ export class RetryableAiError extends Error {
     super(message)
   }
 }
+
+// Quota épuisé pour ce modèle (par minute ou par jour) : on passe à un autre modèle
+export class QuotaAiError extends Error {
+  constructor(
+    message: string,
+    public daily: boolean,
+  ) {
+    super(message)
+  }
+}
+
+// Modèle inconnu ou indisponible pour cette clé : on l'écarte
+export class ModelUnavailableError extends Error {}

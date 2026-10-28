@@ -3,7 +3,7 @@ import { Archive, ArchiveRestore, Coffee, Download, LogOut, Monitor, Moon, Penci
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getDailyBudget, setDailyBudget } from '@/components/AssignmentForm'
-import { CalendarConnect } from '@/components/CalendarConnect'
+import { TimetableImport } from '@/components/TimetableImport'
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Tabs } from '@/components/ui'
 import { useAuth, useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
@@ -253,8 +253,8 @@ export default function SettingsPage() {
         <Spaces />
       </Section>
 
-      <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda : PDF du planning de l’école, ou lien de calendrier.">
-        <CalendarConnect />
+      <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda à partir du PDF du planning de l’école.">
+        <TimetableImport />
       </Section>
 
       <Section title="Planification" description="Temps de travail personnel visé par jour, utilisé pour répartir les devoirs.">

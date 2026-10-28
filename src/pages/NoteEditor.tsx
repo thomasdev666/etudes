@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react'
-import { ArrowLeft, Download, FileDown, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, FileDown, FileText, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
 import { Toolbar } from '@/components/editor/Toolbar'
-import { GenerateCardsModal, GenerateMindmapModal } from '@/components/Generate'
+import { GenerateCardsModal, GenerateMindmapModal, useGenerateSheet } from '@/components/Generate'
 import { Button, ErrorBox, IconButton, Modal, Select, Spinner } from '@/components/ui'
 import { useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
@@ -75,6 +75,7 @@ function NoteEditor({ id }: { id: string }) {
   const [versions, setVersions] = useState(false)
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
+  const generateSheet = useGenerateSheet()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<unknown>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -294,6 +295,16 @@ function NoteEditor({ id }: { id: string }) {
                 }}
               >
                 Générer une carte mentale
+              </MenuItem>
+              <MenuItem
+                icon={<FileText className="size-4" />}
+                onClick={async () => {
+                  setMenu(false)
+                  await save()
+                  await generateSheet({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id] })
+                }}
+              >
+                Générer une fiche de révision
               </MenuItem>
               <MenuItem
                 icon={<History className="size-4" />}

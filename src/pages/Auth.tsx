@@ -10,7 +10,11 @@ const FR_ERRORS: Record<string, string> = {
   'Email not confirmed': "Confirme d'abord ton email (regarde dans ta boîte de réception).",
   'User already registered': 'Un compte existe déjà avec cet email.',
 }
-const translate = (m: string) => FR_ERRORS[m] ?? m
+const translate = (m: string) =>
+  FR_ERRORS[m] ??
+  (/rate limit/i.test(m)
+    ? 'Trop d’emails envoyés en peu de temps (limite du service d’envoi gratuit). Réessaie dans une heure.'
+    : m)
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (

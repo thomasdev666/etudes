@@ -1,7 +1,7 @@
-import { Download, ImageIcon, ListChecks, Network, Sparkles, Trash2 } from 'lucide-react'
+import { Download, FileText, ImageIcon, ListChecks, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { GenerateCardsModal, GenerateMindmapModal } from '@/components/Generate'
+import { GenerateCardsModal, GenerateMindmapModal, useGenerateSheet } from '@/components/Generate'
 import { GeneratingBar } from '@/components/Mindmaps'
 import { useJobs } from '@/context/jobs'
 import { Button, Card, EmptyState, IconButton, Spinner, SubjectChip } from '@/components/ui'
@@ -18,6 +18,8 @@ export default function CoursePage() {
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
   const { find } = useJobs()
+  const generateSheet = useGenerateSheet()
+  const [sheetBusy, setSheetBusy] = useState(false)
 
   if (isLoading) return <Spinner />
   const course = courses?.find((c) => c.id === id)
@@ -66,6 +68,21 @@ export default function CoursePage() {
         </Button>
         <Button variant="secondary" icon={<Network className="size-4" />} onClick={() => setMind(true)}>
           Générer une carte mentale
+        </Button>
+        <Button
+          variant="secondary"
+          icon={<FileText className="size-4" />}
+          loading={sheetBusy}
+          onClick={async () => {
+            setSheetBusy(true)
+            try {
+              await generateSheet({ subjectId: course.subject_id, title: course.title, courseIds: [course.id] })
+            } finally {
+              setSheetBusy(false)
+            }
+          }}
+        >
+          Fiche de révision
         </Button>
       </div>
       {course.status === 'processing' && (

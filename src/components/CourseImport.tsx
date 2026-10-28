@@ -4,9 +4,10 @@ import { useUserId } from '@/context/auth'
 import { useJobs } from '@/context/jobs'
 import { useSpace } from '@/context/space'
 import { estimateSeconds } from '@/lib/ai'
-import { MAX_IMAGES, type Extracted } from '@/lib/courseImages'
+import type { Extracted } from '@/lib/courseImages'
 import { useInvalidate } from '@/lib/data'
 import { BUCKET, must, supabase } from '@/lib/supabase'
+import { useGenerateSheet } from './Generate'
 import { Button, ErrorBox, Field, Input, Modal, Tabs, Textarea } from './ui'
 
 const safeName = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_')
@@ -22,6 +23,8 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
   const [file, setFile] = useState<File | null>(null)
   const [extracted, setExtracted] = useState<Extracted | null>(null)
   const [readImages, setReadImages] = useState(true)
+  const [makeSheet, setMakeSheet] = useState(true)
+  const generateSheet = useGenerateSheet()
   const [progress, setProgress] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -79,7 +82,7 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
     setBusy(true)
     setError(null)
     try {
-      const images = readImages ? (extracted?.images ?? []).slice(0, MAX_IMAGES) : []
+      const images = readImages ? (extracted?.images ?? []) : []
       let content = text
       // Repères d'images non traitées : retirés du texte
       for (const im of extracted?.images ?? []) if (!images.includes(im)) content = content.replace(im.marker, '')
@@ -121,6 +124,8 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
           { label: `Lecture des images de « ${title.trim() || 'cours'} »`, estimateSec: estimateSeconds('course_images', uploaded.length), link: `/cours/${course.id}`, linkLabel: 'Voir le cours' },
         )
       }
+      // La fiche attend côté serveur que les images soient lues, pour être complète
+      if (makeSheet) await generateSheet({ subjectId, title: title.trim() || 'Cours', courseIds: [course.id] })
       await invalidate('courses')
       reset()
       onClose()
@@ -187,11 +192,17 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
               </span>
               <span className="text-muted">
                 Formules, schémas et tableaux en image sont transcrits et ajoutés au cours (en arrière-plan), pour des QCM et cartes complets.
-                {extracted!.images.length > MAX_IMAGES && ` Les ${MAX_IMAGES} premières seulement.`}
               </span>
             </span>
           </label>
         )}
+        <label className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3 text-sm">
+          <input type="checkbox" checked={makeSheet} onChange={(e) => setMakeSheet(e.target.checked)} className="mt-0.5 size-4 accent-[var(--accent)]" />
+          <span>
+            <span className="font-medium">Créer aussi une fiche de révision</span>
+            <span className="block text-muted">Une synthèse structurée du cours (plan, définitions, formules, pièges), ajoutée à tes notes et modifiable.</span>
+          </span>
+        </label>
         {(mode === 'text' || text) && (
           <Field label="Contenu du cours" id="ctext" hint="Tu peux corriger le texte extrait avant d’enregistrer. Les repères [[image:N]] seront remplacés par la transcription des images.">
             <Textarea id="ctext" className="min-h-60 font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} />

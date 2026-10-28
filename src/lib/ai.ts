@@ -19,6 +19,8 @@ export function estimateSeconds(kind: AiJob['kind'], count = 0) {
       return 15 + count * 5
     case 'mindmap':
       return 75
+    case 'sheet':
+      return 60
   }
 }
 

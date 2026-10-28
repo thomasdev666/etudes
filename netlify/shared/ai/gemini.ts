@@ -1,5 +1,5 @@
 // Fournisseur Google Gemini (offre gratuite). Seul fichier qui connaît l'API Gemini.
-import { RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
+import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
 
 // Gemini attend les types OpenAPI en majuscules (OBJECT, STRING…)
 function toGeminiSchema(s: JsonSchema): Record<string, unknown> {
@@ -39,9 +39,10 @@ export function createGeminiProvider(apiKey: string, model: string): AiProvider 
       })
       if (res.status === 429) {
         const body = await res.text()
-        // Quota journalier épuisé : inutile d'attendre
-        if (/per ?day|PerDay/i.test(body)) throw new Error("Quota gratuit de l'IA épuisé pour aujourd'hui. Réessaie demain.")
-        throw new RetryableAiError('Limite par minute atteinte', 20_000)
+        throw new QuotaAiError(`Quota atteint pour ${model}`, /per ?day|PerDay/i.test(body))
+      }
+      if (res.status === 404 || (res.status === 400 && /not (found|supported)|unsupported|is not available/i.test(await res.clone().text()))) {
+        throw new ModelUnavailableError(`Modèle indisponible : ${model}`)
       }
       if (res.status === 503 || res.status === 500 || res.status === 504) {
         throw new RetryableAiError(`Service IA surchargé (${res.status})`, 4000)
@@ -58,4 +59,18 @@ export function createGeminiProvider(apiKey: string, model: string): AiProvider 
       return JSON.parse(text)
     },
   }
+}
+
+type ListedModel = { name: string; supportedGenerationMethods?: string[] }
+
+// Modèles « Flash » texte disponibles pour cette clé (chacun a son propre quota gratuit)
+export async function listGeminiModels(apiKey: string): Promise<string[]> {
+  const res = await fetch(`${ENDPOINT}?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(5000) })
+  if (!res.ok) throw new Error(`Liste des modèles indisponible (${res.status})`)
+  const data = (await res.json()) as { models?: ListedModel[] }
+  return (data.models ?? [])
+    .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+    .map((m) => m.name.replace(/^models\//, ''))
+    .filter((n) => /^gemini-(\d+(\.\d+)?-)?flash(-lite)?(-latest|-preview(-[\w-]+)?|-\d{3})?$/.test(n))
+    .filter((n) => !/image|tts|audio|live|thinking|exp/i.test(n))
 }

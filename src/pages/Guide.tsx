@@ -1,54 +1,17 @@
 import { CalendarCheck, Check, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarConnect } from '@/components/CalendarConnect'
+import { Swatches } from '@/components/Swatches'
+import { TimetableImport } from '@/components/TimetableImport'
 import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner, SubjectDot } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { useCalendarEvents, useImportedEvents } from '@/lib/calendar'
 import { suggestSubjects, type SubjectSuggestion } from '@/lib/calendarSubjects'
 import { SUBJECT_PALETTE } from '@/lib/colors'
-import { useCalendarLinks, useInvalidate, useSubjects, useTrash, useUpdate } from '@/lib/data'
+import { useInvalidate, useSubjects, useTrash, useUpdate } from '@/lib/data'
 import { SETUP_ORDER, useOnboarding, type SetupStep } from '@/lib/onboarding'
 import { must, supabase } from '@/lib/supabase'
 import type { Subject } from '@/lib/types'
-
-// Pastilles de couleur compactes (palette + couleur libre)
-function Swatches({ value, onChange, label }: { value: string; onChange: (c: string) => void; label: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-label={`Couleur de ${label}`}
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="size-8 rounded-full border-2 border-surface shadow-card ring-1 ring-border"
-        style={{ background: value }}
-      />
-      {open && (
-        <div className="anim-pop absolute right-0 z-20 mt-2 flex w-48 flex-wrap gap-1.5 rounded-2xl border border-border bg-surface p-2 shadow-lg">
-          {SUBJECT_PALETTE.map((p) => (
-            <button
-              key={p.hex}
-              type="button"
-              aria-label={p.name}
-              onClick={() => {
-                onChange(p.hex)
-                setOpen(false)
-              }}
-              className={cx('size-7 rounded-full', p.hex.toLowerCase() === value.toLowerCase() && 'ring-2 ring-text ring-offset-2 ring-offset-surface')}
-              style={{ background: p.hex }}
-            />
-          ))}
-          <label className="relative flex size-7 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border text-xs text-muted" title="Couleur libre">
-            +
-            <input type="color" value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Couleur libre" />
-          </label>
-        </div>
-      )}
-    </div>
-  )
-}
 
 type Draft = SubjectSuggestion & { key: string; color: string; checked: boolean }
 
@@ -253,7 +216,6 @@ export default function GuidePage() {
   const navigate = useNavigate()
   const firstUndone = useMemo(() => SETUP_ORDER.findIndex((s) => !ob.done[s]), [ob.done])
   const [index, setIndex] = useState<number | null>(null)
-  const { data: links = [] } = useCalendarLinks()
   const { data: imported = [] } = useImportedEvents()
 
   if (ob.loading) return <Spinner />
@@ -291,13 +253,13 @@ export default function GuidePage() {
 
         {step === 'agenda' && (
           <div className="flex flex-col gap-4">
-            <CalendarConnect />
+            <TimetableImport onImported={() => next('confirm')} />
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => next('skip')}>
                 Plus tard
               </Button>
               <span className="flex-1" />
-              <Button onClick={() => next('confirm')} disabled={!links.length && !imported.length}>
+              <Button onClick={() => next('confirm')} disabled={!imported.length}>
                 Continuer
               </Button>
             </div>

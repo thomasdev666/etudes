@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTimetable } from './timetablePdf'
+import { cleanCourseTitle, parseTimetable, sessionLabel } from './timetablePdf'
 
 const SAMPLE = `octobre 2026
 Planning de cours de FAUDOU Thomas (t.faudou)
@@ -23,7 +23,7 @@ describe('planning PDF Outlook', () => {
   const ev = parseTimetable(SAMPLE)
   it('retrouve chaque cours avec son titre, son horaire et sa salle', () => {
     expect(ev).toHaveLength(3)
-    expect(ev[0].title).toBe('B2 FT - Budget & Analyse Financière')
+    expect(ev[0].title).toBe('Budget & Analyse Financière')
     expect(ev[0].start.getHours()).toBe(8)
     expect(ev[0].start.getMinutes()).toBe(30)
     expect(ev[0].end.getHours()).toBe(11)
@@ -32,7 +32,7 @@ describe('planning PDF Outlook', () => {
     expect(ev[0].location).toContain('H134')
   })
   it('garde la date de chaque cours', () => {
-    expect(ev[2].title).toBe('B2S3 - Espagnol')
+    expect(ev[2].title).toBe('Espagnol')
     expect(ev[2].start.getDate()).toBe(2)
     expect(ev[2].start.getHours()).toBe(8)
   })
@@ -42,7 +42,7 @@ describe('planning PDF : lignes fusionnées', () => {
   it('lit un cours dont la date est sur la même ligne que le titre', () => {
     const ev = parseTimetable('■ B2 FT - Achats Mer 14/10/2026 08:30 - 11:30 Emplacement : EENT H120')
     expect(ev).toHaveLength(1)
-    expect(ev[0].title).toBe('B2 FT - Achats')
+    expect(ev[0].title).toBe('Achats')
     expect(ev[0].location).toBe('EENT H120')
     expect(ev[0].start.getDate()).toBe(14)
   })
@@ -51,8 +51,29 @@ describe('planning PDF : lignes fusionnées', () => {
 describe('planning PDF : glyphes privés de la police', () => {
   it('remplace le tiret illisible par un vrai tiret', () => {
     const ev = parseTimetable('B2 FT      Budget & Analyse Financière \nJeu 01/10/2026 08  30      11  30 \nEmplacement :   EENT   050pl) H134\n')
-    expect(ev[0].title).toBe('B2 FT - Budget & Analyse Financière')
+    expect(ev[0].title).toBe('Budget & Analyse Financière')
     expect(ev[0].end.getHours()).toBe(11)
     expect(ev[0].location).toBe('EENT 050pl) H134')
+  })
+})
+
+describe('planning PDF : séances', () => {
+  it('lit le type et le numéro de séance du détail du cours', () => {
+    const ev = parseTimetable(SAMPLE)
+    expect(ev[0].kind).toBe('Cours')
+    expect(ev[0].session).toBe(3)
+    // le détail du cours suivant n'est pas mélangé
+    expect(ev[1].session).toBeNull()
+  })
+  it('lit « (TD ) 06 » dans le titre', () => {
+    const ev = parseTimetable('B2 FT - Achats (TD ) 06\nMer 14/10/2026 08:30 - 11:30\n')
+    expect(ev[0].title).toBe('Achats')
+    expect(ev[0].kind).toBe('TD')
+    expect(ev[0].session).toBe(6)
+    expect(sessionLabel(ev[0].kind, ev[0].session)).toBe('TD n°6')
+  })
+  it('nettoie les anciens titres', () => {
+    expect(cleanCourseTitle('B2 FT - Management des Ressources Humaines')).toBe('Management des Ressources Humaines')
+    expect(cleanCourseTitle('Anglais - Business English')).toBe('Anglais - Business English')
   })
 })

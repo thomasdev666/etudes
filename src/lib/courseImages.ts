@@ -1,7 +1,6 @@
 export type ExtractedImage = { blob: Blob; label: string; marker: string }
 export type Extracted = { text: string; images: ExtractedImage[]; skipped: number }
 
-export const MAX_IMAGES = 40
 const MAX_SIDE = 1280
 
 // Réduit l'image (envoi plus rapide, moins de quota IA) et la convertit en JPEG

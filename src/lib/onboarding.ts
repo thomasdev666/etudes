@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUserId } from '@/context/auth'
 import { useImportedEvents } from './calendar'
-import { useCalendarLinks, useSubjects } from './data'
+import { useSubjects } from './data'
 import { supabase } from './supabase'
 
 // Configuration de départ (assistant), puis présentations en bulles au fil de l'appli
@@ -30,13 +30,12 @@ export function useOnboarding() {
     staleTime: Infinity,
   })
   const subjects = useSubjects()
-  const links = useCalendarLinks()
   const imported = useImportedEvents()
 
   const p = settings.data ?? {}
   const ok = (id: string) => !!p.confirmed?.[id] || !!p.skipped?.[id]
   const done: Record<SetupStep, boolean> = {
-    agenda: (links.data?.length ?? 0) > 0 || (imported.data?.length ?? 0) > 0 || ok('agenda'),
+    agenda: (imported.data?.length ?? 0) > 0 || ok('agenda'),
     matieres: (subjects.data?.length ?? 0) > 0 && ok('matieres'),
     examens: ok('examens'),
   }
@@ -50,7 +49,7 @@ export function useOnboarding() {
     done,
     // Si la table n'existe pas encore (migration non lancée), on ne bloque rien
     available: !settings.isError,
-    loading: settings.isLoading || subjects.isLoading || links.isLoading,
+    loading: settings.isLoading || subjects.isLoading || imported.isLoading,
     setupDone: settings.isError || SETUP_ORDER.every((s) => done[s]),
     tourSeen: (id: TourId) => settings.isError || settings.isLoading || !!p.tours?.[id],
     confirm: (id: SetupStep) => save({ ...p, confirmed: { ...p.confirmed, [id]: true } }),

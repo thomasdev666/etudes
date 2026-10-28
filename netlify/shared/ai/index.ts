@@ -1,38 +1,73 @@
 // Couche IA unique. Pour changer de fournisseur, ajouter un fichier à côté de gemini.ts
 // et l'ajouter dans getAi() : le reste du code n'appelle que getAi() et les générateurs.
 import { z } from 'zod'
-import { createGeminiProvider } from './gemini'
-import { RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
+import { createGeminiProvider, listGeminiModels } from './gemini'
+import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// Fournisseur résilient : nouvelles tentatives si le service est surchargé,
-// puis bascule sur un modèle de secours plus léger.
-export function getAi(opts: { quick?: boolean } = {}): AiProvider {
+// Ordre de préférence. Chaque modèle a son propre quota gratuit (par minute et par jour) :
+// quand l'un est épuisé, on passe au suivant au lieu d'échouer.
+const QUALITY = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
+const BULK = ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash']
+const MAX_MODELS = 7
+
+// Modèles écartés pour un moment (quota du jour épuisé, modèle inconnu), mémorisés tant que la fonction reste chaude
+const benched = new Map<string, number>()
+let discovered: Promise<string[]> | null = null
+
+const version = (m: string) => Number(m.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? 0)
+
+async function modelChain(key: string, bulk: boolean): Promise<string[]> {
+  discovered ??= listGeminiModels(key).catch(() => [])
+  const found = await discovered
+  const lite = (m: string) => m.includes('lite')
+  // Les plus récents d'abord ; « lite » en premier pour les gros volumes (lecture d'images)
+  const extra = found
+    .filter((m) => !m.includes('preview'))
+    .sort((a, b) => (bulk ? Number(lite(b)) - Number(lite(a)) : Number(lite(a)) - Number(lite(b))) || version(b) - version(a))
+  const base = bulk ? BULK : QUALITY
+  const preferred = process.env.GEMINI_MODEL && !bulk ? [process.env.GEMINI_MODEL] : []
+  const chain = [...new Set([...preferred, ...base.slice(0, 1), ...extra, ...base])]
+  const now = Date.now()
+  return chain.filter((m) => (benched.get(m) ?? 0) < now).slice(0, MAX_MODELS)
+}
+
+export function getAi(opts: { quick?: boolean; bulk?: boolean } = {}): AiProvider {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
-  const models = [process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-flash-lite-latest']
-  const providers = [...new Set(models)].map((m) => createGeminiProvider(key, m))
-  // quick : une seule tentative par modèle (fonctions qui doivent répondre en quelques secondes)
-  const attempts = opts.quick ? 1 : 2
+  // quick : un seul tour (fonctions qui doivent répondre en quelques secondes)
+  const rounds = opts.quick ? 1 : 3
   return {
-    name: providers.map((p) => p.name).join(' > '),
+    name: 'gemini',
     async generateJson(req: JsonRequest) {
       let last: unknown
-      for (const p of providers) {
-        for (let attempt = 0; attempt < attempts; attempt++) {
+      let dailyOnly = true
+      for (let round = 0; round < rounds; round++) {
+        const models = await modelChain(key, !!opts.bulk)
+        if (!models.length) break
+        for (const m of models) {
           try {
-            return await p.generateJson(req)
+            return await createGeminiProvider(key, m).generateJson(req)
           } catch (e) {
             last = e
-            if (!(e instanceof RetryableAiError)) throw e
-            // Surcharge : on bascule vite sur le modèle de secours plutôt que d'attendre
-            if (!opts.quick && attempt < attempts - 1) await sleep(Math.min(e.waitMs, 8000))
+            if (e instanceof QuotaAiError) {
+              if (e.daily) benched.set(m, Date.now() + 60 * 60_000)
+              else dailyOnly = false
+            } else if (e instanceof ModelUnavailableError) {
+              benched.set(m, Date.now() + 24 * 60 * 60_000)
+            } else if (e instanceof RetryableAiError) {
+              dailyOnly = false
+            } else throw e
           }
         }
+        // Tous les modèles sont saturés pour la minute : on attend un peu avant un nouveau tour
+        if (round < rounds - 1 && !dailyOnly) await sleep(20_000)
       }
+      if (last instanceof QuotaAiError && dailyOnly)
+        throw new Error("Quota gratuit de l'IA épuisé pour aujourd'hui sur tous les modèles. Réessaie demain (remise à zéro vers 9 h).")
       throw new Error(
-        last instanceof Error && /surchargé|Limite/.test(last.message)
+        last instanceof QuotaAiError || (last instanceof Error && /surchargé|Limite/.test(last.message))
           ? 'Le service IA de Google est saturé en ce moment. Réessaie dans quelques minutes.'
           : last instanceof Error
             ? last.message
@@ -219,7 +254,7 @@ const imagesSchema: JsonSchema = {
 // Transcrit le contenu utile des images (formules, schémas, tableaux) pour qu'il
 // serve ensuite aux QCM, flash cards et cartes mentales.
 export async function describeImages(images: { mime: string; base64: string; label: string }[], context: string) {
-  const ai = getAi()
+  const ai = getAi({ bulk: true })
   const system = [
     "Tu transcris le contenu pédagogique d'images extraites d'un support de cours d'école de commerce.",
     'Pour chaque image : formules en LaTeX entre $...$, tableaux en lignes « col1 | col2 », schémas et graphiques décrits en 1 à 4 phrases (axes, tendances, chiffres clés), texte recopié.',
@@ -315,4 +350,93 @@ export async function subjectsFromTitles(titles: string[]) {
     .object({ subjects: z.array(z.object({ name: z.string().trim().min(1).max(80), keywords: z.array(z.string()) })) })
     .parse(await ai.generateJson({ system, prompt: titles.slice(0, 200).join('\n'), schema: subjectsSchema, temperature: 0.1 }))
   return raw.subjects
+}
+
+// ---------------------------------------------------------------- Fiches de révision
+
+export type Sheet = {
+  intro: string
+  sections: { heading: string; points: string[]; subsections?: { heading: string; points: string[] }[] }[]
+  definitions: { term: string; definition: string }[]
+  formulas: { name: string; latex: string; explanation: string }[]
+  pitfalls: string[]
+  checklist: string[]
+}
+
+const pointsSchema: JsonSchema = { type: 'array', items: { type: 'string' } }
+const sheetSchema: JsonSchema = {
+  type: 'object',
+  properties: {
+    intro: { type: 'string', description: 'Le cours en 2 ou 3 phrases' },
+    sections: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          heading: { type: 'string' },
+          points: pointsSchema,
+          subsections: {
+            type: 'array',
+            items: { type: 'object', properties: { heading: { type: 'string' }, points: pointsSchema }, required: ['heading', 'points'] },
+          },
+        },
+        required: ['heading', 'points'],
+      },
+    },
+    definitions: {
+      type: 'array',
+      items: { type: 'object', properties: { term: { type: 'string' }, definition: { type: 'string' } }, required: ['term', 'definition'] },
+    },
+    formulas: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { name: { type: 'string' }, latex: { type: 'string', description: 'Formule en LaTeX, sans $' }, explanation: { type: 'string' } },
+        required: ['name', 'latex', 'explanation'],
+      },
+    },
+    pitfalls: pointsSchema,
+    checklist: { type: 'array', items: { type: 'string' }, description: 'Ce que je dois savoir faire le jour de l’examen' },
+  },
+  required: ['intro', 'sections', 'definitions', 'formulas', 'pitfalls', 'checklist'],
+}
+
+const str = z.string().trim()
+const sheetValidator = z.object({
+  intro: str,
+  sections: z
+    .array(
+      z.object({
+        heading: str.min(1),
+        points: z.array(str.min(1)),
+        subsections: z.array(z.object({ heading: str.min(1), points: z.array(str.min(1)) })).optional(),
+      }),
+    )
+    .min(1),
+  definitions: z.array(z.object({ term: str.min(1), definition: str.min(1) })),
+  formulas: z.array(z.object({ name: str, latex: str.min(1), explanation: str })),
+  pitfalls: z.array(str.min(1)),
+  checklist: z.array(str.min(1)),
+})
+
+export async function generateSheet(opts: { source: string; title: string }): Promise<Sheet> {
+  const ai = getAi()
+  const system = [
+    "Tu rédiges des fiches de révision complètes et synthétiques pour des étudiants d'école de commerce.",
+    'Suis le plan du cours. Chaque point : une idée, une phrase courte, les mots clés en **gras**.',
+    'Garde tous les chiffres clés, exemples marquants, auteurs, dates et méthodes de calcul. Formules en LaTeX ($...$ dans le texte).',
+    'definitions : les notions à connaître par cœur. formulas : seulement si le cours en contient. pitfalls : erreurs fréquentes à l’examen.',
+    'checklist : 4 à 10 compétences vérifiables (« Savoir calculer… », « Savoir expliquer… »).',
+    'Uniquement à partir du contenu fourni, dans sa langue. Ne laisse de côté aucune partie du cours.',
+  ].join('\n')
+  const prompt = `Cours : ${opts.title}\n\n=== CONTENU ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return sheetValidator.parse(await ai.generateJson({ system, prompt, schema: sheetSchema, temperature: 0.3 }))
+    } catch (e) {
+      lastError = e
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Génération impossible')
 }
