@@ -38,3 +38,11 @@ describe('carte mentale', () => {
     expect(root.children![0].detail!.length).toBe(600)
   })
 })
+
+describe('carte mentale : réponses mal formées', () => {
+  it('retrouve la carte enveloppée ou des branches mal nommées', async () => {
+    const { unwrapRoot } = await import('./index')
+    expect(unwrapRoot({ mindmap: { title: 'T', children: [{ title: 'A' }] } })).toEqual({ title: 'T', children: [{ title: 'A' }] })
+    expect(unwrapRoot({ title: 'T', branches: [{ title: 'A' }] })).toMatchObject({ children: [{ title: 'A' }] })
+  })
+})

@@ -286,13 +286,16 @@ const leaf: JsonSchema = {
   properties: { title: { type: 'string' }, detail: { type: 'string' } },
   required: ['title'],
 }
-const level = (child: JsonSchema): JsonSchema => ({
+// Les enfants sont obligatoires sur les niveaux du haut : sinon certains modèles
+// renvoient le thème seul, sans aucune branche
+const level = (child: JsonSchema, childrenRequired: boolean): JsonSchema => ({
   type: 'object',
   properties: { title: { type: 'string' }, detail: { type: 'string' }, children: { type: 'array', items: child } },
-  required: ['title'],
+  required: childrenRequired ? ['title', 'children'] : ['title'],
+  propertyOrdering: ['title', 'detail', 'children'],
 })
 // Racine → branches → sous-notions → détails : assez riche, et bien plus rapide à produire qu'un niveau de plus
-const mindmapSchema = level(level(level(leaf)))
+const mindmapSchema = level(level(level(leaf, false), true), true)
 
 const clip = (t: string, max: number) => (t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t)
 
@@ -308,6 +311,21 @@ export const nodeValidator: z.ZodType<MindNode, unknown> = z.lazy(() =>
 // Une carte mentale résume : inutile d'envoyer un cours entier très long (plus lent)
 const MINDMAP_SOURCE_CHARS = 120_000
 
+// Certains modèles enveloppent la carte ({ "mindmap": {...} }) ou nomment autrement les branches
+export function unwrapRoot(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+  const o = raw as Record<string, unknown>
+  if (!('title' in o)) {
+    const inner = Object.values(o).find((v) => v && typeof v === 'object' && !Array.isArray(v) && 'title' in (v as object))
+    if (inner) return unwrapRoot(inner)
+  }
+  if (!Array.isArray(o.children)) {
+    const list = Object.values(o).find((v) => Array.isArray(v) && v.some((x) => x && typeof x === 'object' && 'title' in x))
+    if (list) return { ...o, children: list }
+  }
+  return o
+}
+
 export async function generateMindmap(opts: { source: string; title: string }): Promise<MindNode> {
   const ai = getAi()
   const system = [
@@ -321,8 +339,10 @@ export async function generateMindmap(opts: { source: string; title: string }): 
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const root = nodeValidator.parse(await ai.generateJson({ system, prompt, schema: mindmapSchema, temperature: 0.3 }))
-      if (!root.children?.length) throw new Error('Carte mentale vide')
+      // Au second essai, on commence par un autre modèle
+      const model = attempt === 0 ? ai : getAi({ bulk: true })
+      const root = nodeValidator.parse(unwrapRoot(await model.generateJson({ system, prompt, schema: mindmapSchema, temperature: 0.3 })))
+      if (!root.children?.length) throw new Error('L’IA a renvoyé une carte mentale vide. Réessaie : un autre modèle sera utilisé.')
       return root
     } catch (e) {
       lastError = e

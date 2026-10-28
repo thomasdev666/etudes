@@ -6,6 +6,8 @@ export type JsonSchema = {
   items?: JsonSchema
   description?: string
   enum?: string[]
+  // ordre de génération des champs (Gemini)
+  propertyOrdering?: string[]
 }
 
 export type InlineImage = { mime: string; base64: string }
