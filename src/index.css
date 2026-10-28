@@ -253,3 +253,7 @@ h3,
 .mm-child:first-child::after { top: 50%; }
 .mm-child:last-child::after { bottom: 50%; }
 .mm-child:only-child::after { display: none; }
+
+/* Hauteur de la barre de navigation du bas, pour placer les panneaux flottants au-dessus */
+:root { --jobs-offset: 5.25rem; }
+@media (min-width: 1024px) { :root { --jobs-offset: 1.25rem; } }

@@ -27,6 +27,7 @@ import { saveBlob, safeFilename } from '@/lib/exportNote'
 import { addChild, addSibling, indent, locate, move, outdent, remove, update, withIds, type Node } from '@/lib/mindmap'
 import { elementToPdf, elementToPng } from '@/lib/pdfExport'
 import { must, supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 import type { NoteOutput } from '@/lib/types'
 
 // Texte avec formules $...$ rendues par KaTeX
@@ -166,6 +167,8 @@ function MindmapEditor({ id }: { id: string }) {
   const [error, setError] = useState<unknown>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [ready, setReady] = useState(false)
+  const tour = useFirstTimeTour('mindmap', ready)
 
   const { data: output, isLoading, error: loadError } = useQuery({
     queryKey: ['note_outputs', spaceId, 'one', id],
@@ -192,6 +195,7 @@ function MindmapEditor({ id }: { id: string }) {
     if (output?.status === 'ready') {
       setTree(withIds(output.content))
       setTitle(output.title)
+      setReady(true)
     }
   }, [output])
 
@@ -314,7 +318,9 @@ function MindmapEditor({ id }: { id: string }) {
         </div>
       )}
 
+      {tour}
       <div className="flex flex-wrap items-center gap-2">
+        <div data-tour="mm-view">
         <Tabs
           label="Affichage"
           value={view}
@@ -324,6 +330,7 @@ function MindmapEditor({ id }: { id: string }) {
             { value: 'outline', label: 'Plan' },
           ]}
         />
+        </div>
         <label className="flex items-center gap-2 text-sm text-muted">
           <input type="checkbox" checked={showDetails} onChange={(e) => setShowDetails(e.target.checked)} className="accent-[var(--accent)]" />
           Détails
@@ -342,16 +349,18 @@ function MindmapEditor({ id }: { id: string }) {
             </IconButton>
           </div>
         )}
-        <Button size="sm" variant="secondary" icon={<ImageIcon className="size-4" />} onClick={() => exportAs('png')} disabled={view !== 'map'}>
-          PNG
-        </Button>
-        <Button size="sm" variant="secondary" icon={<FileDown className="size-4" />} onClick={() => exportAs('pdf')} disabled={view !== 'map'}>
-          PDF
-        </Button>
+        <div data-tour="mm-export" className="flex gap-2">
+          <Button size="sm" variant="secondary" icon={<ImageIcon className="size-4" />} onClick={() => exportAs('png')} disabled={view !== 'map'}>
+            PNG
+          </Button>
+          <Button size="sm" variant="secondary" icon={<FileDown className="size-4" />} onClick={() => exportAs('pdf')} disabled={view !== 'map'}>
+            PDF
+          </Button>
+        </div>
       </div>
 
       {/* Barre d'édition du nœud sélectionné */}
-      <div className="sticky top-[57px] z-10 rounded-2xl border border-border bg-surface/95 p-2 shadow-card backdrop-blur lg:top-2">
+      <div data-tour="mm-toolbar" className="sticky top-[57px] z-10 rounded-2xl border border-border bg-surface/95 p-2 shadow-card backdrop-blur lg:top-2">
         {sel ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-0.5 overflow-x-auto">
@@ -400,7 +409,7 @@ function MindmapEditor({ id }: { id: string }) {
       <ErrorBox error={error} />
 
       {view === 'map' ? (
-        <div className="overflow-auto rounded-[var(--radius-card)] border border-border bg-surface-2/50" style={{ maxHeight: '75dvh' }}>
+        <div data-tour="mm-canvas" className="overflow-auto rounded-[var(--radius-card)] border border-border bg-surface-2/50" style={{ maxHeight: '75dvh' }}>
           <div ref={canvasRef} className="inline-block p-6" style={{ zoom }}>
             <MapNode node={tree} depth={0} color="var(--accent)" ctx={ctx} />
           </div>

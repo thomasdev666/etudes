@@ -143,5 +143,5 @@ export type AiJob = Base & {
   params: Record<string, unknown>
   status: 'pending' | 'running' | 'done' | 'error'
   error: string | null
-  result: { count?: number } | null
+  result: { count?: number; progress?: number; phase?: string; failed?: number } | null
 }

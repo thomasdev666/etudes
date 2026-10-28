@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, ArchiveRestore, Coffee, Download, LogOut, Monitor, Moon, Pencil, Sun, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { getDailyBudget, setDailyBudget } from '@/components/AssignmentForm'
 import { CalendarConnect } from '@/components/CalendarConnect'
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Tabs } from '@/components/ui'
@@ -11,6 +11,7 @@ import { useToast } from '@/context/toast'
 import { fmt } from '@/lib/dates'
 import { exportEverything } from '@/lib/exportAll'
 import { saveBlob } from '@/lib/exportNote'
+import { useOnboarding } from '@/lib/onboarding'
 import { applyTheme, readTheme, type Theme } from '@/lib/theme'
 import { must, supabase } from '@/lib/supabase'
 
@@ -201,6 +202,8 @@ export default function SettingsPage() {
   const [budget, setBudget] = useState(getDailyBudget())
   const [exporting, setExporting] = useState('')
   const [exportError, setExportError] = useState<unknown>(null)
+  const onboarding = useOnboarding()
+  const navigate = useNavigate()
 
   useEffect(() => {
     const id = location.hash.slice(1)
@@ -211,10 +214,16 @@ export default function SettingsPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <PageHeader title="Paramètres" />
 
-      <Section title="Guide de démarrage" description="Revoir les étapes et toutes les fonctionnalités de l’application.">
-        <Link to="/bienvenue">
-          <Button variant="secondary">Ouvrir le guide</Button>
-        </Link>
+      <Section title="Présentation" description="Revoir la présentation des fonctionnalités (accueil, matières, cartes mentales, notes).">
+        <Button
+          variant="secondary"
+          onClick={async () => {
+            await onboarding.resetTours()
+            navigate('/')
+          }}
+        >
+          Revoir la présentation
+        </Button>
       </Section>
 
       <Section title="Apparence">

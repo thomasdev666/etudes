@@ -24,7 +24,10 @@ type CardsParams = {
 type ImagesParams = { course_id: string; images: { path: string; label: string; marker: string }[] }
 type MindmapParams = { output_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 
-const IMAGE_BATCH = 6
+const IMAGE_BATCH = 10
+const IMAGE_PARALLEL = 2
+
+type Progress = (value: number, phase?: string) => Promise<void>
 
 async function toBase64(db: SupabaseClient, path: string) {
   const { data, error } = await db.storage.from('files').download(path)
@@ -33,30 +36,60 @@ async function toBase64(db: SupabaseClient, path: string) {
 }
 
 // Remplace les repères [[image:N]] du cours par la transcription des images
-async function processCourseImages(db: SupabaseClient, p: ImagesParams) {
+async function processCourseImages(db: SupabaseClient, p: ImagesParams, progress: Progress) {
   const { data: course, error } = await db.from('courses').select('content').eq('id', p.course_id).single()
   if (error) throw error
-  let content: string = course.content
+  const context: string = course.content
+  const texts = new Map<string, string>()
   let failed = 0
-  for (let i = 0; i < p.images.length; i += IMAGE_BATCH) {
-    const batch = p.images.slice(i, i + IMAGE_BATCH)
+  let done = 0
+  const batches: (typeof p.images)[] = []
+  for (let i = 0; i < p.images.length; i += IMAGE_BATCH) batches.push(p.images.slice(i, i + IMAGE_BATCH))
+
+  async function run(batch: typeof p.images) {
     try {
       const images = await Promise.all(batch.map(async (im) => ({ ...(await toBase64(db, im.path)), label: im.label })))
-      const items = await describeImages(images, content)
-      batch.forEach((im, j) => {
-        const text = items.find((it) => it.index === j)?.text.trim() ?? ''
-        content = content.replace(im.marker, text ? `\n[Image — ${im.label}]\n${text}\n` : '')
-      })
+      const items = await describeImages(images, context)
+      batch.forEach((im, j) => texts.set(im.marker, items.find((it) => it.index === j)?.text.trim() ?? ''))
     } catch {
       failed += batch.length
-      for (const im of batch) content = content.replace(im.marker, '')
+      for (const im of batch) texts.set(im.marker, '')
     }
-    // Sauvegarde progressive : le cours reste utilisable même si la suite échoue
-    await db.from('courses').update({ content }).eq('id', p.course_id)
+    done += batch.length
+    await progress(done / p.images.length, `${done} / ${p.images.length} images lues`)
+  }
+
+  // Quelques lots en parallèle : plus rapide, sans dépasser le quota gratuit
+  const queue = [...batches]
+  await Promise.all(
+    Array.from({ length: Math.min(IMAGE_PARALLEL, queue.length) }, async () => {
+      for (let b = queue.shift(); b; b = queue.shift()) await run(b)
+    }),
+  )
+
+  // Relit le contenu au cas où il aurait été modifié entre-temps
+  const { data: fresh } = await db.from('courses').select('content').eq('id', p.course_id).single()
+  let content: string = fresh?.content ?? context
+  for (const im of p.images) {
+    const text = texts.get(im.marker) ?? ''
+    content = content.replace(im.marker, text ? `\n[Image — ${im.label}]\n${text}\n` : '')
   }
   content = content.replace(/\[\[image:\d+\]\]/g, '')
   await db.from('courses').update({ content, status: failed === p.images.length && failed > 0 ? 'error' : 'ready' }).eq('id', p.course_id)
   return { count: p.images.length - failed, failed }
+}
+
+// Si un cours est encore en cours de lecture (images), on attend la fin
+// pour que la génération utilise tout son contenu.
+async function waitForCourses(db: SupabaseClient, ids: string[] | undefined, progress: Progress) {
+  if (!ids?.length) return
+  const deadline = Date.now() + 8 * 60_000
+  while (Date.now() < deadline) {
+    const { data } = await db.from('courses').select('status').in('id', ids)
+    if (!data?.some((c) => c.status === 'processing')) return
+    await progress(0.02, 'En attente de la lecture des images du cours…')
+    await new Promise((r) => setTimeout(r, 5000))
+  }
 }
 
 async function loadSource(db: SupabaseClient, p: { course_ids?: string[]; note_ids?: string[]; text?: string }) {
@@ -89,13 +122,23 @@ export default async (req: Request) => {
 
   const { data: job } = await db.from('ai_jobs').select('*').eq('id', job_id).single()
   if (!job || job.status !== 'pending') return
-  await db.from('ai_jobs').update({ status: 'running' }).eq('id', job_id)
+  await db.from('ai_jobs').update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } }).eq('id', job_id)
+
+  const progress: Progress = async (value, phase) => {
+    await db.from('ai_jobs').update({ result: { progress: value, phase } }).eq('id', job_id)
+  }
+  const prepare = async (p: { course_ids?: string[]; note_ids?: string[]; text?: string }) => {
+    await waitForCourses(db, p.course_ids, progress)
+    const source = await loadSource(db, p)
+    await progress(0.1, 'L’IA rédige…')
+    return source
+  }
 
   try {
     if (job.kind === 'quiz') {
       const p = job.params as QuizParams
       try {
-        const source = await loadSource(db, p)
+        const source = await prepare(p)
         const questions = await generateQuiz({ source, count: p.count, difficulty: p.difficulty, qtype: p.qtype })
         // En cas de relance, on repart d'un QCM vide
         await db.from('quiz_questions').delete().eq('quiz_id', p.quiz_id)
@@ -124,7 +167,7 @@ export default async (req: Request) => {
       }
     } else if (job.kind === 'flashcards') {
       const p = job.params as CardsParams
-      const source = await loadSource(db, p)
+      const source = await prepare(p)
       const cards = await generateFlashcards({ source, count: p.count })
       const { error } = await db.from('flashcards').insert(
         cards.map((c) => ({
@@ -140,7 +183,7 @@ export default async (req: Request) => {
     } else if (job.kind === 'course_images') {
       const p = job.params as ImagesParams
       try {
-        const result = await processCourseImages(db, p)
+        const result = await processCourseImages(db, p, progress)
         await db.from('ai_jobs').update({ status: 'done', result }).eq('id', job_id)
       } catch (e) {
         await db.from('courses').update({ status: 'error' }).eq('id', p.course_id)
@@ -149,7 +192,7 @@ export default async (req: Request) => {
     } else if (job.kind === 'mindmap') {
       const p = job.params as MindmapParams
       try {
-        const source = await loadSource(db, p)
+        const source = await prepare(p)
         const root = await generateMindmap({ source, title: p.title })
         const dates: string[] = []
         if (p.note_ids?.length) {

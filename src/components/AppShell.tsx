@@ -5,11 +5,11 @@ import { useSpace } from '@/context/space'
 import { cx, Spinner } from './ui'
 
 const NAV = [
-  { to: '/', label: 'Accueil', icon: Home, end: true },
-  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
-  { to: '/reviser', label: 'Réviser', icon: Brain },
-  { to: '/matieres', label: 'Matières', icon: BookOpen },
-  { to: '/notes', label: 'Notes', icon: NotebookPen },
+  { to: '/', label: 'Accueil', icon: Home, end: true, tour: 'nav-accueil' },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays, tour: 'nav-agenda' },
+  { to: '/reviser', label: 'Réviser', icon: Brain, tour: 'nav-reviser' },
+  { to: '/matieres', label: 'Matières', icon: BookOpen, tour: 'nav-matieres' },
+  { to: '/notes', label: 'Notes', icon: NotebookPen, tour: 'nav-notes' },
 ]
 
 function SpaceSwitcher() {
@@ -18,7 +18,7 @@ function SpaceSwitcher() {
   const [open, setOpen] = useState(false)
   const active = spaces.filter((s) => !s.archived_at)
   return (
-    <div className="relative">
+    <div className="relative" data-tour="space">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -86,11 +86,12 @@ export function AppShell() {
         </div>
         <SpaceSwitcher />
         <nav aria-label="Navigation principale" className="flex flex-col gap-1">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {NAV.map(({ to, label, icon: Icon, end, tour }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
+              data-tour={tour}
               className={({ isActive }) =>
                 cx(
                   'flex items-center gap-3 rounded-xl px-3 py-2.5 font-medium transition-colors',
@@ -107,7 +108,7 @@ export function AppShell() {
           <NavLink to="/corbeille" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
             <Trash2 className="size-4" aria-hidden /> Corbeille
           </NavLink>
-          <NavLink to="/parametres" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
+          <NavLink to="/parametres" data-tour="nav-settings" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
             <Settings className="size-4" aria-hidden /> Paramètres
           </NavLink>
         </div>
@@ -119,7 +120,7 @@ export function AppShell() {
           <div className="min-w-0 flex-1">
             <SpaceSwitcher />
           </div>
-          <NavLink to="/parametres" aria-label="Paramètres" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+          <NavLink to="/parametres" aria-label="Paramètres" data-tour="nav-settings" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Settings className="size-5" aria-hidden />
           </NavLink>
         </header>
@@ -134,11 +135,12 @@ export function AppShell() {
       {/* Barre inférieure (mobile), utilisable au pouce */}
       <nav aria-label="Navigation principale" className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface/95 backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-lg grid-cols-5">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {NAV.map(({ to, label, icon: Icon, end, tour }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
+              data-tour={tour}
               className={({ isActive }) =>
                 cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-accent-ink' : 'text-muted')
               }

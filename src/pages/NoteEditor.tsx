@@ -16,6 +16,7 @@ import { noteToDocx, safeFilename, saveBlob } from '@/lib/exportNote'
 import { noteToPdf } from '@/lib/pdfExport'
 import { signedUrl, STORAGE_PREFIX, uploadNoteFile } from '@/lib/storage'
 import { must, supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 import type { Note, NoteVersion } from '@/lib/types'
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error'
@@ -78,6 +79,8 @@ function NoteEditor({ id }: { id: string }) {
   const [error, setError] = useState<unknown>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const editorRef = useRef<Editor | null>(null)
+  const [ready, setReady] = useState(false)
+  const tour = useFirstTimeTour('note', ready)
   const imageInput = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -119,6 +122,7 @@ function NoteEditor({ id }: { id: string }) {
     setTitle(note.title)
     setSubjectId(note.subject_id ?? '')
     editor.commands.setContent(note.content as JSONContent, { emitUpdate: false })
+    setReady(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note?.id, editor])
 
@@ -250,7 +254,7 @@ function NoteEditor({ id }: { id: string }) {
           {busy ?? stateLabel}
         </span>
         <div className="relative">
-          <IconButton label="Plus d’actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+          <IconButton data-tour="note-menu" label="Plus d’actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
             <MoreHorizontal className="size-5" />
           </IconButton>
           {menu && (
@@ -318,8 +322,9 @@ function NoteEditor({ id }: { id: string }) {
         </div>
       </div>
 
+      {tour}
       <div className="border-y border-border bg-surface sm:rounded-[var(--radius-card)] sm:border">
-        <div className="sticky top-[57px] z-10 border-b border-border bg-surface/95 px-2 py-1 backdrop-blur sm:rounded-t-[var(--radius-card)] lg:top-0">
+        <div data-tour="note-toolbar" className="sticky top-[57px] z-10 border-b border-border bg-surface/95 px-2 py-1 backdrop-blur sm:rounded-t-[var(--radius-card)] lg:top-0">
           {editor && <Toolbar editor={editor} onImage={() => imageInput.current?.click()} onAttach={() => fileInput.current?.click()} />}
         </div>
         <div className="px-4 py-5 sm:px-8">

@@ -36,13 +36,18 @@ const AFFECTS: Record<AiJob['kind'], Table[]> = {
   mindmap: ['note_outputs'],
 }
 
-// Progression estimée : avance vite au début, ralentit, ne dépasse pas 95 % avant la fin
+// Progression : celle envoyée par le serveur quand elle existe, sinon une estimation
+// qui avance vite au début, ralentit, et ne dépasse pas 95 % avant la fin.
 export function jobProgress(j: TrackedJob, now = Date.now()) {
-  if (j.status === 'done') return 100
-  if (j.status === 'error') return 100
+  if (j.status === 'done' || j.status === 'error') return 100
   const t = (now - j.startedAt) / 1000
-  return 95 * (1 - Math.exp((-2 * t) / j.meta.estimateSec))
+  const estimated = 95 * (1 - Math.exp((-2 * t) / j.meta.estimateSec))
+  const real = j.result?.progress
+  return real !== undefined ? Math.max(real * 100, Math.min(estimated, real * 100 + 15)) : estimated
 }
+
+// Sans démarrage côté serveur après ce délai, la génération est considérée bloquée
+const START_TIMEOUT_MS = 60_000
 
 export function JobsProvider({ children }: { children: ReactNode }) {
   const { spaceId } = useSpace()
@@ -118,6 +123,17 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           else toast({ message: `${prev.meta.label} : échec`, tone: 'error' })
         }
       }
+      // Tâche jamais prise en charge par le serveur : on l'arrête avec un message clair
+      const now = Date.now()
+      for (const j of jobsRef.current) {
+        const r = rows.find((x) => x.id === j.id)
+        if (r?.status === 'pending' && now - j.startedAt > START_TIMEOUT_MS) {
+          r.status = 'error'
+          r.error = 'Le service de génération n’a pas démarré. Vérifie que le site est bien déployé depuis GitHub, puis réessaie.'
+          await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)
+          toast({ message: `${j.meta.label} : échec`, tone: 'error' })
+        }
+      }
       setJobs((cur) => cur.map((j) => ({ ...j, ...(rows.find((r) => r.id === j.id) ?? {}) })))
     }, 2500)
     return () => {
@@ -137,12 +153,22 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       {visible.length > 0 && (
         <div
           aria-live="polite"
-          className="fixed bottom-20 right-3 z-40 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col gap-2 lg:bottom-5 lg:right-5"
+          className="fixed right-3 z-40 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col gap-2 lg:right-5"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset))' }}
         >
-          {visible.map((j) => {
+          {/* Sur mobile, seule la dernière tâche est détaillée */}
+          {visible.length > 1 && (
+            <p className="self-end rounded-full bg-surface px-3 py-1 text-xs text-muted shadow-card lg:hidden">
+              {visible.length} générations en cours
+            </p>
+          )}
+          {visible.map((j, i) => {
             const running = j.status === 'pending' || j.status === 'running'
             return (
-              <div key={j.id} className="anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg">
+              <div
+                key={j.id}
+                className={cx('anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg', i < visible.length - 1 && 'hidden lg:block')}
+              >
                 <div className="flex items-center gap-2">
                   {running ? (
                     <Loader2 className="size-4 shrink-0 animate-spin text-accent-ink" aria-hidden />
@@ -152,6 +178,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
                     <XCircle className="size-4 shrink-0 text-danger" aria-hidden />
                   )}
                   <p className="min-w-0 flex-1 truncate text-sm font-medium">{j.meta.label}</p>
+                  <span className="text-xs tabular-nums text-muted">{running ? `${Math.round(jobProgress(j))} %` : ''}</span>
                   {!running && (
                     <button type="button" aria-label="Fermer" onClick={() => dismiss(j.id)} className="rounded-lg p-1 text-muted hover:bg-surface-2">
                       <X className="size-4" />
@@ -161,31 +188,31 @@ export function JobsProvider({ children }: { children: ReactNode }) {
                 <div className="mt-2">
                   <ProgressBar value={jobProgress(j)} color={j.status === 'error' ? 'var(--danger)' : j.status === 'done' ? 'var(--success)' : undefined} label={j.meta.label} />
                 </div>
-                <p className={cx('mt-1.5 text-xs', j.status === 'error' ? 'text-danger' : 'text-muted')}>
-                  {running
-                    ? 'Tu peux continuer à utiliser l’application pendant ce temps.'
-                    : j.status === 'error'
-                      ? (j.error ?? 'La génération a échoué.')
-                      : (
-                          <span className="flex items-center gap-2">
-                            <Sparkles className="size-3.5" aria-hidden />
-                            Terminé
-                            {j.result?.count !== undefined && j.kind !== 'mindmap' ? ` · ${j.result.count} élément${j.result.count > 1 ? 's' : ''}` : ''}
-                            {j.meta.link && (
-                              <button
-                                type="button"
-                                className="ml-auto font-semibold text-accent-ink hover:underline"
-                                onClick={() => {
-                                  dismiss(j.id)
-                                  navigate(j.meta.link!)
-                                }}
-                              >
-                                {j.meta.linkLabel ?? 'Voir'}
-                              </button>
-                            )}
-                          </span>
-                        )}
-                </p>
+                <div className={cx('mt-1.5 text-xs', j.status === 'error' ? 'text-danger' : 'text-muted')}>
+                  {running ? (
+                    (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.')
+                  ) : j.status === 'error' ? (
+                    (j.error ?? 'La génération a échoué.')
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="size-3.5" aria-hidden />
+                      Terminé
+                      {j.result?.count !== undefined && j.kind !== 'mindmap' ? ` · ${j.result.count} élément${j.result.count > 1 ? 's' : ''}` : ''}
+                      {j.meta.link && (
+                        <button
+                          type="button"
+                          className="ml-auto font-semibold text-accent-ink hover:underline"
+                          onClick={() => {
+                            dismiss(j.id)
+                            navigate(j.meta.link!)
+                          }}
+                        >
+                          {j.meta.linkLabel ?? 'Voir'}
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
             )
           })}

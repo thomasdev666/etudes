@@ -21,7 +21,7 @@ import {
 } from '@/lib/data'
 import { useOnboarding } from '@/lib/onboarding'
 import { MASTERED_DAYS } from '@/lib/sm2'
-import { GuideSummary } from './Guide'
+import { useFirstTimeTour } from '@/lib/tours'
 import type { Assignment, WorkBlock } from '@/lib/types'
 
 function greeting() {
@@ -43,6 +43,7 @@ export function HomePage() {
   const updateB = useUpdate<WorkBlock>('work_blocks')
   const [form, setForm] = useState(false)
   const onboarding = useOnboarding()
+  const tour = useFirstTimeTour('main', !onboarding.loading && onboarding.setupDone)
 
   const now = new Date()
   const pending = assignments.filter((a) => a.status !== 'done')
@@ -72,14 +73,14 @@ export function HomePage() {
 
   return (
     <>
-      <GuideSummary />
+      {tour}
       <div className="mb-5">
         <p className="text-muted">{capitalize(fmt(now, 'EEEE d MMMM'))}</p>
         <h1 className="text-2xl font-bold sm:text-3xl">{greeting()} 👋</h1>
       </div>
 
       {/* Priorité du jour : ce qui fait vraiment progresser */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div data-tour="today" className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Link to="/reviser/cartes" className="group">
           <Card className="flex h-full items-center gap-4 border-accent/30 bg-accent-soft transition-shadow group-hover:shadow-md">
             <Brain className="size-9 shrink-0 text-accent-ink" aria-hidden />
@@ -129,7 +130,7 @@ export function HomePage() {
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
+        <Card data-tour="deadlines">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <CalendarClock className="size-5 text-muted" aria-hidden /> Prochaines échéances

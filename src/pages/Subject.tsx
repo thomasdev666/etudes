@@ -11,6 +11,7 @@ import { Badge, Button, Card, EmptyState, ErrorBox, IconButton, Spinner, Tabs } 
 import { useSpace } from '@/context/space'
 import { useToast } from '@/context/toast'
 import { useJobs } from '@/context/jobs'
+import { useFirstTimeTour } from '@/lib/tours'
 import { countdown, fmt } from '@/lib/dates'
 import {
   useCourses,
@@ -177,6 +178,7 @@ export default function SubjectPage() {
   const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs'])
   const [edit, setEdit] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const tour = useFirstTimeTour('subject', !isLoading && tab === 'cours')
 
   if (isLoading) return <Spinner />
   const subject = subjects?.find((s) => s.id === id)
@@ -226,6 +228,8 @@ export default function SubjectPage() {
         </IconButton>
       </div>
 
+      {tour}
+      <div data-tour="subject-tabs">
       <Tabs
         label="Contenu de la matière"
         value={tab}
@@ -240,12 +244,13 @@ export default function SubjectPage() {
           { value: 'plans', label: 'Plans' },
         ]}
       />
+      </div>
 
       <div className="mt-4">
         {tab === 'cours' && (
           <div className="flex flex-col gap-3">
             <div className="flex justify-end">
-              <Button icon={<Plus className="size-4" />} onClick={() => setImportOpen(true)}>
+              <Button data-tour="import-course" icon={<Plus className="size-4" />} onClick={() => setImportOpen(true)}>
                 Importer un cours
               </Button>
             </div>

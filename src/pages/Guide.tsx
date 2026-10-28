@@ -1,67 +1,212 @@
-import { Check, ChevronRight, Lock, Plus, Rocket, X } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { AssignmentForm } from '@/components/AssignmentForm'
+import { CalendarCheck, Check, Loader2, Plus, Sparkles, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CalendarConnect } from '@/components/CalendarConnect'
-import { CourseImport } from '@/components/CourseImport'
-import { GenerateCardsModal, GenerateMindmapModal } from '@/components/Generate'
-import { Button, Card, cx, Input, ProgressBar, Select, Spinner, SubjectDot } from '@/components/ui'
+import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner, SubjectDot } from '@/components/ui'
 import { useSpace } from '@/context/space'
+import { useCalendarEvents } from '@/lib/calendar'
+import { suggestSubjects, type SubjectSuggestion } from '@/lib/calendarSubjects'
 import { SUBJECT_PALETTE } from '@/lib/colors'
-import { useFlashcards, useInsert, useSubjects, useTrash, useUpdate } from '@/lib/data'
-import { useOnboarding, type Step, type StepId } from '@/lib/onboarding'
+import { useCalendarLinks, useInvalidate, useSubjects, useTrash, useUpdate } from '@/lib/data'
+import { SETUP_ORDER, useOnboarding, type SetupStep } from '@/lib/onboarding'
 import { must, supabase } from '@/lib/supabase'
 import type { Subject } from '@/lib/types'
 
-function SubjectsStep({ onDone }: { onDone: () => void }) {
-  const { data: subjects = [] } = useSubjects()
-  const insert = useInsert<Subject>('subjects')
-  const trash = useTrash('subjects')
-  const [name, setName] = useState('')
+// Pastilles de couleur compactes (palette + couleur libre)
+function Swatches({ value, onChange, label }: { value: string; onChange: (c: string) => void; label: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label={`Couleur de ${label}`}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="size-8 rounded-full border-2 border-surface shadow-card ring-1 ring-border"
+        style={{ background: value }}
+      />
+      {open && (
+        <div className="anim-pop absolute right-0 z-20 mt-2 flex w-48 flex-wrap gap-1.5 rounded-2xl border border-border bg-surface p-2 shadow-lg">
+          {SUBJECT_PALETTE.map((p) => (
+            <button
+              key={p.hex}
+              type="button"
+              aria-label={p.name}
+              onClick={() => {
+                onChange(p.hex)
+                setOpen(false)
+              }}
+              className={cx('size-7 rounded-full', p.hex.toLowerCase() === value.toLowerCase() && 'ring-2 ring-text ring-offset-2 ring-offset-surface')}
+              style={{ background: p.hex }}
+            />
+          ))}
+          <label className="relative flex size-7 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border text-xs text-muted" title="Couleur libre">
+            +
+            <input type="color" value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Couleur libre" />
+          </label>
+        </div>
+      )}
+    </div>
+  )
+}
 
-  function add(e: FormEvent) {
+type Draft = SubjectSuggestion & { key: string; color: string; checked: boolean }
+
+function SubjectsStep({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+  const { spaceId } = useSpace()
+  const invalidate = useInvalidate()
+  const { data: existing = [] } = useSubjects()
+  const update = useUpdate<Subject>('subjects')
+  const trash = useTrash('subjects')
+  const cal = useCalendarEvents()
+  const [drafts, setDrafts] = useState<Draft[] | null>(null)
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const started = useRef(false)
+
+  // Repère les matières dans l'emploi du temps (une seule fois)
+  useEffect(() => {
+    if (started.current) return
+    if (!cal.hasLinks) {
+      setDrafts([])
+      return
+    }
+    if (cal.isLoading) return
+    started.current = true
+    const known = new Set(existing.map((s) => s.name.toLowerCase()))
+    suggestSubjects(cal.events.map((e) => e.title)).then(({ list }) => {
+      setDrafts(
+        list
+          .filter((s) => !known.has(s.name.toLowerCase()))
+          .map((s, i) => ({ ...s, key: `${i}-${s.name}`, color: SUBJECT_PALETTE[(existing.length + i) % SUBJECT_PALETTE.length].hex, checked: true })),
+      )
+    })
+  }, [cal.hasLinks, cal.isLoading, cal.events, existing])
+
+  const patch = (key: string, p: Partial<Draft>) => setDrafts((d) => d!.map((x) => (x.key === key ? { ...x, ...p } : x)))
+
+  function addManual(e: FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
-    insert.mutate({ name: name.trim(), color: SUBJECT_PALETTE[subjects.length % SUBJECT_PALETTE.length].hex, position: subjects.length })
+    const n = (drafts?.length ?? 0) + existing.length
+    setDrafts((d) => [...(d ?? []), { key: `m-${Date.now()}`, name: name.trim(), keywords: [], count: 0, color: SUBJECT_PALETTE[n % SUBJECT_PALETTE.length].hex, checked: true }])
     setName('')
   }
 
+  const chosen = (drafts ?? []).filter((d) => d.checked && d.name.trim())
+
+  async function validate() {
+    setBusy(true)
+    setError(null)
+    try {
+      if (chosen.length)
+        must(
+          await supabase.from('subjects').insert(
+            chosen.map((d, i) => ({ space_id: spaceId, name: d.name.trim(), color: d.color, keywords: d.keywords, position: existing.length + i })),
+          ),
+        )
+      await invalidate('subjects')
+      onDone()
+    } catch (e) {
+      setError(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <form onSubmit={add} className="flex gap-2">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom de la matière, puis Entrée" aria-label="Nouvelle matière" autoFocus />
-        <Button type="submit" disabled={!name.trim()} loading={insert.isPending} aria-label="Ajouter">
-          <Plus className="size-4" />
-        </Button>
-      </form>
-      {subjects.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {subjects.map((s) => (
-            <li key={s.id} className="flex items-center gap-1.5 rounded-full border border-border bg-surface py-1 pl-3 pr-1 text-sm">
-              <SubjectDot color={s.color} />
-              {s.name}
-              <button type="button" aria-label={`Retirer ${s.name}`} onClick={() => trash.mutate(s.id)} className="rounded-full p-1 text-muted hover:bg-surface-2">
-                <X className="size-3.5" />
+    <div className="flex flex-col gap-4">
+      {drafts === null ? (
+        <div className="flex items-center gap-3 rounded-2xl bg-accent-soft p-4 text-sm">
+          <Loader2 className="size-5 animate-spin text-accent-ink" aria-hidden />
+          Je repère tes matières dans ton emploi du temps…
+        </div>
+      ) : (
+        cal.hasLinks &&
+        drafts.length > 0 && (
+          <p className="flex items-start gap-2 rounded-2xl bg-accent-soft p-3 text-sm">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
+            <span>
+              {drafts.length} matière{drafts.length > 1 ? 's' : ''} trouvée{drafts.length > 1 ? 's' : ''} dans ton emploi du temps. Vérifie les noms, décoche ce qui n’est pas une matière et choisis
+              tes couleurs.
+            </span>
+          </p>
+        )
+      )}
+
+      {existing.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {existing.map((s) => (
+            <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-3 py-2">
+              <Check className="size-4 shrink-0 text-success" aria-label="Déjà créée" />
+              <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
+              <Swatches value={s.color} label={s.name} onChange={(color) => update.mutate({ id: s.id, patch: { color } })} />
+              <button type="button" aria-label={`Supprimer ${s.name}`} onClick={() => trash.mutate(s.id)} className="rounded-lg p-1.5 text-muted hover:bg-surface-2">
+                <X className="size-4" />
               </button>
             </li>
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted">Tu pourras changer les couleurs et en ajouter plus tard dans « Matières ».</p>
-      <div>
-        <Button onClick={onDone} disabled={!subjects.length}>
-          J’ai ajouté toutes mes matières
+
+      {drafts && drafts.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {drafts.map((d) => (
+            <li key={d.key} className={cx('flex items-center gap-3 rounded-2xl border px-3 py-2 transition-opacity', d.checked ? 'border-border bg-surface' : 'border-dashed border-border opacity-60')}>
+              <input
+                type="checkbox"
+                checked={d.checked}
+                onChange={(e) => patch(d.key, { checked: e.target.checked })}
+                aria-label={`Garder ${d.name}`}
+                className="size-5 shrink-0 accent-[var(--accent)]"
+              />
+              <div className="min-w-0 flex-1">
+                <input
+                  value={d.name}
+                  onChange={(e) => patch(d.key, { name: e.target.value })}
+                  aria-label="Nom de la matière"
+                  className="w-full bg-transparent font-medium outline-none focus:underline"
+                />
+                {(d.count > 0 || d.keywords.length > 0) && (
+                  <p className="truncate text-xs text-muted">
+                    {d.count > 0 && `${d.count} séance${d.count > 1 ? 's' : ''}`}
+                    {d.keywords.length > 0 && ` · reconnue par « ${d.keywords.join(' », « ')} »`}
+                  </p>
+                )}
+              </div>
+              <Swatches value={d.color} label={d.name} onChange={(color) => patch(d.key, { color })} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={addManual} className="flex gap-2">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ajouter une matière à la main" aria-label="Nouvelle matière" />
+        <Button type="submit" variant="secondary" disabled={!name.trim()} aria-label="Ajouter">
+          <Plus className="size-4" />
+        </Button>
+      </form>
+
+      <ErrorBox error={error} />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" onClick={onBack}>
+          Retour
+        </Button>
+        <span className="flex-1" />
+        <Button onClick={validate} loading={busy} disabled={!existing.length && !chosen.length}>
+          Valider mes matières{chosen.length ? ` (${chosen.length + existing.length})` : ''}
         </Button>
       </div>
     </div>
   )
 }
 
-function ExamsStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void }) {
+function ExamsStep({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const { data: subjects = [] } = useSubjects()
   const update = useUpdate<Subject>('subjects')
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <ul className="flex flex-col gap-2">
         {subjects.map((s) => (
           <li key={s.id} className="flex items-center gap-3">
@@ -77,238 +222,94 @@ function ExamsStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void 
           </li>
         ))}
       </ul>
-      <StepButtons onDone={onDone} onSkip={onSkip} doneLabel="Continuer" />
-    </div>
-  )
-}
-
-function StepButtons({ onDone, onSkip, doneLabel = 'C’est fait' }: { onDone?: () => void; onSkip?: () => void; doneLabel?: string }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {onDone && <Button onClick={onDone}>{doneLabel}</Button>}
-      {onSkip && (
-        <Button variant="ghost" onClick={onSkip}>
-          Plus tard
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" onClick={onBack}>
+          Retour
         </Button>
-      )}
+        <span className="flex-1" />
+        <Button onClick={onDone}>{subjects.some((s) => s.exam_date) ? 'Terminer' : 'Je les ajouterai plus tard'}</Button>
+      </div>
     </div>
   )
 }
 
-function StepAction({ step, ob }: { step: Step; ob: ReturnType<typeof useOnboarding> }) {
-  const navigate = useNavigate()
-  const { spaceId } = useSpace()
-  const { data: subjects = [] } = useSubjects()
-  const { data: cards = [] } = useFlashcards()
-  const [subjectId, setSubjectId] = useState('')
-  const [modal, setModal] = useState<'course' | 'cards' | 'mindmap' | 'assignment' | null>(null)
-  const sid = subjectId || subjects[0]?.id || ''
-
-  const subjectSelect = (
-    <Select value={sid} onChange={(e) => setSubjectId(e.target.value)} aria-label="Matière" className="sm:w-60">
-      {subjects.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.name}
-        </option>
-      ))}
-    </Select>
-  )
-
-  const id: StepId = step.id
-  return (
-    <div className="mt-3">
-      {id === 'matieres' && <SubjectsStep onDone={() => ob.confirm('matieres')} />}
-      {id === 'agenda' && (
-        <div className="flex flex-col gap-3">
-          <CalendarConnect />
-          <StepButtons onSkip={() => ob.skip('agenda')} />
-        </div>
-      )}
-      {id === 'examens' && <ExamsStep onDone={() => ob.confirm('examens')} onSkip={() => ob.skip('examens')} />}
-      {id === 'cours' && (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {subjectSelect}
-          <Button onClick={() => setModal('course')}>Importer un PowerPoint ou un PDF</Button>
-        </div>
-      )}
-      {id === 'qcm' && (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {subjectSelect}
-          <Button onClick={() => navigate(`/qcm/nouveau?matiere=${sid}`)}>Créer mon premier QCM</Button>
-        </div>
-      )}
-      {id === 'cartes' &&
-        (cards.length ? (
-          <Button onClick={() => navigate('/reviser/cartes')}>Faire ma première révision</Button>
-        ) : (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {subjectSelect}
-            <Button onClick={() => setModal('cards')}>Générer des flash cards</Button>
-          </div>
-        ))}
-      {id === 'mentale' && (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {subjectSelect}
-          <Button onClick={() => setModal('mindmap')}>Générer une carte mentale</Button>
-        </div>
-      )}
-      {id === 'notes' && (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {subjectSelect}
-          <Button
-            onClick={async () => {
-              const n = must(await supabase.from('notes').insert({ space_id: spaceId, subject_id: sid || null, title: 'Ma première note' }).select('id').single()) as { id: string }
-              navigate(`/notes/${n.id}`)
-            }}
-          >
-            Écrire ma première note
-          </Button>
-        </div>
-      )}
-      {id === 'devoir' && <Button onClick={() => setModal('assignment')}>Ajouter un devoir</Button>}
-      {id === 'plan' && (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {subjectSelect}
-            <Button onClick={() => navigate(`/matieres/${sid}?onglet=plans`)}>Créer un plan</Button>
-          </div>
-          <StepButtons onSkip={() => ob.skip('plan')} />
-        </div>
-      )}
-      {id === 'installer' && (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted">Ouvre le menu du navigateur et choisis « Ajouter à l’écran d’accueil » (ou « Installer »).</p>
-          <StepButtons onDone={() => ob.confirm('installer')} onSkip={() => ob.skip('installer')} />
-        </div>
-      )}
-
-      {sid && <CourseImport open={modal === 'course'} onClose={() => setModal(null)} subjectId={sid} />}
-      <GenerateCardsModal open={modal === 'cards'} onClose={() => setModal(null)} subjectId={sid || undefined} />
-      <GenerateMindmapModal open={modal === 'mindmap'} onClose={() => setModal(null)} subjectId={sid || undefined} />
-      <AssignmentForm open={modal === 'assignment'} onClose={() => setModal(null)} />
-    </div>
-  )
-}
-
-export function GuideSummary() {
-  const ob = useOnboarding()
-  if (!ob.available || ob.loading || ob.allDone || ob.hidden || !ob.current) return null
-  return (
-    <Card className="mb-4 border-accent/30">
-      <div className="flex items-center gap-3">
-        <Rocket className="size-6 shrink-0 text-accent-ink" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold">Guide de démarrage · {ob.percent} %</p>
-          <p className="truncate text-sm text-muted">Prochaine étape : {ob.current.title}</p>
-        </div>
-        <Link to="/bienvenue">
-          <Button size="sm" icon={<ChevronRight className="size-4" />}>
-            Continuer
-          </Button>
-        </Link>
-      </div>
-      <div className="mt-3">
-        <ProgressBar value={ob.percent} label="Progression du guide" />
-      </div>
-      <button type="button" onClick={() => ob.setHidden(true)} className="mt-2 text-xs text-muted hover:underline">
-        Masquer le guide
-      </button>
-    </Card>
-  )
-}
-
-function Row({ step, index, state, children }: { step: Step; index: number; state: 'done' | 'current' | 'locked'; children?: ReactNode }) {
-  return (
-    <li className={cx('relative flex gap-3 pb-5', state === 'locked' && 'opacity-60')}>
-      <span
-        className={cx(
-          'z-10 flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold',
-          state === 'done' ? 'bg-success text-white' : state === 'current' ? 'bg-accent text-white' : 'border-2 border-border bg-surface text-muted',
-        )}
-        aria-hidden
-      >
-        {state === 'done' ? <Check className="size-4" strokeWidth={3} /> : state === 'locked' ? <Lock className="size-3.5" /> : index + 1}
-      </span>
-      <div className={cx('min-w-0 flex-1', state === 'current' && 'rounded-2xl border border-accent/40 bg-surface p-4 shadow-card')}>
-        <p className="font-semibold">
-          <span className="sr-only">Étape {index + 1}{state === 'done' ? ' (terminée)' : state === 'locked' ? ' (à venir)' : ' (en cours)'} : </span>
-          {step.title}
-          {step.optional && state !== 'done' && <span className="ml-2 text-xs font-normal text-muted">facultatif</span>}
-        </p>
-        <p className="text-sm text-muted">{step.why}</p>
-        {children}
-      </div>
-    </li>
-  )
+const TEXTS: Record<SetupStep, { title: string; why: string }> = {
+  agenda: {
+    title: 'Relie ton emploi du temps',
+    why: 'Tes cours s’affichent dans l’agenda avec la couleur de leur matière, et on s’en sert pour créer tes matières automatiquement.',
+  },
+  matieres: {
+    title: 'Vérifie tes matières',
+    why: 'Chaque matière regroupe ses cours, notes, QCM, flash cards et cartes mentales. Garde les bonnes et choisis leurs couleurs.',
+  },
+  examens: {
+    title: 'Tes dates d’examen',
+    why: 'Un compte à rebours par matière, et les révisions des examens les plus proches passent en premier. Facultatif.',
+  },
 }
 
 export default function GuidePage() {
   const ob = useOnboarding()
   const navigate = useNavigate()
+  const firstUndone = useMemo(() => SETUP_ORDER.findIndex((s) => !ob.done[s]), [ob.done])
+  const [index, setIndex] = useState<number | null>(null)
+  const { data: links = [] } = useCalendarLinks()
+
   if (ob.loading) return <Spinner />
-  const currentIndex = ob.steps.findIndex((s) => !s.done)
+  const i = index ?? (firstUndone < 0 ? 0 : firstUndone)
+  const step = SETUP_ORDER[i]
+  const pct = Math.round((SETUP_ORDER.filter((s) => ob.done[s]).length / SETUP_ORDER.length) * 100)
+
+  async function next(action: 'confirm' | 'skip') {
+    if (action === 'confirm') await ob.confirm(step)
+    else await ob.skip(step)
+    if (i < SETUP_ORDER.length - 1) setIndex(i + 1)
+    else navigate('/', { replace: true })
+  }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-5">
-        <p className="text-sm font-medium text-accent-ink">Guide de démarrage</p>
-        <h1 className="text-2xl font-bold sm:text-3xl">{ob.setupDone ? 'Découvre toutes les fonctionnalités' : 'Configurons ton espace'}</h1>
-        <p className="mt-1 text-muted">
-          {ob.setupDone
-            ? 'Ton espace est prêt. Suis les étapes pour essayer chaque outil de révision.'
-            : 'Quelques étapes pour tout relier avant de commencer : tes matières, ton agenda et tes examens.'}
-        </p>
+    <div className="mx-auto max-w-xl">
+      <p className="text-sm font-medium text-accent-ink">Bienvenue 👋</p>
+      <h1 className="text-2xl font-bold sm:text-3xl">Préparons ton espace</h1>
+      <div className="mt-4 mb-5">
+        <div className="mb-1.5 flex justify-between text-sm text-muted">
+          <span>
+            Étape {i + 1} sur {SETUP_ORDER.length}
+          </span>
+          <span>{pct} %</span>
+        </div>
+        <ProgressBar value={pct} label="Progression de la configuration" />
       </div>
 
-      <Card className="mb-6">
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="font-display text-3xl font-bold">{ob.percent} %</span>
-          <span className="text-sm text-muted">
-            {ob.steps.filter((s) => s.done).length} / {ob.steps.length} étapes
-          </span>
-        </div>
-        <ProgressBar value={ob.percent} label="Progression du guide" />
-        {ob.setupDone && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => navigate('/')}>
-              Aller à l’accueil
-            </Button>
+      <Card key={step} className="anim-pop">
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          {step === 'agenda' && <CalendarCheck className="size-5 text-accent-ink" aria-hidden />}
+          {TEXTS[step].title}
+        </h2>
+        <p className="mt-1 mb-4 text-sm text-muted">{TEXTS[step].why}</p>
+
+        {step === 'agenda' && (
+          <div className="flex flex-col gap-4">
+            <CalendarConnect />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => next('skip')}>
+                Je n’ai pas le lien pour l’instant
+              </Button>
+              <span className="flex-1" />
+              <Button onClick={() => next('confirm')} disabled={!links.length}>
+                Continuer
+              </Button>
+            </div>
           </div>
         )}
+        {step === 'matieres' && <SubjectsStep onDone={() => next('confirm')} onBack={() => setIndex(0)} />}
+        {step === 'examens' && <ExamsStep onDone={() => next('confirm')} onBack={() => setIndex(1)} />}
       </Card>
 
       {!ob.available && (
-        <p className="mb-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
+        <p className="mt-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
           La progression ne peut pas être enregistrée : lance la mise à jour de la base (fichier 0002) dans Supabase.
         </p>
-      )}
-
-      <ol className="relative before:absolute before:bottom-6 before:left-4 before:top-2 before:w-0.5 before:bg-border">
-        {ob.steps.map((s, i) => {
-          const state = s.done ? 'done' : i === currentIndex ? 'current' : 'locked'
-          return (
-            <Row key={s.id} step={s} index={i} state={state}>
-              {state === 'current' && <StepAction step={s} ob={ob} />}
-            </Row>
-          )
-        })}
-      </ol>
-
-      {ob.allDone && (
-        <Card className="text-center">
-          <p className="font-display text-xl font-bold">Bravo, tu connais tout ! 🎉</p>
-          <Button className="mt-3" onClick={() => navigate('/')}>
-            Commencer à réviser
-          </Button>
-        </Card>
-      )}
-
-      {ob.setupDone && !ob.allDone && (
-        <div className="mt-2 flex justify-center">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-            Continuer plus tard
-          </Button>
-        </div>
       )}
     </div>
   )

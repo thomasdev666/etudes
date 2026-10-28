@@ -141,7 +141,7 @@ export function Modal({
       }}
       onClick={(e) => e.target === ref.current && onClose()}
       className={cx(
-        'm-0 mt-auto max-h-[92dvh] w-full max-w-none rounded-t-3xl border border-border bg-surface p-0 text-text shadow-xl backdrop:bg-black/40 sm:m-auto sm:rounded-3xl',
+        'm-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-3xl border border-border bg-surface p-0 text-text shadow-xl backdrop:bg-black/40 sm:m-auto sm:rounded-3xl',
         wide ? 'sm:max-w-2xl' : 'sm:max-w-lg',
       )}
     >
@@ -155,7 +155,7 @@ export function Modal({
               <X className="size-5" />
             </IconButton>
           </div>
-          <div className="overflow-y-auto px-5 py-4">{children}</div>
+          <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
           {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-3 pb-safe">{footer}</div>}
         </div>
       )}

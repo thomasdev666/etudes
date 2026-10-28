@@ -37,9 +37,15 @@ export async function createAiJob(spaceId: string, kind: AiJob['kind'], params: 
     headers: { 'content-type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({ job_id: job.id }),
   })
-  if (!res.ok && res.status !== 202) {
-    await supabase.from('ai_jobs').update({ status: 'error', error: 'Service indisponible' }).eq('id', job.id)
-    throw new Error(`Le service de génération est indisponible (${res.status}).`)
+  // Une fonction d'arrière-plan répond toujours 202. Un 200 signifie que la fonction
+  // n'existe pas sur le site déployé (la page de l'appli est renvoyée à la place).
+  if (res.status !== 202) {
+    const message =
+      res.status === 200
+        ? 'Les fonctions serveur ne sont pas déployées : le site doit être publié depuis GitHub (et non par glisser-déposer).'
+        : `Le service de génération est indisponible (${res.status}).`
+    await supabase.from('ai_jobs').update({ status: 'error', error: message }).eq('id', job.id)
+    throw new Error(message)
   }
   return job
 }

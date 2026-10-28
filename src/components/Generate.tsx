@@ -36,6 +36,7 @@ export function SourcePicker({
           <label key={c.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2">
             <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={courseIds.includes(c.id)} onChange={() => onChange(toggle(courseIds, c.id), noteIds)} />
             <span className="min-w-0 flex-1 truncate">📄 {c.title}</span>
+            {c.status === 'processing' && <span className="shrink-0 text-xs text-warning">analyse en cours</span>}
           </label>
         ))}
         {sn.map((n) => (
@@ -45,6 +46,9 @@ export function SourcePicker({
           </label>
         ))}
       </div>
+      {sc.some((c) => c.status === 'processing' && courseIds.includes(c.id)) && (
+        <p className="mt-1 text-xs text-muted">L’IA lit encore les images d’un cours choisi : la génération attendra automatiquement la fin, pour utiliser tout le contenu.</p>
+      )}
     </fieldset>
   )
 }

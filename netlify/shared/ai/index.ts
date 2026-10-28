@@ -8,23 +8,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // Fournisseur résilient : nouvelles tentatives si le service est surchargé,
 // puis bascule sur un modèle de secours plus léger.
-export function getAi(): AiProvider {
+export function getAi(opts: { quick?: boolean } = {}): AiProvider {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
   const models = [process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-flash-lite-latest']
   const providers = [...new Set(models)].map((m) => createGeminiProvider(key, m))
+  // quick : une seule tentative par modèle (fonctions qui doivent répondre en quelques secondes)
+  const attempts = opts.quick ? 1 : 2
   return {
     name: providers.map((p) => p.name).join(' > '),
     async generateJson(req: JsonRequest) {
       let last: unknown
       for (const p of providers) {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < attempts; attempt++) {
           try {
             return await p.generateJson(req)
           } catch (e) {
             last = e
             if (!(e instanceof RetryableAiError)) throw e
-            await sleep(e.waitMs * (attempt + 1))
+            // Surcharge : on bascule vite sur le modèle de secours plutôt que d'attendre
+            if (!opts.quick && attempt < attempts - 1) await sleep(Math.min(e.waitMs, 8000))
           }
         }
       }
@@ -279,4 +282,37 @@ export async function generateMindmap(opts: { source: string; title: string }): 
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Génération impossible')
+}
+
+// ---------------------------------------------------------------- Matières depuis l'agenda
+
+const subjectsSchema: JsonSchema = {
+  type: 'object',
+  properties: {
+    subjects: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { name: { type: 'string' }, keywords: { type: 'array', items: { type: 'string' } } },
+        required: ['name', 'keywords'],
+      },
+    },
+  },
+  required: ['subjects'],
+}
+
+// Déduit la liste des matières à partir des titres des cours de l'emploi du temps
+export async function subjectsFromTitles(titles: string[]) {
+  const ai = getAi({ quick: true })
+  const system = [
+    "Tu reçois les titres d'événements de l'emploi du temps d'un étudiant d'école de commerce.",
+    'Déduis-en la liste des matières (cours) distinctes. Fusionne les variantes (CM, TD, groupe, salle, examen) d’une même matière.',
+    'name : nom clair et court de la matière, dans la langue d’origine, sans code ni type de séance.',
+    'keywords : 1 à 3 morceaux de texte EXACTS présents dans les titres d’origine qui permettent de reconnaître la matière (code du cours, nom tel qu’écrit).',
+    'Ignore ce qui n’est pas un cours : réunions, événements associatifs, jours fériés, rendez-vous personnels.',
+  ].join('\n')
+  const raw = z
+    .object({ subjects: z.array(z.object({ name: z.string().trim().min(1).max(80), keywords: z.array(z.string()) })) })
+    .parse(await ai.generateJson({ system, prompt: titles.slice(0, 200).join('\n'), schema: subjectsSchema, temperature: 0.1 }))
+  return raw.subjects
 }

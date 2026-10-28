@@ -12,6 +12,7 @@ export function CalendarConnect() {
   const { data: links = [] } = useCalendarLinks()
   const invalidate = useInvalidate()
   const [url, setUrl] = useState('')
+  const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [info, setInfo] = useState('')
@@ -23,10 +24,16 @@ export function CalendarConnect() {
     try {
       const clean = url.trim()
       const events = parseIcs(await fetchIcs(clean), new Date(Date.now() - 30 * 86_400_000), new Date(Date.now() + 120 * 86_400_000))
-      must(await supabase.from('calendar_links').insert({ space_id: spaceId, url: clean, label: 'Outlook', last_synced_at: new Date().toISOString() }))
+      const name = label.trim() || (links.length ? `Calendrier ${links.length + 1}` : 'Emploi du temps')
+      must(await supabase.from('calendar_links').insert({ space_id: spaceId, url: clean, label: name, last_synced_at: new Date().toISOString() }))
       await invalidate('calendar_links')
-      setInfo(`Calendrier connecté : ${events.length} événements trouvés.`)
+      const busy = events.filter((e) => /^(occupé|busy|provisoire|tentative)$/i.test(e.title.trim())).length
+      setInfo(
+        `« ${name} » connecté : ${events.length} événement${events.length > 1 ? 's' : ''} trouvé${events.length > 1 ? 's' : ''}.` +
+          (busy > events.length / 2 ? ' ⚠️ Les titres sont masqués (« Occupé ») : republie le calendrier avec « Peut afficher tous les détails ».' : ''),
+      )
       setUrl('')
+      setLabel('')
     } catch (e) {
       setError(e)
     } finally {
@@ -54,21 +61,45 @@ export function CalendarConnect() {
           </IconButton>
         </div>
       ))}
-      <details className="rounded-xl border border-border px-3 py-2 text-sm">
-        <summary className="cursor-pointer font-medium">Comment obtenir le lien de mon calendrier Outlook ?</summary>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
-          <li>Ouvre Outlook sur le web (outlook.office.com) avec ton compte de l’école.</li>
-          <li>Paramètres (⚙️) → Calendrier → Calendriers partagés.</li>
-          <li>Dans « Publier un calendrier », choisis ton calendrier et « Peut afficher tous les détails », puis Publier.</li>
-          <li>Copie le lien <strong>ICS</strong> et colle-le ci-dessous.</li>
-        </ol>
-        <p className="mt-2 text-muted">Si l’option est grisée, ton école l’a désactivée : demande au service informatique, ou exporte tes cours depuis l’ENT s’il propose un lien iCal.</p>
+      <details className="rounded-xl border border-border px-3 py-2 text-sm" open={!links.length}>
+        <summary className="cursor-pointer font-medium">Où trouver le lien de mon emploi du temps ?</summary>
+        <div className="mt-2 space-y-3 text-muted">
+          <div>
+            <p className="font-medium text-text">Emploi du temps de l’école (le plus important)</p>
+            <p>
+              Il est en général dans un calendrier à part, créé par l’école. Outlook ne permet pas de republier ce type de calendrier : il faut son lien d’origine.
+            </p>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              <li>
+                <strong>Dans Outlook web</strong> : à gauche, fais un clic droit (ou ⋯) sur le calendrier de l’école → <em>Paramètres</em> / <em>Propriétés</em>. S’il a été ajouté
+                « depuis Internet », son lien (https://… ou webcal://…) y est affiché : copie-le.
+              </li>
+              <li>
+                <strong>Dans l’outil de planning de l’école</strong> (Hyperplanning, Celcat, MyTimetable, Aurion, l’appli de l’école…) : cherche « Exporter », « iCal », « S’abonner » ou
+                « Synchroniser avec mon agenda ». Le lien obtenu fonctionne ici.
+              </li>
+              <li>Sinon, demande au service scolarité le « lien iCal de l’emploi du temps ».</li>
+            </ul>
+          </div>
+          <div>
+            <p className="font-medium text-text">Ton calendrier Outlook personnel</p>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>Outlook web → Paramètres (⚙️) → Calendrier → Calendriers partagés.</li>
+              <li>« Publier un calendrier » : choisis le calendrier et « Peut afficher tous les détails », puis Publier.</li>
+              <li>Copie le lien <strong>ICS</strong>.</li>
+            </ol>
+          </div>
+          <p>Tu peux relier plusieurs calendriers (école + perso) : ajoute-les l’un après l’autre.</p>
+        </div>
       </details>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" aria-label="Lien ICS" />
-        <Button onClick={add} loading={busy} disabled={!/^(https|webcal):\/\//i.test(url.trim())}>
-          Connecter
-        </Button>
+      <div className="flex flex-col gap-2">
+        <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={links.length ? 'Nom (ex. Perso)' : 'Nom (ex. Emploi du temps TBS)'} aria-label="Nom du calendrier" />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://… .ics ou webcal://…" aria-label="Lien du calendrier" />
+          <Button onClick={add} loading={busy} disabled={!/^(https|webcal):\/\//i.test(url.trim())}>
+            {links.length ? 'Ajouter' : 'Connecter'}
+          </Button>
+        </div>
       </div>
       {info && <p className="text-sm text-success">{info}</p>}
       <ErrorBox error={error} />

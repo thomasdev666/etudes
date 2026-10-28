@@ -64,7 +64,7 @@ function TablePicker({ active, onPick }: { active: boolean; onPick: (rows: numbe
   }, [open])
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" data-tour="note-table">
       <Btn
         label="Insérer un tableau"
         active={active || open}
