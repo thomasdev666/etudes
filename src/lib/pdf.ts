@@ -43,3 +43,16 @@ export async function extractPdf(file: File, onProgress?: (p: number) => void): 
   }
   return { text: parts.join('\n\n'), images, skipped: 0 }
 }
+
+// Texte brut d'un PDF (sans images), pour les fichiers structurés comme les plannings
+export async function readPdfText(file: File): Promise<string> {
+  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+  const pages: string[] = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const content = await (await doc.getPage(i)).getTextContent()
+    let text = ''
+    for (const item of content.items) if ('str' in item) text += item.str + (item.hasEOL ? '\n' : ' ')
+    pages.push(text)
+  }
+  return pages.join('\n')
+}

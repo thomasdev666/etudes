@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { CalendarConnect } from '@/components/CalendarConnect'
 import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner, SubjectDot } from '@/components/ui'
 import { useSpace } from '@/context/space'
-import { useCalendarEvents } from '@/lib/calendar'
+import { useCalendarEvents, useImportedEvents } from '@/lib/calendar'
 import { suggestSubjects, type SubjectSuggestion } from '@/lib/calendarSubjects'
 import { SUBJECT_PALETTE } from '@/lib/colors'
 import { useCalendarLinks, useInvalidate, useSubjects, useTrash, useUpdate } from '@/lib/data'
@@ -254,6 +254,7 @@ export default function GuidePage() {
   const firstUndone = useMemo(() => SETUP_ORDER.findIndex((s) => !ob.done[s]), [ob.done])
   const [index, setIndex] = useState<number | null>(null)
   const { data: links = [] } = useCalendarLinks()
+  const { data: imported = [] } = useImportedEvents()
 
   if (ob.loading) return <Spinner />
   const i = index ?? (firstUndone < 0 ? 0 : firstUndone)
@@ -293,10 +294,10 @@ export default function GuidePage() {
             <CalendarConnect />
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => next('skip')}>
-                Je n’ai pas le lien pour l’instant
+                Plus tard
               </Button>
               <span className="flex-1" />
-              <Button onClick={() => next('confirm')} disabled={!links.length}>
+              <Button onClick={() => next('confirm')} disabled={!links.length && !imported.length}>
                 Continuer
               </Button>
             </div>

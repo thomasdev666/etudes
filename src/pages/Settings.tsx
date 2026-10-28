@@ -253,7 +253,7 @@ export default function SettingsPage() {
         <Spaces />
       </Section>
 
-      <Section id="calendrier" title="Calendrier Outlook" description="Affiche tes cours dans l’agenda, gratuitement, via le lien de publication du calendrier.">
+      <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda : PDF du planning de l’école, ou lien de calendrier.">
         <CalendarConnect />
       </Section>
 

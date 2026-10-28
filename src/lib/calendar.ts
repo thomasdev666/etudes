@@ -80,11 +80,35 @@ export async function fetchIcs(url: string): Promise<string> {
   return res.text()
 }
 
-// Événements Outlook de l'espace, mis en cache 15 minutes
+// Cours importés depuis un PDF de l'emploi du temps
+export type ImportedEvent = { id: string; title: string; location: string; start_at: string; end_at: string }
+
+export function useImportedEvents() {
+  const { spaceId } = useSpace()
+  return useQuery({
+    queryKey: ['imported_events', spaceId],
+    enabled: !!spaceId,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('imported_events')
+        .select('id, title, location, start_at, end_at')
+        .eq('space_id', spaceId)
+        .is('deleted_at', null)
+        .order('start_at')
+      // Table absente (mise à jour 0003 non lancée) : on ignore simplement
+      if (error) return [] as ImportedEvent[]
+      return data as ImportedEvent[]
+    },
+  })
+}
+
+// Événements de l'emploi du temps (liens ICS + PDF importés), mis en cache 15 minutes
 export function useCalendarEvents() {
   const { spaceId } = useSpace()
   const { data: links = [] } = useCalendarLinks()
   const { data: subjects = [] } = useSubjects()
+  const imported = useImportedEvents()
   const query = useQuery({
     queryKey: ['calendar_events', spaceId, links.map((l) => l.id + l.url).join('|')],
     enabled: links.length > 0,
@@ -97,12 +121,27 @@ export function useCalendarEvents() {
         all.push(...parseIcs(await fetchIcs(l.url), from, to))
         supabase.from('calendar_links').update({ last_synced_at: new Date().toISOString() }).eq('id', l.id).then()
       }
-      return all.sort((a, b) => a.start.getTime() - b.start.getTime())
+      return all
     },
   })
-  const events: CalendarEvent[] = (query.data ?? []).map((e) => {
-    const s = matchSubject(e.title, subjects)
-    return { ...e, subjectId: s?.id ?? null, color: s?.color ?? null }
-  })
-  return { ...query, events, hasLinks: links.length > 0 }
+  const fromPdf: Omit<CalendarEvent, 'subjectId' | 'color'>[] = (imported.data ?? []).map((e) => ({
+    id: e.id,
+    title: e.title,
+    location: e.location,
+    start: new Date(e.start_at),
+    end: new Date(e.end_at),
+    allDay: false,
+  }))
+  const events: CalendarEvent[] = [...(query.data ?? []), ...fromPdf]
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
+    .map((e) => {
+      const s = matchSubject(e.title, subjects)
+      return { ...e, subjectId: s?.id ?? null, color: s?.color ?? null }
+    })
+  return {
+    ...query,
+    isLoading: query.isLoading || imported.isLoading,
+    events,
+    hasLinks: links.length > 0 || fromPdf.length > 0,
+  }
 }

@@ -5,9 +5,10 @@ import { fetchIcs, parseIcs } from '@/lib/calendar'
 import { fmt } from '@/lib/dates'
 import { useCalendarLinks, useInvalidate } from '@/lib/data'
 import { must, supabase } from '@/lib/supabase'
-import { Button, ErrorBox, IconButton, Input } from './ui'
+import { TimetableImport } from './TimetableImport'
+import { Button, ErrorBox, IconButton, Input, Tabs } from './ui'
 
-export function CalendarConnect() {
+function IcsConnect() {
   const { spaceId } = useSpace()
   const { data: links = [] } = useCalendarLinks()
   const invalidate = useInvalidate()
@@ -110,3 +111,23 @@ export function CalendarConnect() {
   )
 }
 
+
+// Deux façons de relier l'emploi du temps : PDF imprimé depuis Outlook (planning de
+// l'école, qu'Outlook ne permet pas de publier) ou lien de calendrier ICS.
+export function CalendarConnect({ onImported }: { onImported?: () => void }) {
+  const [mode, setMode] = useState<'pdf' | 'ics'>('pdf')
+  return (
+    <div className="flex flex-col gap-4">
+      <Tabs
+        label="Méthode"
+        value={mode}
+        onChange={setMode}
+        items={[
+          { value: 'pdf', label: 'Planning de l’école (PDF)' },
+          { value: 'ics', label: 'Lien de calendrier' },
+        ]}
+      />
+      {mode === 'pdf' ? <TimetableImport onImported={onImported} /> : <IcsConnect />}
+    </div>
+  )
+}

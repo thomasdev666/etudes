@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUserId } from '@/context/auth'
+import { useImportedEvents } from './calendar'
 import { useCalendarLinks, useSubjects } from './data'
 import { supabase } from './supabase'
 
@@ -30,11 +31,12 @@ export function useOnboarding() {
   })
   const subjects = useSubjects()
   const links = useCalendarLinks()
+  const imported = useImportedEvents()
 
   const p = settings.data ?? {}
   const ok = (id: string) => !!p.confirmed?.[id] || !!p.skipped?.[id]
   const done: Record<SetupStep, boolean> = {
-    agenda: (links.data?.length ?? 0) > 0 || ok('agenda'),
+    agenda: (links.data?.length ?? 0) > 0 || (imported.data?.length ?? 0) > 0 || ok('agenda'),
     matieres: (subjects.data?.length ?? 0) > 0 && ok('matieres'),
     examens: ok('examens'),
   }
