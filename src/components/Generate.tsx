@@ -287,9 +287,20 @@ export function startQuizJob(start: ReturnType<typeof useJobs>['start'], quiz: Q
 // Fiche de révision : une nouvelle note (le cours ou la note d'origine ne sont jamais modifiés)
 export function useGenerateSheet() {
   const { spaceId } = useSpace()
-  const { start } = useJobs()
+  const { start, find } = useJobs()
   const invalidate = useInvalidate()
-  return async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[] }) => {
+  // Une fiche est déjà en cours de rédaction pour cette source
+  const running = (o: { courseIds?: string[]; noteIds?: string[] }) => {
+    const ids = [...(o.courseIds ?? []), ...(o.noteIds ?? [])]
+    return !!find(
+      (j) =>
+        j.kind === 'sheet' &&
+        (j.status === 'pending' || j.status === 'running') &&
+        [...((j.params.course_ids as string[]) ?? []), ...((j.params.note_ids as string[]) ?? [])].some((id) => ids.includes(id)),
+    )
+  }
+  const generate = async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[] }) => {
+    if (running(o)) throw new Error('Une fiche de révision est déjà en cours pour ce contenu. Attends qu’elle soit terminée.')
     const t = `Fiche — ${o.title}`
     const note = must(
       await supabase
@@ -306,4 +317,5 @@ export function useGenerateSheet() {
     await invalidate('notes')
     return note.id
   }
+  return { generate, running }
 }

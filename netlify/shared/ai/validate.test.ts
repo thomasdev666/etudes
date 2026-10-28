@@ -30,3 +30,11 @@ describe('validation du JSON de QCM', () => {
     expect(() => validateQuiz({ questions: [q()] }, 'truefalse', 1, 1)).toThrow()
   })
 })
+
+describe('carte mentale', () => {
+  it('raccourcit une explication trop longue au lieu de rejeter la carte', async () => {
+    const { nodeValidator } = await import('./index')
+    const root = nodeValidator.parse({ title: 'Place', children: [{ title: 'A', detail: 'x'.repeat(900) }] })
+    expect(root.children![0].detail!.length).toBe(600)
+  })
+})

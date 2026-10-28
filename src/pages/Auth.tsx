@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { useAuth } from '@/context/auth'
 import { supabase } from '@/lib/supabase'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
@@ -15,6 +16,25 @@ const translate = (m: string) =>
   (/rate limit/i.test(m)
     ? 'Trop d’emails envoyés en peu de temps (limite du service d’envoi gratuit). Réessaie dans une heure.'
     : m)
+
+// Champ mot de passe avec un bouton pour l'afficher
+function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="relative">
+      <Input {...props} type={shown ? 'text' : 'password'} className="pr-12" />
+      <button
+        type="button"
+        onClick={() => setShown(!shown)}
+        aria-label={shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        aria-pressed={shown}
+        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-2xl text-muted hover:text-text"
+      >
+        {shown ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+      </button>
+    </div>
+  )
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -80,9 +100,8 @@ export function AuthPage() {
         </Field>
         {mode !== 'reset' && (
           <Field label="Mot de passe" id="password" hint={mode === 'signup' ? '8 caractères minimum' : undefined}>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               minLength={mode === 'signup' ? 8 : undefined}
               required
@@ -135,7 +154,7 @@ export function UpdatePasswordPage() {
       <h1 className="mb-4 text-xl font-semibold">Nouveau mot de passe</h1>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Mot de passe" id="np">
-          <Input id="np" type="password" minLength={8} required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput id="np" minLength={8} required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         <ErrorBox error={error} />
         <Button type="submit" loading={busy}>

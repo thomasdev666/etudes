@@ -24,7 +24,7 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
   const [extracted, setExtracted] = useState<Extracted | null>(null)
   const [readImages, setReadImages] = useState(true)
   const [makeSheet, setMakeSheet] = useState(true)
-  const generateSheet = useGenerateSheet()
+  const sheet = useGenerateSheet()
   const [progress, setProgress] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -125,7 +125,7 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
         )
       }
       // La fiche attend côté serveur que les images soient lues, pour être complète
-      if (makeSheet) await generateSheet({ subjectId, title: title.trim() || 'Cours', courseIds: [course.id] })
+      if (makeSheet) await sheet.generate({ subjectId, title: title.trim() || 'Cours', courseIds: [course.id] })
       await invalidate('courses')
       reset()
       onClose()

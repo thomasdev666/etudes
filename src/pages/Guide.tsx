@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Swatches } from '@/components/Swatches'
 import { TimetableImport } from '@/components/TimetableImport'
-import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner, SubjectDot } from '@/components/ui'
+import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { useCalendarEvents, useImportedEvents } from '@/lib/calendar'
 import { suggestSubjects, type SubjectSuggestion } from '@/lib/calendarSubjects'
@@ -165,37 +165,6 @@ function SubjectsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
   )
 }
 
-function ExamsStep({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
-  const { data: subjects = [] } = useSubjects()
-  const update = useUpdate<Subject>('subjects')
-  return (
-    <div className="flex flex-col gap-4">
-      <ul className="flex flex-col gap-2">
-        {subjects.map((s) => (
-          <li key={s.id} className="flex items-center gap-3">
-            <SubjectDot color={s.color} className="size-3" />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.name}</span>
-            <Input
-              type="date"
-              aria-label={`Date d’examen de ${s.name}`}
-              value={s.exam_date ?? ''}
-              onChange={(e) => update.mutate({ id: s.id, patch: { exam_date: e.target.value || null } })}
-              className="w-44 py-1.5"
-            />
-          </li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="ghost" onClick={onBack}>
-          Retour
-        </Button>
-        <span className="flex-1" />
-        <Button onClick={onDone}>{subjects.some((s) => s.exam_date) ? 'Terminer' : 'Je les ajouterai plus tard'}</Button>
-      </div>
-    </div>
-  )
-}
-
 const TEXTS: Record<SetupStep, { title: string; why: string }> = {
   agenda: {
     title: 'Relie ton emploi du temps',
@@ -204,10 +173,6 @@ const TEXTS: Record<SetupStep, { title: string; why: string }> = {
   matieres: {
     title: 'Vérifie tes matières',
     why: 'Chaque matière regroupe ses cours, notes, QCM, flash cards et cartes mentales. Garde les bonnes et choisis leurs couleurs.',
-  },
-  examens: {
-    title: 'Tes dates d’examen',
-    why: 'Un compte à rebours par matière, et les révisions des examens les plus proches passent en premier. Facultatif.',
   },
 }
 
@@ -253,7 +218,7 @@ export default function GuidePage() {
 
         {step === 'agenda' && (
           <div className="flex flex-col gap-4">
-            <TimetableImport onImported={() => next('confirm')} />
+            <TimetableImport />
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => next('skip')}>
                 Plus tard
@@ -266,7 +231,6 @@ export default function GuidePage() {
           </div>
         )}
         {step === 'matieres' && <SubjectsStep onDone={() => next('confirm')} onBack={() => setIndex(0)} />}
-        {step === 'examens' && <ExamsStep onDone={() => next('confirm')} onBack={() => setIndex(1)} />}
       </Card>
 
       {!ob.available && (

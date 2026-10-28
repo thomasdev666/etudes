@@ -3,9 +3,9 @@ const KEY = 'etudes.theme'
 
 export function readTheme(): Theme {
   try {
-    return (localStorage.getItem(KEY) as Theme) || 'system'
+    return (localStorage.getItem(KEY) as Theme) || 'cream'
   } catch {
-    return 'system'
+    return 'cream'
   }
 }
 

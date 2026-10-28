@@ -5,7 +5,8 @@ import { useSubjects } from './data'
 import { supabase } from './supabase'
 
 // Configuration de départ (assistant), puis présentations en bulles au fil de l'appli
-export type SetupStep = 'agenda' | 'matieres' | 'examens'
+// Les dates d'examen se règlent plus tard, dans chaque matière
+export type SetupStep = 'agenda' | 'matieres'
 export type TourId = 'main' | 'subject' | 'mindmap' | 'note'
 
 type Progress = {
@@ -14,7 +15,7 @@ type Progress = {
   tours?: Partial<Record<TourId, boolean>>
 }
 
-export const SETUP_ORDER: SetupStep[] = ['agenda', 'matieres', 'examens']
+export const SETUP_ORDER: SetupStep[] = ['agenda', 'matieres']
 
 export function useOnboarding() {
   const userId = useUserId()
@@ -37,7 +38,6 @@ export function useOnboarding() {
   const done: Record<SetupStep, boolean> = {
     agenda: (imported.data?.length ?? 0) > 0 || ok('agenda'),
     matieres: (subjects.data?.length ?? 0) > 0 && ok('matieres'),
-    examens: ok('examens'),
   }
 
   async function save(next: Progress) {

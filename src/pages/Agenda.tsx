@@ -10,14 +10,15 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns'
-import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Clock, MapPin, Pencil, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AssignmentForm, STATUS_LABEL } from '@/components/AssignmentForm'
 import { Badge, Button, Card, Checkbox, cx, EmptyState, ErrorBox, IconButton, PageHeader, Tabs } from '@/components/ui'
-import { useCalendarEvents, type CalendarEvent } from '@/lib/calendar'
+import { useToast } from '@/context/toast'
+import { renameCourse, useCalendarEvents, type CalendarEvent } from '@/lib/calendar'
 import { capitalize, countdown, fmt, minutesLabel } from '@/lib/dates'
-import { useAssignments, useSubjectMap, useUpdate, useWorkBlocks } from '@/lib/data'
+import { useAssignments, useInvalidate, useSubjectMap, useSubjects, useUpdate, useWorkBlocks } from '@/lib/data'
 import { dayKey } from '@/lib/planner'
 import type { Assignment, WorkBlock } from '@/lib/types'
 
@@ -47,6 +48,73 @@ function useItems() {
   return { byDay, assignments, cal }
 }
 
+// Nom du cours avec un crayon pour le renommer (partout dans l'emploi du temps)
+function CourseTitle({ title }: { title: string }) {
+  const cal = useCalendarEvents()
+  const { data: subjects = [] } = useSubjects()
+  const invalidate = useInvalidate()
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(title)
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    const to = value.trim()
+    if (!to || to === title) return setEditing(false)
+    setBusy(true)
+    try {
+      await renameCourse(title, to, cal.events, subjects)
+      await invalidate('subjects')
+      await cal.refetch()
+      setEditing(false)
+    } catch (e) {
+      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (editing)
+    return (
+      <form
+        className="flex items-center gap-1"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+      >
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
+          aria-label="Nouveau nom du cours"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-0.5 font-medium"
+        />
+        <IconButton type="submit" label="Enregistrer le nom" className="size-7" disabled={busy}>
+          <Check className="size-4" />
+        </IconButton>
+      </form>
+    )
+  return (
+    <p className="group flex min-w-0 items-center gap-1 font-medium">
+      <span className="truncate">{title}</span>
+      <button
+        type="button"
+        onClick={() => {
+          setValue(title)
+          setEditing(true)
+        }}
+        aria-label={`Renommer le cours ${title}`}
+        title="Renommer ce cours"
+        className="shrink-0 rounded-md p-1 text-muted opacity-60 hover:bg-surface-2 hover:opacity-100 focus-visible:opacity-100"
+      >
+        <Pencil className="size-3.5" />
+      </button>
+    </p>
+  )
+}
+
 function ItemRow({ it, onOpen, compact }: { it: Item; onOpen: (a: Assignment) => void; compact?: boolean }) {
   const subjects = useSubjectMap()
   const updateA = useUpdate<Assignment>('assignments')
@@ -58,7 +126,7 @@ function ItemRow({ it, onOpen, compact }: { it: Item; onOpen: (a: Assignment) =>
       <div className="flex gap-2 rounded-xl px-2 py-1.5 text-sm" style={{ background: it.ev.color ? `${it.ev.color}22` : 'var(--surface-2)' }}>
         <span className="w-1 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
         <div className="min-w-0">
-          <p className={cx('font-medium', compact ? 'line-clamp-2 break-words' : 'truncate')}>{it.ev.title}</p>
+          {compact ? <p className="line-clamp-2 break-words font-medium">{it.ev.title}</p> : <CourseTitle title={it.ev.title} />}
           {!compact && (
             <p className="flex flex-wrap gap-x-2 text-xs text-muted">
               {it.ev.detail && <span className="font-medium text-text/80">{it.ev.detail}</span>}
@@ -188,6 +256,14 @@ export default function AgendaPage() {
         </div>
       )}
 
+      {cal.hasLinks && (view === 'month' || view === 'week') && !cal.events.some((e) => isSameMonth(e.start, cursor)) && (
+        <p className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl bg-accent-soft px-3 py-2 text-sm">
+          <span className="flex-1">Pas encore de cours importés pour {fmt(cursor, 'MMMM')}.</span>
+          <Link to="/parametres#calendrier" className="font-medium text-accent-ink hover:underline">
+            Importer le PDF de {fmt(cursor, 'MMMM')}
+          </Link>
+        </p>
+      )}
       {view === 'day' && <DayView items={byDay.get(dayKey(cursor)) ?? []} onOpen={open} />}
       {view === 'week' && <WeekView cursor={cursor} byDay={byDay} onOpen={open} onAdd={(d) => setForm({ open: true, date: d })} />}
       {view === 'month' && (

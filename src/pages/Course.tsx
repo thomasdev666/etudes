@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { GenerateCardsModal, GenerateMindmapModal, useGenerateSheet } from '@/components/Generate'
 import { GeneratingBar } from '@/components/Mindmaps'
 import { useJobs } from '@/context/jobs'
+import { useToast } from '@/context/toast'
 import { Button, Card, EmptyState, IconButton, Spinner, SubjectChip } from '@/components/ui'
 import { fmt } from '@/lib/dates'
 import { useCourses, useSubjectMap, useTrash } from '@/lib/data'
@@ -18,7 +19,8 @@ export default function CoursePage() {
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
   const { find } = useJobs()
-  const generateSheet = useGenerateSheet()
+  const sheet = useGenerateSheet()
+  const toast = useToast()
   const [sheetBusy, setSheetBusy] = useState(false)
 
   if (isLoading) return <Spinner />
@@ -73,16 +75,19 @@ export default function CoursePage() {
           variant="secondary"
           icon={<FileText className="size-4" />}
           loading={sheetBusy}
+          disabled={sheet.running({ courseIds: [course.id] })}
           onClick={async () => {
             setSheetBusy(true)
             try {
-              await generateSheet({ subjectId: course.subject_id, title: course.title, courseIds: [course.id] })
+              await sheet.generate({ subjectId: course.subject_id, title: course.title, courseIds: [course.id] })
+            } catch (e) {
+              toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
             } finally {
               setSheetBusy(false)
             }
           }}
         >
-          Fiche de révision
+          {sheet.running({ courseIds: [course.id] }) ? 'Fiche en cours…' : 'Fiche de révision'}
         </Button>
       </div>
       {course.status === 'processing' && (

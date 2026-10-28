@@ -1,8 +1,9 @@
 import { FileUp, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSpace } from '@/context/space'
 import { matchSubject, useImportedEvents } from '@/lib/calendar'
 import { SUBJECT_PALETTE } from '@/lib/colors'
+import { addMonths, startOfMonth } from 'date-fns'
 import { capitalize, fmt } from '@/lib/dates'
 import { useInvalidate, useSubjects } from '@/lib/data'
 import { must, supabase } from '@/lib/supabase'
@@ -10,6 +11,7 @@ import { parseTimetable, sessionLabel, type TimetableEvent } from '@/lib/timetab
 import { Swatches } from './Swatches'
 import { Button, cx, ErrorBox } from './ui'
 
+type Parsed = TimetableEvent & { original: string | null }
 type NewSubject = { name: string; color: string; checked: boolean; count: number }
 
 // Import de l'emploi du temps de l'école via un PDF « imprimé » depuis Outlook
@@ -18,15 +20,16 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
   const invalidate = useInvalidate()
   const { data: subjects = [] } = useSubjects()
   const { data: existing = [], refetch } = useImportedEvents()
-  const [events, setEvents] = useState<TimetableEvent[] | null>(null)
+  const [events, setEvents] = useState<Parsed[] | null>(null)
+  const input = useRef<HTMLInputElement>(null)
   const [newSubjects, setNewSubjects] = useState<NewSubject[]>([])
   const [files, setFiles] = useState<string[]>([])
   const [busy, setBusy] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [done, setDone] = useState('')
 
-  async function read(list: FileList | null) {
-    if (!list?.length) return
+  async function read(list: File[]) {
+    if (!list.length) return
     setError(null)
     setDone('')
     setBusy('Lecture du PDF…')
@@ -35,7 +38,11 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
       const all: TimetableEvent[] = []
       for (const f of list) all.push(...parseTimetable(await readPdfText(f)))
       // Un même cours présent dans deux PDF n'est gardé qu'une fois
-      const unique = [...new Map(all.map((e) => [`${e.title}|${e.start.getTime()}`, e])).values()].sort((a, b) => a.start.getTime() - b.start.getTime())
+      // Cours renommés lors d'un import précédent : on garde le nouveau nom
+      const renames = new Map(existing.filter((e) => e.original_title).map((e) => [e.original_title!, e.title]))
+      const unique: Parsed[] = [...new Map(all.map((e) => [`${e.title}|${e.start.getTime()}`, e])).values()]
+        .sort((a, b) => a.start.getTime() - b.start.getTime())
+        .map((e) => (renames.has(e.title) ? { ...e, title: renames.get(e.title)!, original: e.title } : { ...e, original: null }))
       if (!unique.length)
         throw new Error('Aucun cours trouvé dans ce PDF. Vérifie que « Imprimer l’agenda détaillé » était bien coché avant d’enregistrer le PDF.')
 
@@ -51,7 +58,7 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
           .map(([name, count], i) => ({ name, count, color: palette[i % palette.length].hex, checked: count >= 2 || counts.size <= 12 })),
       )
       setEvents(unique)
-      setFiles([...list].map((f) => f.name))
+      setFiles(list.map((f) => f.name))
     } catch (e) {
       setError(e)
       setEvents(null)
@@ -74,6 +81,7 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
       const rows = events.map((e) => ({
         space_id: spaceId,
         title: e.title,
+        original_title: e.original,
         kind: e.kind,
         session: e.session,
         location: e.location,
@@ -83,11 +91,12 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
       let withSessions = true
       for (let i = 0; i < rows.length; i += 500) {
         const batch = rows.slice(i, i + 500)
-        let res = await supabase.from('imported_events').insert(withSessions ? batch : batch.map(({ kind: _k, session: _s, ...r }) => r))
-        // Mise à jour 0004 pas encore lancée : on importe sans le numéro de séance
-        if (res.error && withSessions && /kind|session/.test(res.error.message)) {
+        const basic = batch.map(({ kind: _k, session: _s, original_title: _o, ...r }) => r)
+        let res = await supabase.from('imported_events').insert(withSessions ? batch : basic)
+        // Mises à jour 0004 / 0005 pas encore lancées : on importe sans ces informations
+        if (res.error && withSessions && /kind|session|original_title/.test(res.error.message)) {
           withSessions = false
-          res = await supabase.from('imported_events').insert(batch.map(({ kind: _k, session: _s, ...r }) => r))
+          res = await supabase.from('imported_events').insert(basic)
         }
         must(res)
       }
@@ -114,7 +123,9 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
 
   const range = (list: { start: Date }[]) =>
     list.length ? `du ${fmt(list[0].start, 'd MMM')} au ${fmt(list[list.length - 1].start, 'd MMM yyyy')}` : ''
-  const existingDates = existing.map((e) => ({ start: new Date(e.start_at) }))
+  // Chaque PDF couvre un mois : on montre les mois déjà importés et on propose le suivant
+  const months = [...new Set(existing.map((e) => startOfMonth(new Date(e.start_at)).getTime()))].sort((a, b) => a - b)
+  const nextMonth = months.length ? addMonths(new Date(months[months.length - 1]), 1) : null
   const patch = (name: string, p: Partial<NewSubject>) => setNewSubjects((l) => l.map((s) => (s.name === name ? { ...s, ...p } : s)))
   const withSession = events?.filter((e) => e.session !== null).length ?? 0
 
@@ -142,9 +153,22 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
 
       <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border px-4 py-6 text-center hover:border-accent">
         <FileUp className="size-6 text-muted" aria-hidden />
-        <span className="font-medium">{busy || (files.length ? files.join(', ') : 'Déposer le PDF du planning')}</span>
+        <span className="font-medium">
+          {busy || (files.length && events ? files.join(', ') : nextMonth ? `Déposer le PDF de ${fmt(nextMonth, 'MMMM')}` : 'Déposer le PDF du planning')}
+        </span>
         <span className="text-xs text-muted">Le fichier est lu sur ton appareil ; seuls les cours (titre, séance, horaire, salle) sont enregistrés.</span>
-        <input type="file" accept="application/pdf,.pdf" multiple className="sr-only" onChange={(e) => read(e.target.files)} />
+        <input
+          ref={input}
+          type="file"
+          accept="application/pdf,.pdf"
+          multiple
+          className="sr-only"
+          onChange={(e) => {
+            // Copie avant de vider le champ (pour pouvoir redéposer le même fichier)
+            read([...(e.target.files ?? [])])
+            e.target.value = ''
+          }}
+        />
       </label>
 
       {events && (
@@ -198,21 +222,31 @@ export function TimetableImport({ onImported }: { onImported?: () => void }) {
       <ErrorBox error={error} />
 
       {existing.length > 0 && !events && (
-        <div className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
-          <span className="flex-1">
-            {existing.length} cours importés {range(existingDates)}
-          </span>
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-danger hover:bg-danger-soft"
-            onClick={async () => {
-              if (!confirm('Retirer tous les cours importés depuis un PDF ?')) return
-              await supabase.from('imported_events').delete().eq('space_id', spaceId)
-              await refetch()
-            }}
-          >
-            <Trash2 className="size-4" aria-hidden /> Tout retirer
-          </button>
+        <div className="flex flex-col gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex-1">
+              {existing.length} cours importés · {months.map((m) => fmt(new Date(m), 'MMMM yyyy')).join(', ')}
+            </span>
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-danger hover:bg-danger-soft"
+              onClick={async () => {
+                if (!confirm('Retirer tous les cours importés depuis un PDF ?')) return
+                await supabase.from('imported_events').delete().eq('space_id', spaceId)
+                await refetch()
+              }}
+            >
+              <Trash2 className="size-4" aria-hidden /> Tout retirer
+            </button>
+          </div>
+          {nextMonth && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+              <span className="flex-1 text-muted">Un PDF couvre un seul mois. Le planning de {fmt(nextMonth, 'MMMM')} est disponible ?</span>
+              <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>
+                Ajouter {fmt(nextMonth, 'MMMM')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

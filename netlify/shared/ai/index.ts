@@ -288,10 +288,13 @@ const level = (child: JsonSchema): JsonSchema => ({
 })
 const mindmapSchema = level(level(level(level(leaf))))
 
-const nodeValidator: z.ZodType<MindNode> = z.lazy(() =>
+const clip = (t: string, max: number) => (t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t)
+
+export const nodeValidator: z.ZodType<MindNode, unknown> = z.lazy(() =>
   z.object({
-    title: z.string().trim().min(1).max(200),
-    detail: z.string().trim().max(600).optional(),
+    // Texte trop long : on le raccourcit plutôt que de rejeter toute la carte
+    title: z.string().trim().min(1).transform((t) => clip(t, 200)),
+    detail: z.string().trim().transform((t) => clip(t, 600)).optional(),
     children: z.array(nodeValidator).optional(),
   }),
 )
@@ -302,7 +305,7 @@ export async function generateMindmap(opts: { source: string; title: string }): 
     "Tu construis des cartes mentales de révision détaillées et bien structurées pour des étudiants d'école de commerce.",
     'Racine : le thème du cours. 4 à 8 branches principales qui suivent la logique du cours.',
     'Chaque branche se décompose en sous-notions, puis en détails : définitions, formules (LaTeX entre $...$), exemples, chiffres clés, auteurs, avantages / limites.',
-    'title : 2 à 8 mots. detail : une phrase courte qui explique, seulement si utile.',
+    'title : 2 à 8 mots. detail : une phrase courte (moins de 200 caractères) qui explique, seulement si utile.',
     'Uniquement à partir du contenu fourni, dans sa langue. Couvre tout le contenu.',
   ].join('\n')
   const prompt = `Thème : ${opts.title}\n\n=== CONTENU ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`

@@ -75,7 +75,7 @@ function NoteEditor({ id }: { id: string }) {
   const [versions, setVersions] = useState(false)
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
-  const generateSheet = useGenerateSheet()
+  const sheet = useGenerateSheet()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<unknown>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -298,13 +298,14 @@ function NoteEditor({ id }: { id: string }) {
               </MenuItem>
               <MenuItem
                 icon={<FileText className="size-4" />}
+                disabled={sheet.running({ noteIds: [id] })}
                 onClick={async () => {
                   setMenu(false)
                   await save()
-                  await generateSheet({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id] })
+                  await sheet.generate({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id] }).catch((e) => toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' }))
                 }}
               >
-                Générer une fiche de révision
+                {sheet.running({ noteIds: [id] }) ? 'Fiche en cours de rédaction…' : 'Générer une fiche de révision'}
               </MenuItem>
               <MenuItem
                 icon={<History className="size-4" />}
