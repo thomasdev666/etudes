@@ -4,6 +4,7 @@
 import { describeImages, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
 import { sheetToDoc } from '../shared/sheetDoc'
 import { userClient } from '../shared/supabase'
+import { prepareExam } from '../shared/examPrep'
 import { runTranscription, type TranscriptionState } from '../shared/transcription'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -156,7 +157,17 @@ export default async (req: Request) => {
   })
 
   const run = async () => {
-    if (job.kind === 'transcription') {
+    if (job.kind === 'exam') {
+      const sessionId = (job.params as { session_id: string }).session_id
+      try {
+        await prepareExam(db, sessionId, progress)
+        await db.from('ai_jobs').update({ status: 'done', result: { count: 1, progress: 1 } }).eq('id', job_id)
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        await db.from('exam_sessions').update({ status: 'error', error: message }).eq('id', sessionId)
+        throw e
+      }
+    } else if (job.kind === 'transcription') {
       const recordingId = (job.params as { recording_id: string }).recording_id
       try {
         await db.from('recordings').update({ status: 'transcribing', error: null }).eq('id', recordingId)
@@ -289,6 +300,8 @@ export default async (req: Request) => {
     if (p.output_id) await db.from('note_outputs').update({ status: 'error', error: message }).eq('id', p.output_id).eq('status', 'generating')
     if (p.quiz_id) await db.from('quizzes').update({ status: 'error', error: message }).eq('id', p.quiz_id).neq('status', 'ready')
     if (p.note_id && job.kind === 'sheet') await db.from('notes').delete().eq('id', p.note_id)
+    const sid = (job.params as { session_id?: string }).session_id
+    if (sid && job.kind === 'exam') await db.from('exam_sessions').update({ status: 'error', error: message }).eq('id', sid).eq('status', 'preparing')
     const rid = (job.params as { recording_id?: string }).recording_id
     if (rid) await db.from('recordings').update({ status: 'error', error: message }).eq('id', rid).neq('status', 'done')
     if (p.course_id && job.kind === 'course_images') await db.from('courses').update({ status: 'ready' }).eq('id', p.course_id).eq('status', 'processing')

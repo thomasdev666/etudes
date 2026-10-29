@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, Brain, ListChecks, Network, Plus } from 'lucide-react'
+import { AlertTriangle, BarChart3, Brain, GraduationCap, ListChecks, Network, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { planProgress } from '@/components/Plans'
@@ -102,6 +102,16 @@ export default function ReviewPage() {
           )}
         </Card>
       )}
+
+      <Link to="/entrainements" className="mb-5 block">
+        <Card className="flex items-center gap-4 transition-shadow hover:shadow-md">
+          <GraduationCap className="size-9 shrink-0 text-accent-ink" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg font-bold">Entraînements TAGE MAGE et TOEIC</p>
+            <p className="text-sm text-muted">Sections chronométrées ou examen blanc complet, au format de l’épreuve.</p>
+          </div>
+        </Card>
+      </Link>
 
       <ErrorBox error={error} />
 

@@ -21,6 +21,9 @@ export function estimateSeconds(kind: AiJob['kind'], count = 0) {
       return 75
     case 'sheet':
       return 60
+    case 'exam':
+      // count = nombre de questions
+      return 30 + count * 2
     case 'transcription':
       // count = durée en minutes
       return 40 + count * 12

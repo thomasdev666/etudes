@@ -562,3 +562,111 @@ export async function transcribeAudio(opts: {
 export function transcriptText(segments: Segment[]) {
   return segments.map((x) => `[${clock(x.start)}] ${x.text}`).join('\n\n')
 }
+
+// ---------------------------------------------------------------- Entraînements TAGE MAGE et TOEIC
+
+export type ExamItem = { passage: string; questions: { question: string; choices: string[]; correct_index: number; explanation: string }[] }
+
+const examQuestion: JsonSchema = {
+  type: 'object',
+  properties: {
+    question: { type: 'string' },
+    choices: { type: 'array', items: { type: 'string' } },
+    correct_index: { type: 'integer' },
+    explanation: { type: 'string', description: 'En français : pourquoi la bonne réponse est juste (calcul détaillé si besoin) et pourquoi le piège principal est faux' },
+  },
+  required: ['question', 'choices', 'correct_index', 'explanation'],
+  propertyOrdering: ['question', 'choices', 'correct_index', 'explanation'],
+}
+const examSchema: JsonSchema = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { passage: { type: 'string' }, questions: { type: 'array', items: examQuestion } },
+        required: ['passage', 'questions'],
+        propertyOrdering: ['passage', 'questions'],
+      },
+    },
+  },
+  required: ['items'],
+}
+
+// Génère un lot de questions originales pour une section (jamais de sujet officiel)
+export async function generateExamBatch(opts: {
+  exam: 'tage' | 'toeic'
+  section: { key: string; label: string; choices: number; perPassage?: number; brief: string }
+  count: number
+  fixedChoices?: string[]
+  avoid: string[]
+}): Promise<ExamItem[]> {
+  const { section } = opts
+  const passages = section.perPassage ? Math.max(1, Math.round(opts.count / section.perPassage)) : 0
+  const tage = opts.exam === 'tage'
+  // Les sections où l'exactitude compte le plus utilisent les meilleurs modèles en premier
+  const ai = getAi({ bulk: !tage, budgetMs: 5 * 60_000 })
+  const system = [
+    tage
+      ? 'Tu es un concepteur expérimenté de questions d’entraînement au TAGE MAGE (test d’aptitude aux études de gestion, en français).'
+      : 'You are an experienced writer of TOEIC Listening & Reading practice questions (business English).',
+    'Tu crées des questions ORIGINALES, au niveau et dans le format de l’épreuve réelle. Ne reprends jamais un sujet officiel publié ni une annale.',
+    'Une seule bonne réponse, indiscutable ; les autres sont des pièges plausibles. Vérifie chaque calcul et chaque raisonnement avant de répondre.',
+    'Varie la position de la bonne réponse (correct_index commence à 0) et varie les thèmes.',
+    tage ? 'Tout est en français.' : 'Questions, choix et textes en anglais ; explications en français.',
+    `Chaque question a exactement ${section.choices} choix${opts.fixedChoices ? ', identiques aux choix standard donnés' : ''}, sans lettre devant (pas de « A. »).`,
+  ].join('\n')
+  const prompt = [
+    `Section : ${section.label}.`,
+    `Consigne de la section : ${section.brief}`,
+    passages
+      ? `Crée ${passages} ${tage ? 'textes' : 'documents ou enregistrements'} (passage), chacun suivi d’exactement ${section.perPassage} questions.`
+      : `Crée ${opts.count} questions indépendantes : un seul élément dans items, avec passage vide et ${opts.count} questions.`,
+    section.key === 'part2' ? 'Pour chaque question : passage vide, question = la phrase entendue, choices = les 3 réponses entendues.' : '',
+    opts.fixedChoices ? `Choix standard, dans cet ordre : ${opts.fixedChoices.map((c, i) => `${i + 1}) ${c}`).join(' ; ')}.` : '',
+    opts.avoid.length ? `Évite de reprendre ces sujets déjà utilisés :\n- ${opts.avoid.slice(0, 40).join('\n- ')}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const raw = await ai.generateJson({ system, prompt, schema: examSchema, temperature: 0.8, timeoutMs: 3 * 60_000 })
+  return validateExamBatch(raw, section, opts.fixedChoices)
+}
+
+export function validateExamBatch(raw: unknown, section: { key: string; choices: number; perPassage?: number }, fixedChoices?: string[]): ExamItem[] {
+  const parsed = z
+    .object({
+      items: z.array(
+        z.object({
+          passage: z.string(),
+          questions: z.array(z.object({ question: z.string(), choices: z.array(z.string()), correct_index: z.number().int(), explanation: z.string() })),
+        }),
+      ),
+    })
+    .parse(raw)
+  const items: ExamItem[] = []
+  for (const it of parsed.items) {
+    const qs = it.questions
+      .map((q) => ({
+        question: q.question.trim(),
+        // « A. Texte » → « Texte »
+        choices: fixedChoices ?? q.choices.map((c) => c.trim().replace(/^\(?[A-Ea-e][).:]\s+/, '')),
+        correct_index: q.correct_index,
+        explanation: q.explanation.trim(),
+      }))
+      .filter(
+        (q) =>
+          q.question.length >= 3 &&
+          q.choices.length === section.choices &&
+          q.correct_index >= 0 &&
+          q.correct_index < section.choices &&
+          new Set(q.choices.map((c) => c.toLowerCase())).size === q.choices.length &&
+          q.choices.every((c) => c.length > 0),
+      )
+    // Un texte n'est gardé qu'avec toutes ses questions valides
+    if (section.perPassage ? qs.length === section.perPassage && it.passage.trim().length > 40 : qs.length > 0) items.push({ passage: it.passage.trim(), questions: qs })
+  }
+  if (!items.length) throw new Error('Aucune question valide générée')
+  return items
+}

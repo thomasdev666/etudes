@@ -46,3 +46,33 @@ describe('carte mentale : réponses mal formées', () => {
     expect(unwrapRoot({ title: 'T', branches: [{ title: 'A' }] })).toMatchObject({ children: [{ title: 'A' }] })
   })
 })
+
+describe('entraînements : questions générées', () => {
+  it('nettoie les lettres et écarte les questions mal formées', async () => {
+    const { validateExamBatch } = await import('./index')
+    const items = validateExamBatch(
+      {
+        items: [
+          {
+            passage: '',
+            questions: [
+              { question: 'Combien font 15 % de 80 ?', choices: ['A. 10', 'B. 12', 'C. 14', 'D. 15', 'E. 16'], correct_index: 1, explanation: '0,15 × 80 = 12' },
+              { question: 'Question à 4 choix', choices: ['1', '2', '3', '4'], correct_index: 0, explanation: '' },
+              { question: 'Index hors limites', choices: ['1', '2', '3', '4', '5'], correct_index: 7, explanation: '' },
+            ],
+          },
+        ],
+      },
+      { key: 'calcul', choices: 5 },
+    )
+    expect(items[0].questions).toHaveLength(1)
+    expect(items[0].questions[0].choices[1]).toBe('12')
+  })
+  it('garde un texte seulement avec toutes ses questions', async () => {
+    const { validateExamBatch } = await import('./index')
+    const q = { question: 'Q ?', choices: ['a', 'b', 'c', 'd'], correct_index: 0, explanation: '' }
+    const long = 'Texte suffisamment long pour être un vrai document de travail.'
+    expect(() => validateExamBatch({ items: [{ passage: long, questions: [q, q] }] }, { key: 'part7', choices: 4, perPassage: 3 })).toThrow()
+    expect(validateExamBatch({ items: [{ passage: long, questions: [q, q, q] }] }, { key: 'part7', choices: 4, perPassage: 3 })).toHaveLength(1)
+  })
+})

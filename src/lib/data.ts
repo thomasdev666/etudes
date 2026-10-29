@@ -39,6 +39,7 @@ export type Table =
   | 'ai_jobs'
   | 'recordings'
   | 'resources'
+  | 'exam_sessions'
   | 'spaces'
 
 // Lecture de toutes les lignes actives d'une table dans l'espace courant

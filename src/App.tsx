@@ -15,6 +15,8 @@ import { Onboarding } from './pages/Onboarding'
 const AgendaPage = lazy(() => import('./pages/Agenda'))
 const SearchPage = lazy(() => import('./pages/Search'))
 const StatsPage = lazy(() => import('./pages/Stats'))
+const ExamsPage = lazy(() => import('./pages/Exams'))
+const ExamRunPage = lazy(() => import('./pages/ExamRun'))
 const SubjectsPage = lazy(() => import('./pages/Subjects'))
 const SubjectPage = lazy(() => import('./pages/Subject'))
 const CoursePage = lazy(() => import('./pages/Course'))
@@ -65,6 +67,7 @@ function SpaceGate() {
         {/* Sessions de révision en mode focus, sans navigation */}
         <Route path="/reviser/cartes" element={<FlashcardSession />} />
         <Route path="/qcm/session/:id" element={<QuizSessionPage />} />
+        <Route path="/entrainements/:id" element={<ExamRunPage />} />
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
           <Route path="/agenda" element={<AgendaPage />} />
@@ -79,6 +82,7 @@ function SpaceGate() {
           <Route path="/corbeille" element={<TrashPage />} />
           <Route path="/recherche" element={<SearchPage />} />
           <Route path="/statistiques" element={<StatsPage />} />
+          <Route path="/entrainements" element={<ExamsPage />} />
           <Route path="/cartes-mentales/:id" element={<MindmapPage />} />
           <Route path="/qcm/demarrer/:id" element={<QuizStart />} />
           <Route path="/bienvenue" element={<GuidePage />} />
