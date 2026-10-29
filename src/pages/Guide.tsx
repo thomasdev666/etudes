@@ -10,6 +10,7 @@ import { suggestSubjects, type SubjectSuggestion } from '@/lib/calendarSubjects'
 import { SUBJECT_PALETTE } from '@/lib/colors'
 import { useInvalidate, useSubjects, useTrash, useUpdate } from '@/lib/data'
 import { SETUP_ORDER, useOnboarding, type SetupStep } from '@/lib/onboarding'
+import { useRedeemCode } from '@/lib/plans'
 import { must, supabase } from '@/lib/supabase'
 import type { Subject } from '@/lib/types'
 
@@ -167,10 +168,75 @@ function SubjectsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
   )
 }
 
+// Choix de l'offre à la création du compte : gratuit, code d'accès, ou Premium (paiement bientôt)
+function OfferStep({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+  const redeem = useRedeemCode()
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [info, setInfo] = useState('')
+  const [error, setError] = useState<unknown>(null)
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-2xl border border-border bg-surface p-4">
+        <p className="font-semibold">Gratuit</p>
+        <p className="text-sm text-muted">Les fonctions de base, avec des quotas hebdomadaires. Tu peux passer en Premium plus tard.</p>
+        <Button className="mt-3" onClick={onDone}>
+          Continuer gratuitement
+        </Button>
+      </div>
+      <form
+        className="rounded-2xl border border-border bg-surface p-4"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          setBusy(true)
+          setError(null)
+          try {
+            await redeem(code)
+            setInfo('Premium activé ✨')
+            setTimeout(onDone, 800)
+          } catch (err) {
+            setError(err)
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        <p className="font-semibold">J’ai un code d’accès</p>
+        <div className="mt-2 flex gap-2">
+          <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ton code" aria-label="Code d’accès" className="flex-1" />
+          <Button type="submit" loading={busy} disabled={!code.trim()}>
+            Activer
+          </Button>
+        </div>
+        {info && <p className="mt-2 text-sm text-success">{info}</p>}
+        <div className="mt-2">
+          <ErrorBox error={error} />
+        </div>
+      </form>
+      <div className="rounded-2xl border border-dashed border-border p-4 opacity-80">
+        <p className="font-semibold">Premium · 4,99 € par mois ou 39 € par an</p>
+        <p className="text-sm text-muted">Quotas élevés, transcription de cours, examens blancs complets. Paiement par carte, Apple Pay ou Google Pay : bientôt disponible.</p>
+        <Button className="mt-3" variant="secondary" disabled>
+          Bientôt disponible
+        </Button>
+      </div>
+      <div className="flex justify-start">
+        <Button variant="ghost" onClick={onBack}>
+          Retour
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 const TEXTS: Record<SetupStep, { title: string; why: string }> = {
   agenda: {
     title: 'Relie ton emploi du temps',
     why: 'Tes cours s’affichent dans l’agenda avec la couleur de leur matière, et on s’en sert pour créer tes matières automatiquement.',
+  },
+  offre: {
+    title: 'Ton offre',
+    why: 'Commence gratuitement, ou active directement un code d’accès. Tu pourras changer d’offre à tout moment dans Mon abonnement.',
   },
   matieres: {
     title: 'Vérifie tes matières',
@@ -233,6 +299,7 @@ export default function GuidePage() {
           </div>
         )}
         {step === 'matieres' && <SubjectsStep onDone={() => next('confirm')} onBack={() => setIndex(0)} />}
+        {step === 'offre' && <OfferStep onDone={() => next('confirm')} onBack={() => setIndex(1)} />}
       </Card>
 
       {!ob.available && (

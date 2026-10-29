@@ -380,6 +380,12 @@ export default function SettingsPage() {
         <TimetableImport />
       </Section>
 
+      <Section title="Mon abonnement" description="Ton offre, tes quotas de la semaine et l’accès Premium.">
+        <Link to="/abonnement">
+          <Button variant="secondary">Voir mon abonnement</Button>
+        </Link>
+      </Section>
+
       <Section title="Rappels par email" description="Chaque matin, un email récapitule les devoirs qui arrivent, selon les délais choisis.">
         <ReminderSettings />
       </Section>

@@ -6,6 +6,7 @@ import { jobProgress, useJobs } from '@/context/jobs'
 import { fmt } from '@/lib/dates'
 import { useInvalidate } from '@/lib/data'
 import { scoreSummary, useExamSessions, useStartExam, type ExamSession } from '@/lib/examSession'
+import { usePlan } from '@/lib/plans'
 import { EXAMS, type ExamId, type SectionDef } from '@/lib/exams'
 import { supabase } from '@/lib/supabase'
 import { useFirstTimeTour } from '@/lib/tours'
@@ -103,6 +104,8 @@ function ExamCard({ exam }: { exam: ExamId }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const total = def.sections.reduce((n, s) => n + s.count, 0)
+  const { data: plan } = usePlan()
+  const free = plan === 'free'
 
   return (
     <Card className="flex flex-col gap-4">
@@ -117,6 +120,7 @@ function ExamCard({ exam }: { exam: ExamId }) {
       </div>
       <Button
         data-tour={exam === 'tage' ? 'exam-full' : undefined}
+        disabled={free}
         size="lg"
         icon={<Timer className="size-5" />}
         loading={busy}

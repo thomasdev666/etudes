@@ -2,6 +2,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { useAuth } from '@/context/auth'
 import { supabase } from '@/lib/supabase'
+import { Link } from 'react-router-dom'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
 
 type Mode = 'login' | 'signup' | 'reset'
@@ -59,6 +60,7 @@ export function AuthPage() {
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
+  const [accepted, setAccepted] = useState(false)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -110,9 +112,18 @@ export function AuthPage() {
             />
           </Field>
         )}
+        {mode === 'signup' && (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 size-4 accent-[var(--accent)]" required />
+            <span>
+              J’accepte les <Link to="/cgu" className="text-accent-ink underline">conditions d’utilisation</Link> et la{' '}
+              <Link to="/confidentialite" className="text-accent-ink underline">politique de confidentialité</Link>.
+            </span>
+          </label>
+        )}
         <ErrorBox error={error} />
         {info && <p className="rounded-xl bg-success-soft px-3 py-2 text-sm text-success">{info}</p>}
-        <Button type="submit" loading={busy} className="w-full">
+        <Button type="submit" loading={busy} className="w-full" disabled={mode === 'signup' && !accepted}>
           {mode === 'login' ? 'Se connecter' : mode === 'signup' ? 'Créer mon compte' : 'Envoyer le lien'}
         </Button>
       </form>

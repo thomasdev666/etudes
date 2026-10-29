@@ -1,6 +1,8 @@
 import { AlertTriangle, FileAudio, Loader2, Mic, Pause, Play, RotateCcw, Square, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useUserId } from '@/context/auth'
+import { usePlan } from '@/lib/plans'
 import { jobProgress, useJobs } from '@/context/jobs'
 import { useRecorder, useStartTranscription } from '@/context/recorder'
 import { useSpace } from '@/context/space'
@@ -94,6 +96,8 @@ export function RecorderBar() {
 
 export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClose: () => void; subjectId: string }) {
   const rec = useRecorder()
+  const { data: plan } = usePlan()
+  const free = plan === 'free'
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('fr')
   const busy = rec.status !== 'idle'
@@ -111,7 +115,7 @@ export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClo
           </Button>
           <Button
             icon={<Mic className="size-4" />}
-            disabled={busy}
+            disabled={busy || free}
             onClick={async () => {
               await rec.start({ subjectId, title: title.trim() || defaultTitle, language })
               setTitle('')
@@ -125,6 +129,7 @@ export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClo
     >
       <div className="flex flex-col gap-4">
         {busy && <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">Un enregistrement est déjà en cours.</p>}
+        {free && <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm">La transcription est réservée à l’offre Premium. <Link to="/abonnement" className="font-medium text-accent-ink underline">Voir les offres</Link></p>}
         <Field label="Titre" id="rtitle">
           <Input id="rtitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={defaultTitle} />
         </Field>
@@ -159,6 +164,8 @@ function readDuration(file: File): Promise<number> {
 
 export function AudioImportModal({ open, onClose, subjectId }: { open: boolean; onClose: () => void; subjectId: string }) {
   const { spaceId } = useSpace()
+  const { data: plan } = usePlan()
+  const free = plan === 'free'
   const userId = useUserId()
   const startTranscription = useStartTranscription()
   const [file, setFile] = useState<File | null>(null)
@@ -214,7 +221,7 @@ export function AudioImportModal({ open, onClose, subjectId }: { open: boolean; 
           <Button variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          <Button onClick={send} loading={!!busy} disabled={!file || tooBig}>
+          <Button onClick={send} loading={!!busy} disabled={!file || tooBig || free}>
             {busy || 'Transcrire'}
           </Button>
         </>

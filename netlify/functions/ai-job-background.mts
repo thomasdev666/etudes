@@ -156,7 +156,40 @@ export default async (req: Request) => {
     guard = setTimeout(() => reject(new Error('La génération a pris trop de temps (service IA saturé). Réessaie dans quelques minutes.')), 13 * 60_000)
   })
 
+  // Quotas : vérifiés côté serveur avant toute dépense d'IA (ne pas reconsommer lors d'une reprise)
+  const quotaFor = async (): Promise<{ kind: string; amount: number } | null> => {
+    const p = job.params as Record<string, unknown>
+    switch (job.kind) {
+      case 'quiz':
+        return { kind: 'quiz', amount: 1 }
+      case 'flashcards':
+        return { kind: 'cards', amount: 1 }
+      case 'mindmap':
+        return { kind: 'mindmap', amount: 1 }
+      case 'sheet':
+        return { kind: 'sheet', amount: 1 }
+      case 'course_images':
+        return { kind: 'images', amount: 1 }
+      case 'transcription': {
+        const { data: rec } = await db.from('recordings').select('duration_sec').eq('id', p.recording_id as string).single()
+        return { kind: 'transcription', amount: Math.max(1, Math.ceil((rec?.duration_sec ?? 0) / 60)) }
+      }
+      case 'exam': {
+        const { data: ex } = await db.from('exam_sessions').select('mode').eq('id', p.session_id as string).single()
+        return { kind: ex?.mode === 'full' ? 'exam_full' : 'exam_section', amount: 1 }
+      }
+      default:
+        return null
+    }
+  }
   const run = async () => {
+    if (!resuming) {
+      const q = await quotaFor()
+      if (q) {
+        const { error: qe } = await db.rpc('consume_quota', { p_kind: q.kind, p_amount: q.amount })
+        if (qe) throw new Error(qe.message)
+      }
+    }
     if (job.kind === 'exam') {
       const sessionId = (job.params as { session_id: string }).session_id
       try {

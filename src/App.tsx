@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { RecorderBar } from './components/Recording'
 import { RecorderProvider } from './context/recorder'
@@ -17,6 +17,8 @@ const SearchPage = lazy(() => import('./pages/Search'))
 const StatsPage = lazy(() => import('./pages/Stats'))
 const ExamsPage = lazy(() => import('./pages/Exams'))
 const PlannerPage = lazy(() => import('./pages/Planner'))
+const SubscriptionPage = lazy(() => import('./pages/Subscription'))
+const LegalPage = lazy(() => import('./pages/Legal'))
 const ExamRunPage = lazy(() => import('./pages/ExamRun'))
 const SubjectsPage = lazy(() => import('./pages/Subjects'))
 const SubjectPage = lazy(() => import('./pages/Subject'))
@@ -35,6 +37,14 @@ const GuidePage = lazy(() => import('./pages/Guide'))
 
 export default function App() {
   const { session, loading, recovery } = useAuth()
+  const { pathname } = useLocation()
+  // Pages légales : accessibles sans compte
+  if (['/cgu', '/confidentialite', '/mentions-legales'].includes(pathname))
+    return (
+      <Suspense fallback={<Spinner />}>
+        <LegalPage path={pathname} />
+      </Suspense>
+    )
 
   if (configMissing) {
     return (
@@ -85,6 +95,7 @@ function SpaceGate() {
           <Route path="/statistiques" element={<StatsPage />} />
           <Route path="/entrainements" element={<ExamsPage />} />
           <Route path="/planification" element={<PlannerPage />} />
+          <Route path="/abonnement" element={<SubscriptionPage />} />
           <Route path="/cartes-mentales/:id" element={<MindmapPage />} />
           <Route path="/qcm/demarrer/:id" element={<QuizStart />} />
           <Route path="/bienvenue" element={<GuidePage />} />
