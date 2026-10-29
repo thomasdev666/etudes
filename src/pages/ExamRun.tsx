@@ -10,6 +10,7 @@ import { scoreSummary, sectionSeconds, type ExamQuestion, type ExamSession } fro
 import { EXAMS, sectionOf } from '@/lib/exams'
 import { speak, speechSupported, splitScript, stopSpeaking, type Line } from '@/lib/speech'
 import { must, supabase } from '@/lib/supabase'
+import { useStudyTimer } from '@/lib/studyTimer'
 
 const LETTERS = 'ABCDE'
 const clock = (sec: number) => `${Math.floor(Math.max(0, sec) / 60)}:${String(Math.max(0, sec) % 60).padStart(2, '0')}`
@@ -207,6 +208,7 @@ export default function ExamRunPage() {
   const elapsed = running ? Math.floor((now - new Date(sec!.started_at!).getTime()) / 1000) : 0
   const limited = !!session?.timed && !def?.audio
   const remaining = seconds - elapsed
+  useStudyTimer('exam', null, running)
 
   useEffect(() => {
     if (!running) return

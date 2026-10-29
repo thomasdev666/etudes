@@ -10,7 +10,8 @@ const shuffle = <T,>(a: T[]) => {
   return r
 }
 
-export async function startQuizSession(spaceId: string, quiz: Pick<Quiz, 'id' | 'subject_id'>): Promise<string> {
+// timeLimitSec : mode examen, chrono global pour toute la session
+export async function startQuizSession(spaceId: string, quiz: Pick<Quiz, 'id' | 'subject_id'>, opts: { timeLimitSec?: number } = {}): Promise<string> {
   const qs = must(await supabase.from('quiz_questions').select('id').eq('quiz_id', quiz.id).is('deleted_at', null).order('position')) as {
     id: string
   }[]
@@ -18,9 +19,21 @@ export async function startQuizSession(spaceId: string, quiz: Pick<Quiz, 'id' | 
   const s = must(
     await supabase
       .from('quiz_sessions')
-      .insert({ space_id: spaceId, subject_id: quiz.subject_id, quiz_id: quiz.id, kind: 'quiz', question_ids: qs.map((q) => q.id) })
+      .insert({
+        space_id: spaceId,
+        subject_id: quiz.subject_id,
+        quiz_id: quiz.id,
+        kind: 'quiz',
+        question_ids: qs.map((q) => q.id),
+        ...(opts.timeLimitSec && { time_limit_sec: opts.timeLimitSec }),
+      })
       .select('id')
-      .single(),
+      .single()
+      .then((res) => {
+        if (res.error && /time_limit_sec/.test(res.error.message))
+          return { ...res, error: { ...res.error, message: 'Le mode examen demande la mise à jour 0011_exam_mode_time.sql dans Supabase.' } }
+        return res
+      }),
   ) as { id: string }
   return s.id
 }

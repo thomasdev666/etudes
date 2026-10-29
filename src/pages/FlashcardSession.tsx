@@ -8,6 +8,7 @@ import { celebrate } from '@/lib/confetti'
 import { useInvalidate, useSubjectMap } from '@/lib/data'
 import { GRADE_LABELS, previewLabel, review, type Grade } from '@/lib/sm2'
 import { must, supabase } from '@/lib/supabase'
+import { timerLabel, useStudyTimer } from '@/lib/studyTimer'
 import type { Flashcard } from '@/lib/types'
 
 const SESSION_MAX = 80
@@ -32,6 +33,7 @@ export default function FlashcardSession() {
   const [params] = useSearchParams()
   const subjectId = params.get('matiere')
   const { spaceId } = useSpace()
+  const study = useStudyTimer('cards', subjectId)
   const navigate = useNavigate()
   const invalidate = useInvalidate()
   const subjects = useSubjectMap()
@@ -147,6 +149,9 @@ export default function FlashcardSession() {
           <div className="flex-1">
             <ProgressBar value={stats.total ? (Math.min(stats.reviewed, stats.total) / stats.total) * 100 : 100} color={subject?.color} label="Avancement" />
           </div>
+          <span className="hidden text-xs text-muted sm:inline" title="Temps de travail (pause après 10 minutes sans action)">
+            ⏱ {study.idle ? 'en pause' : timerLabel(study.seconds)}
+          </span>
           <span className="text-sm tabular-nums text-muted">{queue.length} restantes</span>
         </div>
       </header>

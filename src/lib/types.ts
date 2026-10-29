@@ -118,6 +118,8 @@ export type QuizQuestionPublic = {
 export const QUESTION_PUBLIC_COLUMNS = 'id, quiz_id, position, question, choices, notion'
 
 export type QuizSession = Base & {
+  // mode examen : durée totale autorisée (secondes)
+  time_limit_sec?: number | null
   subject_id: string
   quiz_id: string | null
   kind: 'quiz' | 'errors'

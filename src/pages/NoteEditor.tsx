@@ -16,6 +16,7 @@ import { noteToDocx, safeFilename, saveBlob } from '@/lib/exportNote'
 import { noteToPdf } from '@/lib/pdfExport'
 import { signedUrl, STORAGE_PREFIX, uploadNoteFile } from '@/lib/storage'
 import { must, supabase } from '@/lib/supabase'
+import { useStudyTimer } from '@/lib/studyTimer'
 import { useFirstTimeTour } from '@/lib/tours'
 import type { Note, NoteVersion } from '@/lib/types'
 
@@ -76,6 +77,8 @@ function NoteEditor({ id }: { id: string }) {
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
   const sheet = useGenerateSheet()
+  // Temps passé à écrire ou relire la note
+  useStudyTimer('note', subjectId || null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<unknown>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)

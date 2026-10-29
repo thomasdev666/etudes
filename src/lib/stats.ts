@@ -112,3 +112,41 @@ export function durationLabel(ms: number) {
   if (min < 60) return `${min} min`
   return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`
 }
+
+// ---------------------------------------------------------------- Temps mesuré par le chronomètre de session
+
+export type StudyRow = { subject_id: string | null; activity: string; started_at: string; active_seconds: number }
+export type DayStudy = { day: Date; seconds: number; byActivity: Record<string, number> }
+
+// Temps de travail par jour sur les derniers jours (le plus ancien d'abord)
+export function dailyStudy(rows: StudyRow[], days = 14, today = new Date()): DayStudy[] {
+  const first = addDays(startOfDay(today), -(days - 1))
+  const out: DayStudy[] = Array.from({ length: days }, (_, i) => ({ day: addDays(first, i), seconds: 0, byActivity: {} }))
+  for (const r of rows) {
+    const i = Math.floor((startOfDay(new Date(r.started_at)).getTime() - first.getTime()) / 86_400_000)
+    if (i < 0 || i >= days) continue
+    out[i].seconds += r.active_seconds
+    out[i].byActivity[r.activity] = (out[i].byActivity[r.activity] ?? 0) + r.active_seconds
+  }
+  return out
+}
+
+export function studyByKey(rows: StudyRow[], key: 'subject_id' | 'activity', sinceDays?: number, today = new Date()) {
+  const from = sinceDays ? addDays(startOfDay(today), -(sinceDays - 1)).getTime() : 0
+  const out = new Map<string, number>()
+  for (const r of rows) {
+    if (new Date(r.started_at).getTime() < from) continue
+    const k = r[key]
+    if (k) out.set(k, (out.get(k) ?? 0) + r.active_seconds)
+  }
+  return out
+}
+
+export const ACTIVITY_LABEL: Record<string, string> = {
+  quiz: 'QCM',
+  cards: 'Flash cards',
+  exam: 'TAGE MAGE · TOEIC',
+  note: 'Notes',
+  course: 'Lecture des cours',
+  other: 'Autre',
+}

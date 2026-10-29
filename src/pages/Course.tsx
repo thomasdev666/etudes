@@ -10,6 +10,7 @@ import { fmt } from '@/lib/dates'
 import { useCourses, useRecordings, useSubjectMap, useTrash } from '@/lib/data'
 import { RecordingAudio } from '@/components/Recording'
 import { BUCKET, supabase } from '@/lib/supabase'
+import { useStudyTimer } from '@/lib/studyTimer'
 
 export default function CoursePage() {
   const { id = '' } = useParams()
@@ -19,6 +20,7 @@ export default function CoursePage() {
   const trash = useTrash('courses')
   const { data: recordings = [] } = useRecordings()
   const [copied, setCopied] = useState(false)
+  useStudyTimer('course', courses?.find((c) => c.id === id)?.subject_id, !!courses?.some((c) => c.id === id))
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
   const { find } = useJobs()

@@ -2,12 +2,27 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, Clock, Flame, Layers } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Card, EmptyState, ErrorBox, PageHeader, Spinner, SubjectDot } from '@/components/ui'
+import { Button, Card, cx, EmptyState, ErrorBox, PageHeader, Spinner, SubjectDot } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { fmt } from '@/lib/dates'
 import { useFlashcards, useQuizSessions, useQuizzes, useSubjectMap, useSubjects } from '@/lib/data'
 import { startErrorSession } from '@/lib/quiz'
-import { bySubject, durationLabel, recentTime, streak, weakNotions, weeklySuccess, type AnswerRow, type ReviewRow, type WeekPoint } from '@/lib/stats'
+import {
+  ACTIVITY_LABEL,
+  bySubject,
+  dailyStudy,
+  durationLabel,
+  recentTime,
+  streak,
+  studyByKey,
+  weakNotions,
+  weeklySuccess,
+  type AnswerRow,
+  type DayStudy,
+  type ReviewRow,
+  type StudyRow,
+  type WeekPoint,
+} from '@/lib/stats'
 import { supabase } from '@/lib/supabase'
 
 // Lecture complète d'une table (Supabase renvoie au plus 1 000 lignes par requête)
@@ -27,12 +42,14 @@ function useStatsData() {
     queryKey: ['stats', spaceId],
     enabled: !!spaceId,
     queryFn: async () => {
-      const [answers, reviews, questions] = await Promise.all([
+      const [answers, reviews, questions, study] = await Promise.all([
         fetchAll<AnswerRow>('quiz_answers', 'session_id, question_id, is_correct, time_ms, answered_at', spaceId),
         fetchAll<ReviewRow>('flashcard_reviews', 'flashcard_id, grade, duration_ms, reviewed_at', spaceId),
         fetchAll<{ id: string; notion: string }>('quiz_questions', 'id, notion', spaceId),
+        // Temps mesuré par le chronomètre (table absente sans la mise à jour 0011)
+        fetchAll<StudyRow>('study_sessions', 'subject_id, activity, started_at, active_seconds', spaceId).catch(() => [] as StudyRow[]),
       ])
-      return { answers, reviews, questions }
+      return { answers, reviews, questions, study }
     },
   })
 }
@@ -144,6 +161,68 @@ function TrendChart({ points: all }: { points: WeekPoint[] }) {
   )
 }
 
+// Barres du temps de travail par jour (une seule série : le titre la nomme)
+function DailyChart({ days }: { days: DayStudy[] }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const max = Math.max(30 * 60, ...days.map((d) => d.seconds))
+  const H = 140
+  const hd = hover !== null ? days[hover] : null
+  // Repères discrets : toutes les heures (ou la demi-heure si les journées sont courtes)
+  const step = max >= 2 * 3600 ? 3600 : 1800
+  const marks = Array.from({ length: Math.floor(max / step) }, (_, i) => (i + 1) * step).slice(-4)
+  return (
+    <div className="relative pl-10">
+      {marks.map((m) => (
+        <div key={m} className="pointer-events-none absolute left-0 right-0 flex items-center gap-1" style={{ bottom: 18 + 4 + (m / max) * (H - 4) - 6 }} aria-hidden>
+          <span className="w-9 whitespace-nowrap text-right text-[10px] text-muted">{m % 3600 ? `${m / 60} min` : `${m / 3600} h`}</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      ))}
+      <div className="relative flex items-end gap-1 sm:gap-1.5" style={{ height: H }} role="img" aria-label="Temps de travail par jour sur 14 jours" onMouseLeave={() => setHover(null)}>
+        {days.map((d, i) => (
+          <button
+            key={i}
+            type="button"
+            className="flex h-full flex-1 flex-col justify-end"
+            onMouseEnter={() => setHover(i)}
+            onFocus={() => setHover(i)}
+            onClick={() => setHover(i)}
+            aria-label={`${fmt(d.day, 'EEEE d MMMM')} : ${durationLabel(d.seconds * 1000)}`}
+          >
+            <span
+              className={cx('block w-full rounded-t-[4px]', d.seconds ? 'bg-accent' : 'bg-surface-2', hover === i && 'opacity-80')}
+              style={{ height: d.seconds ? Math.max(4, (d.seconds / max) * (H - 4)) : 3 }}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-1 text-center text-[10px] text-muted sm:gap-1.5">
+        {days.map((d, i) => (
+          <span key={i} className="flex-1">
+            {fmt(d.day, 'EEEEE')}
+          </span>
+        ))}
+      </div>
+      {hd && (
+        <div
+          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-xl border border-border bg-surface px-3 py-2 text-xs shadow-lg"
+          style={{ left: `calc(2.5rem + (100% - 2.5rem) * ${(hover! + 0.5) / days.length})` }}
+        >
+          <p className="font-semibold">{capitalizeFirst(fmt(hd.day, 'EEEE d MMMM'))}</p>
+          <p className="text-muted">{hd.seconds ? durationLabel(hd.seconds * 1000) : 'Pas de travail mesuré'}</p>
+          {Object.entries(hd.byActivity).map(([a, sec]) => (
+            <p key={a} className="text-muted">
+              {ACTIVITY_LABEL[a] ?? a} : {durationLabel(sec * 1000)}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const capitalizeFirst = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+
 export default function StatsPage() {
   const { spaceId } = useSpace()
   const navigate = useNavigate()
@@ -161,13 +240,27 @@ export default function StatsPage() {
     const cardSubject = new Map(cards.map((c) => [c.id, c.subject_id]))
     const notionOf = new Map(data.questions.map((q) => [q.id, q.notion]))
     const correct = data.answers.filter((a) => a.is_correct).length
+    // Temps mesuré par le chronomètre de session quand il existe, sinon estimé d'après les réponses
+    const measured = data.study.length > 0
+    const subjectsStats = bySubject(data.answers, data.reviews, sessionSubject, cardSubject)
+    if (measured)
+      for (const [sid, sec] of studyByKey(data.study, 'subject_id')) {
+        const st = subjectsStats.get(sid) ?? { subjectId: sid, correct: 0, total: 0, rate: null, timeMs: 0, cards: 0 }
+        subjectsStats.set(sid, { ...st, timeMs: sec * 1000 })
+      }
     return {
-      streak: streak([...data.answers.map((a) => new Date(a.answered_at)), ...data.reviews.map((r) => new Date(r.reviewed_at))]),
+      streak: streak([
+        ...data.answers.map((a) => new Date(a.answered_at)),
+        ...data.reviews.map((r) => new Date(r.reviewed_at)),
+        ...data.study.filter((x) => x.active_seconds >= 60).map((x) => new Date(x.started_at)),
+      ]),
       rate: data.answers.length ? Math.round((correct / data.answers.length) * 100) : null,
-      week: recentTime(data.answers, data.reviews, 7),
+      week: measured ? [...studyByKey(data.study, 'activity', 7).values()].reduce((n, x) => n + x, 0) * 1000 : recentTime(data.answers, data.reviews, 7),
+      daily: measured ? dailyStudy(data.study, 14) : null,
+      activities: measured ? [...studyByKey(data.study, 'activity', 7).entries()].sort((a, b) => b[1] - a[1]) : [],
       reviews7: data.reviews.filter((r) => Date.now() - new Date(r.reviewed_at).getTime() < 7 * 86_400_000).length,
       trend: weeklySuccess(data.answers, 10),
-      subjects: bySubject(data.answers, data.reviews, sessionSubject, cardSubject),
+      subjects: subjectsStats,
       notions: weakNotions(data.answers, notionOf, sessionSubject, 8),
     }
   }, [data, sessions, cards])
@@ -184,7 +277,7 @@ export default function StatsPage() {
 
   if (isLoading) return <Spinner />
   if (error) return <ErrorBox error={error} />
-  if (!s || (!data!.answers.length && !data!.reviews.length))
+  if (!s || (!data!.answers.length && !data!.reviews.length && !data!.study.length))
     return (
       <>
         <PageHeader title="Statistiques" />
@@ -214,6 +307,24 @@ export default function StatsPage() {
         <Tile icon={<Clock className="size-5" />} value={durationLabel(s.week)} label="de révision ces 7 jours" />
         <Tile icon={<Layers className="size-5" />} value={s.reviews7} label="cartes révisées ces 7 jours" />
       </div>
+
+      {s.daily && (
+        <Card className="mb-5">
+          <h2 className="mb-1 font-semibold">Temps de travail par jour</h2>
+          <p className="mb-3 text-sm text-muted">Mesuré pendant que tu travailles dans l’appli ; le chronomètre se met en pause après 10 minutes sans action.</p>
+          <DailyChart days={s.daily} />
+          {s.activities.length > 0 && (
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <span className="text-muted">Ces 7 jours :</span>
+              {s.activities.map(([a, sec]) => (
+                <span key={a}>
+                  {ACTIVITY_LABEL[a] ?? a} <strong>{durationLabel(sec * 1000)}</strong>
+                </span>
+              ))}
+            </p>
+          )}
+        </Card>
+      )}
 
       {hasTrend && (
         <Card className="mb-5">

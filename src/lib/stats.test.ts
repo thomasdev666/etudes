@@ -52,3 +52,23 @@ describe('par matière et par notion', () => {
     expect(durationLabel(12 * 60_000)).toBe('12 min')
   })
 })
+
+describe('temps mesuré', () => {
+  const rows = [
+    { subject_id: 'fin', activity: 'quiz', started_at: '2026-10-29T09:00:00', active_seconds: 600 },
+    { subject_id: 'fin', activity: 'note', started_at: '2026-10-29T18:00:00', active_seconds: 300 },
+    { subject_id: null, activity: 'exam', started_at: '2026-10-20T18:00:00', active_seconds: 1200 },
+  ]
+  it('additionne le temps par jour et par activité', async () => {
+    const { dailyStudy } = await import('./stats')
+    const d = dailyStudy(rows, 14, today)
+    expect(d.at(-1)!.seconds).toBe(900)
+    expect(d.at(-1)!.byActivity).toEqual({ quiz: 600, note: 300 })
+    expect(d.reduce((n, x) => n + x.seconds, 0)).toBe(2100)
+  })
+  it('regroupe par matière et par activité sur une période', async () => {
+    const { studyByKey } = await import('./stats')
+    expect(studyByKey(rows, 'subject_id').get('fin')).toBe(900)
+    expect(studyByKey(rows, 'activity', 7, today).has('exam')).toBe(false)
+  })
+})

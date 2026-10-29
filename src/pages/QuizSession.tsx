@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, RotateCcw, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, RotateCcw, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Button, Card, cx, ErrorBox, IconButton, ProgressBar, Spinner } from '@/components/ui'
@@ -7,6 +7,7 @@ import { useSpace } from '@/context/space'
 import { celebrate } from '@/lib/confetti'
 import { useInvalidate, useSubjectMap } from '@/lib/data'
 import { startErrorSession, startQuizSession } from '@/lib/quiz'
+import { timerLabel, useStudyTimer } from '@/lib/studyTimer'
 import { must, supabase } from '@/lib/supabase'
 import { QUESTION_PUBLIC_COLUMNS, type Correction, type QuizQuestionPublic, type QuizSession } from '@/lib/types'
 
@@ -39,7 +40,7 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
   async function again() {
     try {
       const id = session.quiz_id
-        ? await startQuizSession(spaceId, { id: session.quiz_id, subject_id: session.subject_id })
+        ? await startQuizSession(spaceId, { id: session.quiz_id, subject_id: session.subject_id }, { timeLimitSec: session.time_limit_sec ?? undefined })
         : await startErrorSession(spaceId, session.subject_id)
       navigate(`/qcm/session/${id}`, { replace: true })
     } catch (e) {
@@ -57,6 +58,13 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
         <p className="mt-1 text-muted">
           {score} bonne{score > 1 ? 's' : ''} réponse{score > 1 ? 's' : ''} sur {corrections.length}
         </p>
+        {session.time_limit_sec && (
+          <p className="mt-1 text-sm text-muted">
+            Mode examen · temps utilisé{' '}
+            {Math.ceil(Math.min(session.time_limit_sec, (new Date(session.finished_at ?? Date.now()).getTime() - new Date(session.started_at).getTime()) / 1000) / 60)} min sur{' '}
+            {Math.round(session.time_limit_sec / 60)}
+          </p>
+        )}
         <div className="mx-auto mt-4 max-w-xs">
           <ProgressBar value={pct} color={pct >= 80 ? 'var(--success)' : subject?.color} label="Score" />
         </div>
@@ -159,6 +167,28 @@ export default function QuizSessionPage() {
     shownAt.current = Date.now()
   }, [data])
 
+  // Temps de travail mesuré (pause automatique après 10 minutes sans action)
+  const study = useStudyTimer('quiz', data?.session.subject_id, !!data && !corrections)
+
+  // Mode examen : chrono global, la session se termine d'elle-même à la fin du temps
+  const limit = data?.session.time_limit_sec ?? null
+  const [now, setNow] = useState(Date.now())
+  const endsAt = limit && data ? new Date(data.session.started_at).getTime() + limit * 1000 : null
+  const remaining = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : null
+  useEffect(() => {
+    if (!endsAt || corrections) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [endsAt, corrections])
+  const timeUp = useRef(false)
+  useEffect(() => {
+    if (remaining === 0 && !corrections && !timeUp.current) {
+      timeUp.current = true
+      finish()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, corrections])
+
   const questions = data?.questions ?? []
   const q = questions[index]
   const current = answers.find((a) => a.question_id === q?.id)
@@ -234,6 +264,20 @@ export default function QuizSessionPage() {
           <div className="min-w-0 flex-1">
             {!corrections && <ProgressBar value={((index + (current ? 1 : 0)) / Math.max(1, questions.length)) * 100} color={subject?.color} label="Avancement" />}
           </div>
+          {!corrections && remaining !== null && (
+            <span
+              className={cx('flex items-center gap-1 rounded-full px-2.5 py-0.5 font-display font-bold tabular-nums', remaining <= 60 ? 'bg-danger-soft text-danger' : 'bg-surface-2')}
+              aria-label={`Temps restant ${Math.floor(remaining / 60)} minutes ${remaining % 60} secondes`}
+            >
+              <Timer className="size-4" aria-hidden />
+              {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+            </span>
+          )}
+          {!corrections && remaining === null && (
+            <span className="hidden text-xs text-muted sm:inline" title="Temps de travail (pause après 10 minutes sans action)">
+              ⏱ {study.idle ? 'en pause' : timerLabel(study.seconds)}
+            </span>
+          )}
           <span className="text-sm tabular-nums text-muted">{corrections ? subject?.name : `${index + 1} / ${questions.length}`}</span>
         </div>
       </header>
@@ -244,6 +288,9 @@ export default function QuizSessionPage() {
         ) : q ? (
           <div key={q.id} className="anim-pop flex flex-col gap-5">
             {data.session.kind === 'errors' && <Badge tone="warning">Révision des erreurs</Badge>}
+            {remaining !== null && index === 0 && !current && (
+              <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-muted">Mode examen : tu peux passer une question et y revenir. À la fin du temps, ta copie est rendue automatiquement.</p>
+            )}
             <h1 className="font-sans text-xl font-semibold leading-snug sm:text-2xl">{q.question}</h1>
             <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Réponses">
               {q.choices.map((c, i) => {
@@ -281,7 +328,7 @@ export default function QuizSessionPage() {
               >
                 Précédente
               </Button>
-              <Button onClick={next} disabled={!current} loading={finishing} icon={index === questions.length - 1 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}>
+              <Button onClick={next} disabled={!current && remaining === null} loading={finishing} icon={index === questions.length - 1 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}>
                 {index === questions.length - 1 ? 'Terminer et voir la correction' : 'Suivante'}
               </Button>
             </div>

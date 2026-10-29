@@ -8,6 +8,7 @@ import { CourseImport } from '@/components/CourseImport'
 import { AudioImportModal, RecordingsPanel, RecordModal } from '@/components/Recording'
 import { ResourcesPanel } from '@/components/Resources'
 import { PlansPanel } from '@/components/Plans'
+import { QuizExamButton } from '@/components/QuizExamMode'
 import { SubjectForm } from '@/components/SubjectForm'
 import { Badge, Button, Card, EmptyState, ErrorBox, IconButton, Spinner, Tabs } from '@/components/ui'
 import { useSpace } from '@/context/space'
@@ -114,9 +115,12 @@ function QuizList({ subjectId }: { subjectId: string }) {
                     <Button icon={<Play className="size-4" />}>Reprendre</Button>
                   </Link>
                 ) : (
-                  <Button icon={done.length ? <RotateCcw className="size-4" /> : <Play className="size-4" />} onClick={() => start(q)}>
-                    {done.length ? 'Refaire' : 'Commencer'}
-                  </Button>
+                  <>
+                    <QuizExamButton quiz={q} />
+                    <Button icon={done.length ? <RotateCcw className="size-4" /> : <Play className="size-4" />} onClick={() => start(q)}>
+                      {done.length ? 'Refaire' : 'Commencer'}
+                    </Button>
+                  </>
                 ))}
               <IconButton label="Supprimer le QCM" onClick={() => trash.mutate(q.id)}>
                 <Trash2 className="size-4" />
