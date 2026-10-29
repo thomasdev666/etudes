@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Layers, ListChecks, Network, NotebookPen, Search as SearchIcon } from 'lucide-react'
+import { BookOpen, Layers, Library, ListChecks, Network, NotebookPen, Search as SearchIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, cx, EmptyState, ErrorBox, PageHeader, Select, Spinner, SubjectChip } from '@/components/ui'
@@ -9,7 +9,7 @@ import { useSubjectMap, useSubjects } from '@/lib/data'
 import { highlight } from '@/lib/search'
 import { supabase } from '@/lib/supabase'
 
-type Kind = 'course' | 'note' | 'sheet' | 'mindmap' | 'quiz' | 'flashcard'
+type Kind = 'course' | 'note' | 'sheet' | 'mindmap' | 'quiz' | 'flashcard' | 'resource'
 type Hit = { kind: Kind; id: string; subject_id: string | null; title: string; snippet: string; updated_at: string }
 
 const KINDS: Record<Kind, { label: string; icon: ReactNode }> = {
@@ -19,6 +19,7 @@ const KINDS: Record<Kind, { label: string; icon: ReactNode }> = {
   mindmap: { label: 'Carte mentale', icon: <Network className="size-4" /> },
   quiz: { label: 'QCM', icon: <ListChecks className="size-4" /> },
   flashcard: { label: 'Flash card', icon: <Layers className="size-4" /> },
+  resource: { label: 'Ressource', icon: <Library className="size-4" /> },
 }
 const FILTERS: { value: Kind | ''; label: string }[] = [
   { value: '', label: 'Tout' },
@@ -27,6 +28,7 @@ const FILTERS: { value: Kind | ''; label: string }[] = [
   { value: 'mindmap', label: 'Cartes mentales' },
   { value: 'quiz', label: 'QCM' },
   { value: 'flashcard', label: 'Flash cards' },
+  { value: 'resource', label: 'Ressources' },
 ]
 
 function linkTo(h: Hit) {
@@ -41,6 +43,8 @@ function linkTo(h: Hit) {
       return `/qcm/demarrer/${h.id}`
     case 'flashcard':
       return h.subject_id ? `/matieres/${h.subject_id}?onglet=cartes` : '/reviser'
+    case 'resource':
+      return h.subject_id ? `/matieres/${h.subject_id}?onglet=ressources` : '/'
     default:
       return h.subject_id ? `/matieres/${h.subject_id}` : '/'
   }
@@ -147,7 +151,7 @@ export default function SearchPage() {
       <ErrorBox error={search.error} />
       {query.length < 2 ? (
         <EmptyState icon={<SearchIcon className="size-8" />} title="Que cherches-tu ?">
-          La recherche porte sur tes cours, notes, fiches, cartes mentales, QCM et flash cards. Les accents ne comptent pas.
+          La recherche porte sur tes cours, transcriptions, notes, fiches, cartes mentales, QCM, flash cards et ressources. Les accents ne comptent pas.
         </EmptyState>
       ) : search.isLoading ? (
         <Spinner />

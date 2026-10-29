@@ -9,7 +9,7 @@ Stack : React + Vite + TypeScript + Tailwind, Supabase (base, authentification, 
 ### 1. Base de données Supabase
 
 1. Ouvrir le projet Supabase, puis **SQL Editor → New query**.
-2. Coller tout le contenu de `supabase/migrations/0001_schema.sql` et cliquer sur **Run**, puis faire de même avec `0002_mindmaps_onboarding.sql`, `0003_imported_events.sql`, `0004_sessions_sheets.sql`, `0005_course_rename.sql`, `0006_search.sql` et `0007_recordings.sql` (relançables sans danger).
+2. Coller tout le contenu de `supabase/migrations/0001_schema.sql` et cliquer sur **Run**, puis faire de même avec `0002_mindmaps_onboarding.sql`, `0003_imported_events.sql`, `0004_sessions_sheets.sql`, `0005_course_rename.sql`, `0006_search.sql`, `0007_recordings.sql` et `0008_resources_reminders.sql` (relançables sans danger).
 3. **Authentication → URL Configuration** :
    - *Site URL* : l'adresse du site (par ex. `https://jadecaruana.fr`).
    - *Redirect URLs* : ajouter `https://jadecaruana.fr/**` et l'adresse Netlify (`https://<nom>.netlify.app/**`).
@@ -32,6 +32,9 @@ Stack : React + Vite + TypeScript + Tailwind, Supabase (base, authentification, 
 | `GEMINI_API_KEY` | clé Gemini (étape 2) |
 | `SUPABASE_SECRET_KEY` | *optionnel* : clé `sb_secret_…` (Supabase → Settings → API Keys), pour effacer de Storage les fichiers purgés |
 | `GEMINI_MODEL` | *optionnel* : modèle Gemini, `gemini-flash-latest` par défaut |
+| `BREVO_SMTP_LOGIN` | *rappels par email* : identifiant SMTP Brevo (`xxxx@smtp-brevo.com`) |
+| `BREVO_SMTP_KEY` | *rappels par email* : clé SMTP Brevo |
+| `MAIL_FROM` | *rappels par email* : expéditeur validé dans Brevo, ex. `Études <adresse@exemple.fr>` |
 
 3. Redéployer. Pour le domaine : **Domain management → Add a domain → jadecaruana.fr**.
 
@@ -57,7 +60,7 @@ src/
   lib/calendar.ts   lecture du calendrier Outlook (ICS) (testée)
 netlify/
   shared/ai/        couche IA unique ; changer de fournisseur = ajouter un fichier à côté de gemini.ts
-  functions/        ai-job-background (génération), ai-subjects, cleanup (tâche quotidienne)
+  functions/        ai-job-background (génération, transcription), ai-subjects, cleanup et reminders (tâches quotidiennes), test-email
 supabase/migrations schéma, RLS, corbeille, purge à 30 jours
 ```
 

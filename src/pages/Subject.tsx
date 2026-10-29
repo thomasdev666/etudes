@@ -6,6 +6,7 @@ import { startQuizJob } from '@/components/Generate'
 import { GeneratingBar, MindmapsPanel } from '@/components/Mindmaps'
 import { CourseImport } from '@/components/CourseImport'
 import { AudioImportModal, RecordingsPanel, RecordModal } from '@/components/Recording'
+import { ResourcesPanel } from '@/components/Resources'
 import { PlansPanel } from '@/components/Plans'
 import { SubjectForm } from '@/components/SubjectForm'
 import { Badge, Button, Card, EmptyState, ErrorBox, IconButton, Spinner, Tabs } from '@/components/ui'
@@ -30,7 +31,7 @@ import { startErrorSession, startQuizSession } from '@/lib/quiz'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
 
-type Tab = 'cours' | 'notes' | 'qcm' | 'cartes' | 'mentales' | 'plans' | 'erreurs'
+type Tab = 'cours' | 'notes' | 'qcm' | 'cartes' | 'mentales' | 'ressources' | 'plans' | 'erreurs'
 
 const DIFF = { easy: 'Facile', medium: 'Moyen', hard: 'Difficile' }
 
@@ -178,7 +179,7 @@ export default function SubjectPage() {
   const { data: cards = [] } = useFlashcards()
   const { data: errors = [] } = useErrorItems()
   const { data: recordings = [] } = useRecordings()
-  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs', 'recordings'])
+  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs', 'recordings', 'resources'])
   const [edit, setEdit] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [recordOpen, setRecordOpen] = useState(false)
@@ -246,6 +247,7 @@ export default function SubjectPage() {
           { value: 'qcm', label: 'QCM' },
           { value: 'cartes', label: 'Flash cards', count: due },
           { value: 'mentales', label: 'Cartes mentales' },
+          { value: 'ressources', label: 'Ressources' },
           { value: 'erreurs', label: 'Erreurs', count: errs },
           { value: 'plans', label: 'Plans' },
         ]}
@@ -317,6 +319,7 @@ export default function SubjectPage() {
         {tab === 'qcm' && <QuizList subjectId={id} />}
         {tab === 'cartes' && <CardsPanel subject={subject} />}
         {tab === 'mentales' && <MindmapsPanel subjectId={id} />}
+        {tab === 'ressources' && <ResourcesPanel subjectId={id} />}
         {tab === 'erreurs' && <ErrorsPanel subjectId={id} />}
         {tab === 'plans' && <PlansPanel subject={subject} />}
       </div>

@@ -39,6 +39,19 @@ export type Recording = Base & {
   error: string | null
 }
 
+export type Resource = Base & {
+  subject_id: string
+  kind: 'link' | 'video' | 'file'
+  title: string
+  description: string
+  url: string | null
+  file_path: string | null
+  file_name: string | null
+  mime: string | null
+  size: number | null
+  content_text: string
+}
+
 export type AssignmentStatus = 'todo' | 'doing' | 'done'
 export type Assignment = Base & {
   subject_id: string | null

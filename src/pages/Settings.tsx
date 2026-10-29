@@ -13,7 +13,7 @@ import { exportEverything } from '@/lib/exportAll'
 import { saveBlob } from '@/lib/exportNote'
 import { useOnboarding } from '@/lib/onboarding'
 import { applyTheme, readTheme, type Theme } from '@/lib/theme'
-import { must, supabase } from '@/lib/supabase'
+import { authHeader, must, supabase } from '@/lib/supabase'
 
 // Que faire de l'audio une fois la transcription terminée (la transcription reste toujours)
 function AudioSetting() {
@@ -43,6 +43,86 @@ function AudioSetting() {
         { value: 'keep', label: 'Garder l’audio' },
       ]}
     />
+  )
+}
+
+const REMIND_DAYS = [
+  { d: 7, label: 'J-7' },
+  { d: 3, label: 'J-3' },
+  { d: 2, label: 'J-2' },
+  { d: 1, label: 'La veille' },
+  { d: 0, label: 'Le jour même' },
+]
+
+// Rappels d'échéances par email (envoyés chaque matin)
+function ReminderSettings() {
+  const userId = useUserId()
+  const qc = useQueryClient()
+  const key = ['user_settings', userId, 'reminders']
+  const [test, setTest] = useState<{ busy?: boolean; ok?: string; error?: unknown }>({})
+  const { data, isError } = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('user_settings').select('notify_email, notify_days').maybeSingle()
+      if (error) throw error
+      return { notify_email: data?.notify_email ?? true, notify_days: (data?.notify_days as number[] | undefined) ?? [3, 1] }
+    },
+    retry: false,
+  })
+  if (isError) return <p className="text-sm text-muted">Lance la mise à jour 0008_resources_reminders.sql dans Supabase pour régler les rappels.</p>
+  if (!data) return null
+  const save = async (patch: Partial<typeof data>) => {
+    const next = { ...data, ...patch }
+    qc.setQueryData(key, next)
+    await supabase.from('user_settings').upsert({ user_id: userId, ...next })
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="flex items-center gap-3">
+        <input type="checkbox" checked={data.notify_email} onChange={(e) => save({ notify_email: e.target.checked })} className="size-5 accent-[var(--accent)]" />
+        <span className="font-medium">M’envoyer un rappel avant chaque échéance</span>
+      </label>
+      {data.notify_email && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quand envoyer les rappels">
+          {REMIND_DAYS.map(({ d, label }) => {
+            const on = data.notify_days.includes(d)
+            return (
+              <button
+                key={d}
+                type="button"
+                aria-pressed={on}
+                onClick={() => save({ notify_days: on ? data.notify_days.filter((x) => x !== d) : [...data.notify_days, d].sort((a, b) => b - a) })}
+                className={`rounded-full border px-3 py-1 text-sm font-medium ${on ? 'border-accent bg-accent-soft text-accent-ink' : 'border-border text-muted hover:bg-surface-2'}`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={test.busy}
+          onClick={async () => {
+            setTest({ busy: true })
+            try {
+              const res = await fetch('/.netlify/functions/test-email', { method: 'POST', headers: await authHeader() })
+              const body = await res.json().catch(() => ({}))
+              if (!res.ok) throw new Error(body.error ?? `Envoi impossible (${res.status})`)
+              setTest({ ok: `Email envoyé à ${body.to}. Regarde aussi dans les spams.` })
+            } catch (e) {
+              setTest({ error: e })
+            }
+          }}
+        >
+          M’envoyer un email de test
+        </Button>
+        {test.ok && <span className="text-sm text-success">{test.ok}</span>}
+      </div>
+      <ErrorBox error={test.error} />
+    </div>
   )
 }
 
@@ -286,6 +366,10 @@ export default function SettingsPage() {
 
       <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda à partir du PDF du planning de l’école.">
         <TimetableImport />
+      </Section>
+
+      <Section title="Rappels par email" description="Chaque matin, un email récapitule les devoirs qui arrivent, selon les délais choisis.">
+        <ReminderSettings />
       </Section>
 
       <Section

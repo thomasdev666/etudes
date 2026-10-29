@@ -14,6 +14,9 @@ const KINDS = [
   { table: 'flashcards', label: 'Flash card', title: 'front' },
   { table: 'study_plans', label: 'Plan', title: 'title' },
   { table: 'plan_items', label: 'Étape de plan', title: 'label' },
+  { table: 'note_outputs', label: 'Carte mentale', title: 'title' },
+  { table: 'recordings', label: 'Enregistrement', title: 'title' },
+  { table: 'resources', label: 'Ressource', title: 'title' },
 ] as const
 
 type Trashed = { table: string; label: string; id: string; title: string; deleted_at: string; subject_id?: string | null }
@@ -29,9 +32,10 @@ export default function TrashPage() {
     queryFn: async () => {
       const out: Trashed[] = []
       for (const k of KINDS) {
-        const rows = must(
-          await supabase.from(k.table).select(`id, ${k.title}, deleted_at`).eq('space_id', spaceId).not('deleted_at', 'is', null),
-        ) as unknown as Record<string, string>[]
+        const res = await supabase.from(k.table).select(`id, ${k.title}, deleted_at`).eq('space_id', spaceId).not('deleted_at', 'is', null)
+        // Table d'une mise à jour pas encore lancée : on l'ignore
+        if (res.error && ['recordings', 'resources'].includes(k.table)) continue
+        const rows = must(res) as unknown as Record<string, string>[]
         out.push(...rows.map((r) => ({ table: k.table, label: k.label, id: r.id, title: r[k.title], deleted_at: r.deleted_at })))
       }
       return out.sort((a, b) => b.deleted_at.localeCompare(a.deleted_at))
