@@ -1,4 +1,4 @@
-import { AlertTriangle, Brain, ListChecks, Network, Plus } from 'lucide-react'
+import { AlertTriangle, BarChart3, Brain, ListChecks, Network, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { planProgress } from '@/components/Plans'
@@ -55,7 +55,17 @@ export default function ReviewPage() {
 
   return (
     <>
-      <PageHeader title="Réviser" subtitle="Rappel actif et répétition espacée : la méthode la plus efficace pour retenir." />
+      <PageHeader
+        title="Réviser"
+        subtitle="Rappel actif et répétition espacée : la méthode la plus efficace pour retenir."
+        actions={
+          <Link to="/statistiques">
+            <Button variant="secondary" icon={<BarChart3 className="size-4" />}>
+              Statistiques
+            </Button>
+          </Link>
+        }
+      />
 
       <Card className="mb-5 flex flex-wrap items-center gap-4 bg-accent-soft">
         <Brain className="size-9 text-accent-ink" aria-hidden />
