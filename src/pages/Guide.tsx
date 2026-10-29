@@ -32,6 +32,8 @@ function SubjectsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
   useEffect(() => {
     if (started.current) return
     if (!cal.hasLinks) {
+      // Une seule fois : sinon la liste est remise à zéro à chaque mise à jour de l'écran
+      started.current = true
       setDrafts([])
       return
     }
