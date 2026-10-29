@@ -222,7 +222,7 @@ export default function AgendaPage() {
         title="Agenda"
         actions={
           <>
-            <Link to="/planification">
+            <Link to="/planification" data-tour="plan-button">
               <Button variant="secondary" icon={<Wand2 className="size-4" />}>
                 Planifier
               </Button>

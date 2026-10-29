@@ -11,6 +11,7 @@ import { buildDays, buildTasks, replacedBlock, useAvailability, type PlanTask } 
 import { schedule } from '@/lib/scheduler'
 import { toHHMM, toMin } from '@/lib/availability'
 import { must, supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 
 const ESTIMATES = [15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480, 600, 720, 900, 1200]
 
@@ -80,6 +81,7 @@ export default function PlannerPage() {
     return { tasks, days, result }
   }, [assignments, subjects, blocks, cal.events, availability, now, overrides, excluded])
 
+  const tour = useFirstTimeTour('planner', !(la || ls || lb || lav))
   if (la || ls || lb || lav) return <Spinner />
   const { tasks, days, result } = plan
   const byId = new Map(tasks.map((t) => [t.id, t]))
@@ -126,12 +128,13 @@ export default function PlannerPage() {
 
   return (
     <div className="pb-24">
+      {tour}
       <PageHeader
         title="Planifier"
         subtitle="Une proposition de séances de travail jusqu’à tes prochaines échéances, dans tes créneaux libres. Rien n’est enregistré sans ta validation."
       />
 
-      <Card className="mb-4">
+      <Card className="mb-4" data-tour="plan-avail">
         <button type="button" onClick={() => setEditAvail(!editAvail)} className="flex w-full items-center gap-3 text-left" aria-expanded={editAvail}>
           <CalendarCheck className="size-5 shrink-0 text-accent-ink" aria-hidden />
           <div className="min-w-0 flex-1">
@@ -162,7 +165,7 @@ export default function PlannerPage() {
       ) : (
         <>
           <h2 className="mb-2 font-semibold">À planifier</h2>
-          <ul className="mb-4 flex flex-col gap-2">
+          <ul className="mb-4 flex flex-col gap-2" data-tour="plan-tasks">
             {tasks.map((t) => (
               <TaskRow
                 key={t.id}
@@ -199,7 +202,7 @@ export default function PlannerPage() {
           })}
 
           <h2 className="mb-2 mt-5 font-semibold">Proposition</h2>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" data-tour="plan-proposal">
             {planned.map((d) => {
               const list = result.blocks.filter((b) => b.day === d.day)
               const load = result.load[d.day] ?? { used: 0, capacity: 0 }
@@ -238,7 +241,7 @@ export default function PlannerPage() {
       )}
 
       {tasks.length > 0 && (
-        <div className="fixed inset-x-0 bottom-16 z-10 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur lg:bottom-0 lg:left-64">
+        <div data-tour="plan-validate" className="fixed inset-x-0 bottom-16 z-10 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur lg:bottom-0 lg:left-64">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2">
             <p className="hidden min-w-0 flex-1 text-sm text-muted sm:block">
               {result.blocks.length} séance{result.blocks.length > 1 ? 's' : ''} proposée{result.blocks.length > 1 ? 's' : ''}

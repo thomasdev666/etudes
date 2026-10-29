@@ -8,6 +8,7 @@ import { useInvalidate } from '@/lib/data'
 import { scoreSummary, useExamSessions, useStartExam, type ExamSession } from '@/lib/examSession'
 import { EXAMS, type ExamId, type SectionDef } from '@/lib/exams'
 import { supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 
 const fullMinutes = (exam: ExamId) => EXAMS[exam].sections.reduce((n, s) => n + s.minutes, 0)
 const hours = (min: number) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}`)
@@ -115,6 +116,7 @@ function ExamCard({ exam }: { exam: ExamId }) {
         </div>
       </div>
       <Button
+        data-tour={exam === 'tage' ? 'exam-full' : undefined}
         size="lg"
         icon={<Timer className="size-5" />}
         loading={busy}
@@ -136,7 +138,7 @@ function ExamCard({ exam }: { exam: ExamId }) {
       <ErrorBox error={error} />
       <div>
         <p className="mb-2 text-sm font-medium text-muted">Ou s’entraîner sur une section :</p>
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-1.5" data-tour={exam === 'tage' ? 'exam-sections' : undefined}>
           {def.sections.map((s) => (
             <li key={s.key}>
               <button type="button" onClick={() => setSection(s)} className="flex w-full items-center gap-3 rounded-xl border border-border px-3 py-2 text-left hover:bg-surface-2">
@@ -205,8 +207,10 @@ function SessionRow({ s }: { s: ExamSession }) {
 
 export default function ExamsPage() {
   const { data: sessions = [], isLoading, error } = useExamSessions()
+  const tour = useFirstTimeTour('exams', !isLoading)
   return (
     <>
+      {tour}
       <PageHeader title="Entraînements" subtitle="TAGE MAGE et TOEIC, dans le format de l’épreuve. Questions originales générées par l’IA, jamais de sujets officiels." />
       {error ? (
         <p className="mb-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">Les entraînements ne sont pas encore installés : lance la mise à jour 0009_exams.sql dans Supabase.</p>
@@ -215,7 +219,9 @@ export default function ExamsPage() {
         <ExamCard exam="tage" />
         <ExamCard exam="toeic" />
       </div>
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Mes épreuves</h2>
+      <h2 className="mb-3 mt-8 text-lg font-semibold" data-tour="exam-history">
+        Mes épreuves
+      </h2>
       {isLoading ? (
         <Spinner />
       ) : !sessions.length ? (

@@ -8,6 +8,7 @@ import { fmt } from '@/lib/dates'
 import { useSubjectMap, useSubjects } from '@/lib/data'
 import { highlight } from '@/lib/search'
 import { supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 
 type Kind = 'course' | 'note' | 'sheet' | 'mindmap' | 'quiz' | 'flashcard' | 'resource'
 type Hit = { kind: Kind; id: string; subject_id: string | null; title: string; snippet: string; updated_at: string }
@@ -78,6 +79,7 @@ export default function SearchPage() {
   const input = useRef<HTMLInputElement>(null)
 
   useEffect(() => input.current?.focus(), [])
+  const tour = useFirstTimeTour('search')
   // On attend une courte pause dans la frappe avant de chercher
   useEffect(() => {
     const t = setTimeout(() => {
@@ -107,8 +109,9 @@ export default function SearchPage() {
 
   return (
     <>
+      {tour}
       <PageHeader title="Rechercher" />
-      <div className="relative mb-3">
+      <div className="relative mb-3" data-tour="search-input">
         <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />
         <input
           ref={input}
@@ -121,7 +124,7 @@ export default function SearchPage() {
         />
       </div>
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Type de contenu">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Type de contenu" data-tour="search-filters">
           {FILTERS.map((f) => (
             <button
               key={f.value}

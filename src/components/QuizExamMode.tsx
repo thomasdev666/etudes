@@ -26,7 +26,7 @@ export function QuizExamButton({ quiz }: { quiz: Quiz }) {
 
   return (
     <>
-      <Button variant="secondary" icon={<Timer className="size-4" />} onClick={() => setOpen(true)}>
+      <Button variant="secondary" icon={<Timer className="size-4" />} onClick={() => setOpen(true)} data-tour="quiz-exam">
         Mode examen
       </Button>
       <Modal

@@ -105,6 +105,7 @@ export function AppShell() {
         <SpaceSwitcher />
         <Link
           to="/recherche"
+          data-tour="nav-search"
           className="flex items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2 text-sm text-muted hover:border-accent"
         >
           <Search className="size-4" aria-hidden />
@@ -131,10 +132,10 @@ export function AppShell() {
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-1">
-          <NavLink to="/entrainements" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
+          <NavLink to="/entrainements" data-tour="nav-exams" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
             <GraduationCap className="size-4" aria-hidden /> TAGE MAGE · TOEIC
           </NavLink>
-          <NavLink to="/statistiques" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
+          <NavLink to="/statistiques" data-tour="nav-stats" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
             <BarChart3 className="size-4" aria-hidden /> Statistiques
           </NavLink>
           <NavLink to="/corbeille" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
@@ -152,10 +153,10 @@ export function AppShell() {
           <div className="min-w-0 flex-1">
             <SpaceSwitcher />
           </div>
-          <NavLink to="/recherche" aria-label="Rechercher" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+          <NavLink to="/recherche" aria-label="Rechercher" data-tour="nav-search" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Search className="size-5" aria-hidden />
           </NavLink>
-          <NavLink to="/statistiques" aria-label="Statistiques" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+          <NavLink to="/statistiques" aria-label="Statistiques" data-tour="nav-stats" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <BarChart3 className="size-5" aria-hidden />
           </NavLink>
           <NavLink to="/parametres" aria-label="Paramètres" data-tour="nav-settings" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">

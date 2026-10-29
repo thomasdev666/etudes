@@ -189,7 +189,7 @@ export function ResourcesPanel({ subjectId }: { subjectId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2" data-tour="res-add">
         <label className={cx('inline-flex h-11 cursor-pointer items-center gap-2 rounded-2xl border border-border bg-surface px-4 font-medium hover:bg-surface-2', busy && 'pointer-events-none opacity-60')}>
           <Paperclip className="size-4" aria-hidden /> {busy || 'Document'}
           <input

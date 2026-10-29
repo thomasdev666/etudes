@@ -7,7 +7,7 @@ import { supabase } from './supabase'
 // Configuration de départ (assistant), puis présentations en bulles au fil de l'appli
 // Les dates d'examen se règlent plus tard, dans chaque matière
 export type SetupStep = 'agenda' | 'matieres'
-export type TourId = 'main' | 'subject' | 'mindmap' | 'note'
+export type TourId = 'main' | 'news' | 'subject' | 'quizzes' | 'course' | 'resources' | 'mindmap' | 'note' | 'planner' | 'exams' | 'stats' | 'search'
 
 type Progress = {
   confirmed?: Partial<Record<string, boolean>>
@@ -54,7 +54,7 @@ export function useOnboarding() {
     tourSeen: (id: TourId) => settings.isError || settings.isLoading || !!p.tours?.[id],
     confirm: (id: SetupStep) => save({ ...p, confirmed: { ...p.confirmed, [id]: true } }),
     skip: (id: SetupStep) => save({ ...p, skipped: { ...p.skipped, [id]: true } }),
-    markTour: (id: TourId) => save({ ...p, tours: { ...p.tours, [id]: true } }),
+    markTour: (...ids: TourId[]) => save({ ...p, tours: { ...p.tours, ...Object.fromEntries(ids.map((i) => [i, true])) } }),
     resetTours: () => save({ ...p, tours: {} }),
   }
 }

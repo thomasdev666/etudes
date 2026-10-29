@@ -43,7 +43,12 @@ export function HomePage() {
   const updateB = useUpdate<WorkBlock>('work_blocks')
   const [form, setForm] = useState(false)
   const onboarding = useOnboarding()
-  const tour = useFirstTimeTour('main', !onboarding.loading && onboarding.setupDone)
+  // Nouveau compte : la présentation complète (qui inclut les nouveautés).
+  // Compte existant qui l'a déjà vue : seulement les nouveautés.
+  const ready = !onboarding.loading && onboarding.setupDone
+  const mainTour = useFirstTimeTour('main', ready, ['news'])
+  const newsTour = useFirstTimeTour('news', ready && onboarding.tourSeen('main'))
+  const tour = mainTour ?? newsTour
 
   const now = new Date()
   const pending = assignments.filter((a) => a.status !== 'done')

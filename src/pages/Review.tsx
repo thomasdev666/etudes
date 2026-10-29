@@ -103,7 +103,7 @@ export default function ReviewPage() {
         </Card>
       )}
 
-      <Link to="/entrainements" className="mb-5 block">
+      <Link to="/entrainements" className="mb-5 block" data-tour="review-exams">
         <Card className="flex items-center gap-4 transition-shadow hover:shadow-md">
           <GraduationCap className="size-9 shrink-0 text-accent-ink" aria-hidden />
           <div className="min-w-0 flex-1">

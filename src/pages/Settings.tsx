@@ -337,7 +337,7 @@ export default function SettingsPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <PageHeader title="Paramètres" />
 
-      <Section title="Présentation" description="Revoir la présentation des fonctionnalités (accueil, matières, cartes mentales, notes).">
+      <Section title="Présentation" description="Revoir la présentation de l’appli et celles de chaque écran (matières, cours, planification, entraînements, statistiques, recherche…).">
         <Button
           variant="secondary"
           onClick={async () => {

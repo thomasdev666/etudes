@@ -24,6 +24,7 @@ import {
   type WeekPoint,
 } from '@/lib/stats'
 import { supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 
 // Lecture complète d'une table (Supabase renvoie au plus 1 000 lignes par requête)
 async function fetchAll<T>(table: string, columns: string, spaceId: string): Promise<T[]> {
@@ -275,6 +276,7 @@ export default function StatsPage() {
       .map((x) => ({ session: x, quiz: quizzes.find((q) => q.id === x.quiz_id) }))
   }, [sessions, quizzes])
 
+  const tour = useFirstTimeTour('stats', !isLoading && !!s && (data!.answers.length > 0 || data!.reviews.length > 0 || data!.study.length > 0))
   if (isLoading) return <Spinner />
   if (error) return <ErrorBox error={error} />
   if (!s || (!data!.answers.length && !data!.reviews.length && !data!.study.length))
@@ -299,9 +301,10 @@ export default function StatsPage() {
 
   return (
     <>
+      {tour}
       <PageHeader title="Statistiques" subtitle="Ta progression, sans pression : l’important, c’est la régularité." />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4" data-tour="stats-tiles">
         <Tile icon={<Flame className="size-5" />} value={`${s.streak} jour${s.streak > 1 ? 's' : ''}`} label="de révision d’affilée" />
         <Tile icon={<CheckCircle2 className="size-5" />} value={s.rate === null ? '—' : `${s.rate} %`} label="de bonnes réponses aux QCM" />
         <Tile icon={<Clock className="size-5" />} value={durationLabel(s.week)} label="de révision ces 7 jours" />
@@ -309,7 +312,7 @@ export default function StatsPage() {
       </div>
 
       {s.daily && (
-        <Card className="mb-5">
+        <Card className="mb-5" data-tour="stats-daily">
           <h2 className="mb-1 font-semibold">Temps de travail par jour</h2>
           <p className="mb-3 text-sm text-muted">Mesuré pendant que tu travailles dans l’appli ; le chronomètre se met en pause après 10 minutes sans action.</p>
           <DailyChart days={s.daily} />
@@ -358,7 +361,7 @@ export default function StatsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Card>
+        <Card data-tour="stats-notions">
           <h2 className="mb-1 flex items-center gap-2 font-semibold">
             <AlertTriangle className="size-4 text-warning" aria-hidden /> Notions à retravailler
           </h2>

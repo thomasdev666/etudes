@@ -10,6 +10,7 @@ import { fmt } from '@/lib/dates'
 import { useCourses, useRecordings, useSubjectMap, useTrash } from '@/lib/data'
 import { RecordingAudio } from '@/components/Recording'
 import { BUCKET, supabase } from '@/lib/supabase'
+import { useFirstTimeTour } from '@/lib/tours'
 import { useStudyTimer } from '@/lib/studyTimer'
 
 export default function CoursePage() {
@@ -28,6 +29,7 @@ export default function CoursePage() {
   const toast = useToast()
   const [sheetBusy, setSheetBusy] = useState(false)
 
+  const tour = useFirstTimeTour('course', !isLoading && !!courses?.some((c) => c.id === id))
   if (isLoading) return <Spinner />
   const course = courses?.find((c) => c.id === id)
   if (!course) return <EmptyState title="Cours introuvable" />
@@ -48,6 +50,7 @@ export default function CoursePage() {
 
   return (
     <>
+      {tour}
       <div className="mb-4 flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           {subject && (
@@ -66,7 +69,7 @@ export default function CoursePage() {
             )}
           </p>
         </div>
-        <IconButton label={copied ? 'Texte copié' : 'Copier le texte'} onClick={copy}>
+        <IconButton label={copied ? 'Texte copié' : 'Copier le texte'} onClick={copy} data-tour="course-copy">
           {copied ? <Check className="size-5 text-success" /> : <Copy className="size-5" />}
         </IconButton>
         {course.file_path && (
@@ -84,7 +87,7 @@ export default function CoursePage() {
           <Trash2 className="size-5" />
         </IconButton>
       </div>
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2" data-tour="course-generate">
         <Link to={`/qcm/nouveau?matiere=${course.subject_id}&cours=${course.id}`}>
           <Button icon={<ListChecks className="size-4" />}>Générer un QCM</Button>
         </Link>

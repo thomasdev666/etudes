@@ -76,7 +76,7 @@ function QuizList({ subjectId }: { subjectId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
-        <Link to={`/qcm/nouveau?matiere=${subjectId}`}>
+        <Link to={`/qcm/nouveau?matiere=${subjectId}`} data-tour="quiz-new">
           <Button icon={<Plus className="size-4" />}>Nouveau QCM</Button>
         </Link>
       </div>
@@ -188,7 +188,10 @@ export default function SubjectPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [recordOpen, setRecordOpen] = useState(false)
   const [audioOpen, setAudioOpen] = useState(false)
-  const tour = useFirstTimeTour('subject', !isLoading && tab === 'cours')
+  const subjectTour = useFirstTimeTour('subject', !isLoading && tab === 'cours')
+  const quizTour = useFirstTimeTour('quizzes', !isLoading && tab === 'qcm')
+  const resourcesTour = useFirstTimeTour('resources', !isLoading && tab === 'ressources')
+  const tour = subjectTour ?? quizTour ?? resourcesTour
 
   if (isLoading) return <Spinner />
   const subject = subjects?.find((s) => s.id === id)
@@ -265,7 +268,7 @@ export default function SubjectPage() {
               <Button variant="secondary" icon={<FileAudio className="size-4" />} onClick={() => setAudioOpen(true)}>
                 Fichier audio
               </Button>
-              <Button variant="secondary" icon={<Mic className="size-4" />} onClick={() => setRecordOpen(true)}>
+              <Button variant="secondary" icon={<Mic className="size-4" />} onClick={() => setRecordOpen(true)} data-tour="record-course">
                 Enregistrer
               </Button>
               <Button data-tour="import-course" icon={<Plus className="size-4" />} onClick={() => setImportOpen(true)}>
