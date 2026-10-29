@@ -37,6 +37,17 @@ function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
+function GoogleLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
+      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.2-2 3.5-5 3.5-8.8z" />
+      <path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.5 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z" />
+      <path fill="#FBBC05" d="M5.4 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.6.4-2.4V6.5H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.5l4-3.1z" />
+      <path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z" />
+    </svg>
+  )
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh items-center justify-center px-4 py-10">
@@ -61,6 +72,23 @@ export function AuthPage() {
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
   const [accepted, setAccepted] = useState(false)
+  const [awaiting, setAwaiting] = useState(false)
+
+  // Connexion avec un compte Google : Supabase renvoie ensuite l'utilisateur ici
+  async function withGoogle() {
+    setError('')
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
+    if (error) setError(translate(error.message))
+  }
+
+  // Après avoir cliqué sur le lien de l'email (souvent sur le téléphone), on se connecte ici
+  async function confirmed() {
+    setError('')
+    setBusy(true)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setBusy(false)
+    if (error) setError(translate(error.message))
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -75,10 +103,10 @@ export function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: `${window.location.origin}/compte-valide` },
         })
         if (error) throw error
-        if (!data.session) setInfo('Compte créé. Clique sur le lien reçu par email pour l’activer, puis connecte-toi.')
+        if (!data.session) setAwaiting(true)
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
         if (error) throw error
@@ -93,9 +121,50 @@ export function AuthPage() {
 
   const titles = { login: 'Connexion', signup: 'Créer un compte', reset: 'Mot de passe oublié' }
 
+  if (awaiting)
+    return (
+      <Shell>
+        <div className="flex flex-col gap-4 text-center">
+          <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-accent-soft text-2xl text-accent-ink" aria-hidden>
+            ✉
+          </span>
+          <h1 className="text-xl font-semibold">Vérifie ta boîte mail</h1>
+          <p className="text-sm text-muted">
+            Nous avons envoyé un lien à <strong className="text-text">{email}</strong>. Ouvre-le, où que tu sois : ton téléphone fait très bien l’affaire.
+          </p>
+          <p className="text-sm text-muted">Une fois le lien ouvert, reviens ici et connecte-toi.</p>
+          <ErrorBox error={error} />
+          <Button className="w-full" loading={busy} onClick={confirmed}>
+            J’ai validé mon compte
+          </Button>
+          <button type="button" className="text-sm text-muted hover:underline" onClick={() => setAwaiting(false)}>
+            Retour
+          </button>
+        </div>
+      </Shell>
+    )
+
   return (
     <Shell>
       <h1 className="mb-4 text-xl font-semibold">{titles[mode]}</h1>
+      {mode !== 'reset' && (
+        <>
+          <Button type="button" variant="secondary" className="w-full" onClick={withGoogle}>
+            <GoogleLogo /> Continuer avec Google
+          </Button>
+          {mode === 'signup' && (
+            <p className="mt-2 text-center text-xs text-muted">
+              En continuant, tu acceptes les <Link to="/cgu" className="underline">conditions d’utilisation</Link> et la{' '}
+              <Link to="/confidentialite" className="underline">politique de confidentialité</Link>.
+            </p>
+          )}
+          <div className="my-4 flex items-center gap-3 text-xs text-muted" aria-hidden>
+            <span className="h-px flex-1 bg-border" />
+            ou avec ton email
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      )}
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" id="email">
           <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -142,6 +211,24 @@ export function AuthPage() {
             J’ai déjà un compte
           </button>
         )}
+      </div>
+    </Shell>
+  )
+}
+
+// Page ouverte depuis le lien de l'email : confirme la validation sur cet appareil
+export function ConfirmedPage() {
+  return (
+    <Shell>
+      <div className="flex flex-col gap-4 text-center">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-success-soft text-2xl text-success" aria-hidden>
+          ✓
+        </span>
+        <h1 className="text-xl font-semibold">Ton compte est validé</h1>
+        <p className="text-sm text-muted">Tu peux fermer cette page. Pour continuer, reviens sur l’appareil où tu as créé ton compte et connecte-toi.</p>
+        <Link to="/" className="text-sm text-accent-ink hover:underline">
+          Ouvrir Études sur cet appareil
+        </Link>
       </div>
     </Shell>
   )

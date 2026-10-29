@@ -8,7 +8,7 @@ import { useAuth } from './context/auth'
 import { JobsProvider } from './context/jobs'
 import { SpaceProvider, useSpace } from './context/space'
 import { configMissing } from './lib/supabase'
-import { AuthPage, UpdatePasswordPage } from './pages/Auth'
+import { AuthPage, ConfirmedPage, UpdatePasswordPage } from './pages/Auth'
 import { HomePage } from './pages/Home'
 import { Onboarding } from './pages/Onboarding'
 
@@ -45,6 +45,8 @@ export default function App() {
         <LegalPage path={pathname} />
       </Suspense>
     )
+
+  if (pathname === '/compte-valide') return <ConfirmedPage />
 
   if (configMissing) {
     return (
