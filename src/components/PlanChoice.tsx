@@ -56,12 +56,12 @@ function Plan({ offer, action, current }: { offer: Offer; action: ReactNode; cur
     <article
       aria-labelledby={`plan-${offer.id}`}
       className={cx(
-        'relative flex flex-col gap-5 rounded-[24px] border p-6 shadow-card motion-safe:transition-transform motion-safe:duration-200 hover:-translate-y-0.5',
+        'relative flex min-w-0 flex-col gap-5 rounded-[24px] border p-6 shadow-card motion-safe:transition-transform motion-safe:duration-200 hover:-translate-y-0.5',
         featured ? 'border-accent bg-gradient-to-b from-accent-soft to-surface ring-4 ring-accent/10' : 'border-border bg-surface',
       )}
     >
       {featured && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-xs font-bold text-white shadow-card">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-accent px-3 py-1 text-xs font-bold text-white shadow-card">
           {offer.highlight} · le plus choisi
         </span>
       )}
@@ -75,8 +75,8 @@ function Plan({ offer, action, current }: { offer: Offer; action: ReactNode; cur
         <h3 id={`plan-${offer.id}`} className="text-lg font-semibold">
           {offer.name}
         </h3>
-        <p className="mt-1 flex items-baseline gap-1.5">
-          <span className="font-display text-4xl font-bold tracking-tight">{offer.price}</span>
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+          <span className="whitespace-nowrap font-display text-4xl font-bold tracking-tight">{offer.price}</span>
           <span className="text-sm text-muted">{offer.unit}</span>
         </p>
         <p className="mt-2 text-sm text-muted">{offer.note}</p>
@@ -103,7 +103,8 @@ export function PlanChoice({ current, freeAction, premiumAction }: { current?: '
     </Button>
   )
   return (
-    <div className="grid grid-cols-1 gap-6 pt-3 md:grid-cols-3 md:items-stretch">
+    <div className="@container pt-3">
+      <div className="mx-auto grid max-w-md grid-cols-1 gap-6 @3xl:max-w-none @3xl:grid-cols-3">
       {OFFERS.map((offer) => (
         <Plan
           key={offer.id}
@@ -112,7 +113,8 @@ export function PlanChoice({ current, freeAction, premiumAction }: { current?: '
           action={offer.id === 'free' ? freeAction ?? null : premiumAction ?? soon}
         />
       ))}
-      <p className="text-center text-xs text-muted md:col-span-3">Paiement par carte, Apple Pay ou Google Pay : disponible prochainement.</p>
+      </div>
+      <p className="mt-4 text-center text-xs text-muted">Paiement par carte, Apple Pay ou Google Pay : disponible prochainement.</p>
     </div>
   )
 }

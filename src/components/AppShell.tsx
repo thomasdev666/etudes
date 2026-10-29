@@ -1,6 +1,6 @@
 import { Logo } from '@/components/Logo'
 import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Trash2 } from 'lucide-react'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useSpace } from '@/context/space'
 import { cx, Spinner } from './ui'
@@ -18,8 +18,23 @@ function SpaceSwitcher() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const active = spaces.filter((s) => !s.archived_at)
+  const box = useRef<HTMLDivElement>(null)
+  // Fermer le menu au clic à côté ou avec Échap
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
   return (
-    <div className="relative" data-tour="space">
+    <div ref={box} className="relative" data-tour="space">
       <button
         type="button"
         onClick={() => setOpen(!open)}
