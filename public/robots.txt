@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /cgu
+Allow: /confidentialite
+Allow: /mentions-legales
+Disallow: /
