@@ -1,6 +1,6 @@
-import { BookOpen, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Settings, Trash2 } from 'lucide-react'
-import { Suspense, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { BookOpen, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Trash2 } from 'lucide-react'
+import { Suspense, useEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useSpace } from '@/context/space'
 import { cx, Spinner } from './ui'
 
@@ -72,7 +72,25 @@ function SpaceSwitcher() {
   )
 }
 
+// Ctrl+K (ou ⌘K), ou « / » hors d'un champ de saisie : ouvre la recherche
+function useSearchShortcut() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement
+      const typing = t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)
+      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !typing)) {
+        e.preventDefault()
+        navigate('/recherche')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navigate])
+}
+
 export function AppShell() {
+  useSearchShortcut()
   return (
     <div className="min-h-dvh lg:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-surface focus:p-2">
@@ -85,6 +103,14 @@ export function AppShell() {
           Études<span className="text-accent">.</span>
         </div>
         <SpaceSwitcher />
+        <Link
+          to="/recherche"
+          className="flex items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2 text-sm text-muted hover:border-accent"
+        >
+          <Search className="size-4" aria-hidden />
+          <span className="flex-1">Rechercher</span>
+          <kbd className="rounded-md border border-border px-1.5 text-[11px]">Ctrl K</kbd>
+        </Link>
         <nav aria-label="Navigation principale" className="flex flex-col gap-1">
           {NAV.map(({ to, label, icon: Icon, end, tour }) => (
             <NavLink
@@ -120,6 +146,9 @@ export function AppShell() {
           <div className="min-w-0 flex-1">
             <SpaceSwitcher />
           </div>
+          <NavLink to="/recherche" aria-label="Rechercher" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+            <Search className="size-5" aria-hidden />
+          </NavLink>
           <NavLink to="/parametres" aria-label="Paramètres" data-tour="nav-settings" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Settings className="size-5" aria-hidden />
           </NavLink>

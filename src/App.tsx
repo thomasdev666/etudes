@@ -11,6 +11,7 @@ import { HomePage } from './pages/Home'
 import { Onboarding } from './pages/Onboarding'
 
 const AgendaPage = lazy(() => import('./pages/Agenda'))
+const SearchPage = lazy(() => import('./pages/Search'))
 const SubjectsPage = lazy(() => import('./pages/Subjects'))
 const SubjectPage = lazy(() => import('./pages/Subject'))
 const CoursePage = lazy(() => import('./pages/Course'))
@@ -72,6 +73,7 @@ function SpaceGate() {
           <Route path="/notes/:id" element={<NoteEditorPage />} />
           <Route path="/parametres" element={<SettingsPage />} />
           <Route path="/corbeille" element={<TrashPage />} />
+          <Route path="/recherche" element={<SearchPage />} />
           <Route path="/cartes-mentales/:id" element={<MindmapPage />} />
           <Route path="/qcm/demarrer/:id" element={<QuizStart />} />
           <Route path="/bienvenue" element={<GuidePage />} />
