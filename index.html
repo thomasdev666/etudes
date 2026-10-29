@@ -15,6 +15,7 @@
     <script>
       try {
         var t = localStorage.getItem('etudes.theme') || 'cream'
+        if (!localStorage.getItem('etudes.theme.v2') && t === 'system') t = 'cream'
         var r = t === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'cream') : t
         if (r !== 'light') document.documentElement.classList.add(r)
       } catch (e) {}

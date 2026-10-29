@@ -152,6 +152,9 @@ export function AppShell() {
           <NavLink to="/recherche" aria-label="Rechercher" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Search className="size-5" aria-hidden />
           </NavLink>
+          <NavLink to="/statistiques" aria-label="Statistiques" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+            <BarChart3 className="size-5" aria-hidden />
+          </NavLink>
           <NavLink to="/parametres" aria-label="Paramètres" data-tour="nav-settings" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Settings className="size-5" aria-hidden />
           </NavLink>

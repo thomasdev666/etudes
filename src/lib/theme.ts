@@ -3,6 +3,12 @@ const KEY = 'etudes.theme'
 
 export function readTheme(): Theme {
   try {
+    // L'ancienne version enregistrait « Automatique » sans que l'utilisateur le choisisse :
+    // on passe une fois au crème, le nouveau thème par défaut
+    if (!localStorage.getItem(KEY + '.v2')) {
+      localStorage.setItem(KEY + '.v2', '1')
+      if (localStorage.getItem(KEY) === 'system') localStorage.setItem(KEY, 'cream')
+    }
     return (localStorage.getItem(KEY) as Theme) || 'cream'
   } catch {
     return 'cream'
