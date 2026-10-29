@@ -1,6 +1,7 @@
 import { CalendarCheck, Check, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { PlanChoice } from '@/components/PlanChoice'
 import { Swatches } from '@/components/Swatches'
 import { TimetableImport } from '@/components/TimetableImport'
 import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner } from '@/components/ui'
@@ -176,16 +177,16 @@ function OfferStep({ onDone, onBack }: { onDone: () => void; onBack: () => void 
   const [info, setInfo] = useState('')
   const [error, setError] = useState<unknown>(null)
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-border bg-surface p-4">
-        <p className="font-semibold">Gratuit</p>
-        <p className="text-sm text-muted">Les fonctions de base, avec des quotas hebdomadaires. Tu peux passer en Premium plus tard.</p>
-        <Button className="mt-3" onClick={onDone}>
-          Continuer gratuitement
-        </Button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PlanChoice
+        freeAction={
+          <Button className="w-full" variant="secondary" onClick={onDone}>
+            Continuer gratuitement
+          </Button>
+        }
+      />
       <form
-        className="rounded-2xl border border-border bg-surface p-4"
+        className="mx-auto flex w-full max-w-md flex-col gap-2 rounded-[24px] border border-dashed border-border bg-surface p-5"
         onSubmit={async (e) => {
           e.preventDefault()
           setBusy(true)
@@ -202,25 +203,16 @@ function OfferStep({ onDone, onBack }: { onDone: () => void; onBack: () => void 
         }}
       >
         <p className="font-semibold">J’ai un code d’accès</p>
-        <div className="mt-2 flex gap-2">
+        <div className="flex gap-2">
           <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ton code" aria-label="Code d’accès" className="flex-1" />
           <Button type="submit" loading={busy} disabled={!code.trim()}>
             Activer
           </Button>
         </div>
-        {info && <p className="mt-2 text-sm text-success">{info}</p>}
-        <div className="mt-2">
-          <ErrorBox error={error} />
-        </div>
+        {info && <p className="text-sm text-success">{info}</p>}
+        <ErrorBox error={error} />
       </form>
-      <div className="rounded-2xl border border-dashed border-border p-4 opacity-80">
-        <p className="font-semibold">Premium · 4,99 € par mois ou 39 € par an</p>
-        <p className="text-sm text-muted">Quotas élevés, transcription de cours, examens blancs complets. Paiement par carte, Apple Pay ou Google Pay : bientôt disponible.</p>
-        <Button className="mt-3" variant="secondary" disabled>
-          Bientôt disponible
-        </Button>
-      </div>
-      <div className="flex justify-start">
+      <div className="flex justify-center">
         <Button variant="ghost" onClick={onBack}>
           Retour
         </Button>

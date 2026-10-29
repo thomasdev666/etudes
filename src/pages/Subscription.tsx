@@ -1,33 +1,9 @@
-import { Check, Lock, Sparkles } from 'lucide-react'
+import { Lock, Sparkles } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { PlanChoice } from '@/components/PlanChoice'
 import { Badge, Button, Card, ErrorBox, Input, PageHeader, ProgressBar, Spinner } from '@/components/ui'
 import { fmt } from '@/lib/dates'
 import { KIND_LABEL, usePlan, useRedeemCode, useUsage } from '@/lib/plans'
-
-const FREE = ['Agenda, devoirs et planification de base', 'Matières, notes, ressources et recherche', 'Flash cards (répétition espacée) sans limite', 'QCM, cartes mentales et fiches : quelques-uns par semaine', 'Entraînements : une section par semaine']
-const PREMIUM = ['Tout le gratuit, avec des quotas bien plus élevés', 'Transcription de tes cours enregistrés', 'Examens blancs TAGE MAGE et TOEIC complets', 'Statistiques détaillées et export complet']
-
-function Offer({ title, price, note, items, action }: { title: string; price: string; note: string; items: string[]; action: React.ReactNode }) {
-  return (
-    <Card className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="font-display text-3xl font-bold">{price}</p>
-        <p className="text-sm text-muted">{note}</p>
-      </div>
-      <ul className="flex flex-col gap-2 text-sm">
-        {items.map((i) => (
-          <li key={i} className="flex gap-2">
-            <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-            <span>{i}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-auto">{action}</div>
-    </Card>
-  )
-}
 
 export default function SubscriptionPage() {
   const { data: plan, isLoading } = usePlan()
@@ -108,44 +84,7 @@ export default function SubscriptionPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Offer
-          title="Gratuit"
-          price="0 €"
-          note="Pour découvrir l’appli"
-          items={FREE}
-          action={
-            <Link to="/parametres">
-              <Button variant="secondary" className="w-full" disabled>
-                {isPremium ? 'Revenir au gratuit' : 'Ton offre actuelle'}
-              </Button>
-            </Link>
-          }
-        />
-        <Offer
-          title="Premium mensuel"
-          price="4,99 €"
-          note="par mois, sans engagement"
-          items={PREMIUM}
-          action={
-            <Button className="w-full" disabled>
-              Bientôt disponible
-            </Button>
-          }
-        />
-        <Offer
-          title="Premium annuel"
-          price="39 €"
-          note="par an, soit environ 3,25 € par mois"
-          items={[...PREMIUM, 'Deux mois offerts par rapport au mensuel']}
-          action={
-            <Button variant="secondary" className="w-full" disabled>
-              Bientôt disponible
-            </Button>
-          }
-        />
-      </div>
-      <p className="text-center text-xs text-muted">Paiement par carte, Apple Pay ou Google Pay : disponible prochainement.</p>
+      <PlanChoice current={isPremium ? 'premium' : 'free'} />
     </div>
   )
 }
