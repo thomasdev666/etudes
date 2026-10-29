@@ -226,7 +226,7 @@ export function ConfirmedPage() {
         <h1 className="text-xl font-semibold">Ton compte est validé</h1>
         <p className="text-sm text-muted">Tu peux fermer cette page. Pour continuer, reviens sur l’appareil où tu as créé ton compte et connecte-toi.</p>
         <Link to="/" className="text-sm text-accent-ink hover:underline">
-          Ouvrir Études sur cet appareil
+          Ouvrir Regulya sur cet appareil
         </Link>
       </div>
     </Shell>

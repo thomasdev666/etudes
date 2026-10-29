@@ -189,7 +189,7 @@ export async function noteToDocx(title: string, json: JSONContent): Promise<Blob
 
   const body = await blocks(json.content)
   const doc = new d.Document({
-    creator: 'Études',
+    creator: 'Regulya',
     title,
     styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
     numbering: {

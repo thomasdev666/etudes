@@ -13,7 +13,7 @@ export const LEGAL: Record<string, Doc> = {
     title: 'Conditions générales d’utilisation',
     updated: '29 octobre 2026',
     sections: [
-      { h: '1. Objet', body: ['Études est une application web d’organisation et de révision destinée aux étudiants. Ces conditions encadrent son utilisation. En créant un compte, tu les acceptes.'] },
+      { h: '1. Objet', body: ['Regulya est une application web d’organisation et de révision destinée aux étudiants. Ces conditions encadrent son utilisation. En créant un compte, tu les acceptes.'] },
       { h: '2. Compte', body: ['Tu dois fournir une adresse email valide et garder ton mot de passe confidentiel. Tu es responsable de l’activité faite depuis ton compte. Un compte est réservé à une personne.'] },
       {
         h: '3. Offres et quotas',
@@ -40,7 +40,7 @@ export const LEGAL: Record<string, Doc> = {
       { h: '6. Bon usage', body: ['Tu t’engages à ne pas contourner les quotas, ne pas automatiser l’usage de l’appli, ne pas tenter d’accéder aux données d’autrui et ne pas perturber le service. Un compte qui abuse peut être suspendu.'] },
       { h: '7. Disponibilité', body: ['Le service est fourni « en l’état ». Nous faisons de notre mieux pour qu’il soit disponible, sans garantie d’absence d’interruption. Les fonctions dépendant de services tiers (IA, email) peuvent être temporairement indisponibles.'] },
       { h: '8. Suppression du compte', body: ['Tu peux demander la suppression de ton compte depuis les Paramètres. Les données sont effacées définitivement 30 jours après la demande. Tu peux exporter tes données avant.'] },
-      { h: '9. Responsabilité', body: ['Études ne remplace pas ton travail personnel ni les cours de ton établissement. Nous ne sommes pas responsables des résultats d’examen.'] },
+      { h: '9. Responsabilité', body: ['Regulya ne remplace pas ton travail personnel ni les cours de ton établissement. Nous ne sommes pas responsables des résultats d’examen.'] },
       { h: '10. Droit applicable', body: ['Ces conditions sont régies par le droit français. En cas de litige, une solution amiable sera recherchée avant toute procédure.'] },
       { h: 'Contact', body: [`${OWNER} · ${CONTACT}`] },
     ],
@@ -83,7 +83,7 @@ export const LEGAL: Record<string, Doc> = {
       { h: 'Durée de conservation', body: ['Tes données sont conservées tant que ton compte existe. À la suppression, elles sont effacées définitivement 30 jours après la demande. Les journaux techniques sont conservés au plus 12 mois.'] },
       { h: 'Tes droits', body: [`Tu peux accéder à tes données, les rectifier, les exporter (archive ZIP depuis les Paramètres), les supprimer, t’opposer à un traitement ou retirer ton consentement. Écris à ${CONTACT}. Tu peux aussi saisir la CNIL (cnil.fr).`] },
       { h: 'Sécurité', body: ['Connexion chiffrée (HTTPS), données chiffrées au repos, accès limité à tes seules données (sécurité au niveau des lignes), réponses aux QCM invisibles avant la fin de la session.'] },
-      { h: 'Cookies', body: ['Études n’utilise pas de cookies publicitaires ni de traceurs de tiers. Seul le stockage local du navigateur est utilisé, pour garder ta session et tes préférences.'] },
+      { h: 'Cookies', body: ['Regulya n’utilise pas de cookies publicitaires ni de traceurs de tiers. Seul le stockage local du navigateur est utilisé, pour garder ta session et tes préférences.'] },
     ],
   },
 }
@@ -94,7 +94,7 @@ export default function LegalPage({ path }: { path: string }) {
   return (
     <div className="mx-auto max-w-2xl px-5 py-8">
       <Link to="/" className="text-sm text-accent-ink hover:underline">
-        ← Retour à Études
+        ← Retour à Regulya
       </Link>
       <h1 className="mt-4 text-3xl font-bold">{doc.title}</h1>
       <p className="mb-6 text-sm text-muted">Dernière mise à jour : {doc.updated}</p>

@@ -19,8 +19,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Études',
-        short_name: 'Études',
+        name: 'Regulya',
+        short_name: 'Regulya',
         description: 'Agenda, révisions, QCM et flash cards pour réussir ses examens',
         lang: 'fr',
         start_url: '/',

@@ -5,7 +5,7 @@ import { useOnboarding, type TourId } from './onboarding'
 export const TOURS: Record<TourId, TourStep[]> = {
   main: [
     {
-      title: 'Bienvenue dans Études ✨',
+      title: 'Bienvenue dans Regulya ✨',
       body: 'Un petit tour de deux minutes pour découvrir comment tout fonctionne. Tu pourras le revoir à tout moment dans Paramètres.',
     },
     {
@@ -71,7 +71,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
   // Pour les comptes qui avaient déjà vu la présentation : les nouveautés seulement
   news: [
     {
-      title: 'Du nouveau dans Études 🎉',
+      title: 'Du nouveau dans Regulya 🎉',
       body: 'Plusieurs fonctionnalités sont arrivées. Petit tour rapide ; chaque nouvel écran aura aussi sa présentation la première fois que tu l’ouvres.',
     },
     {

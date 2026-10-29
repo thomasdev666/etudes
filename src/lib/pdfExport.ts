@@ -75,7 +75,7 @@ export async function noteToPdf(title: string, renderedHtml: string): Promise<Bl
       if (i > 0) pdf.addPage()
       pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', MARGIN, MARGIN, A4.w - 2 * MARGIN, h * mmPerPx)
     }
-    pdf.setProperties({ title, creator: 'Études' })
+    pdf.setProperties({ title, creator: 'Regulya' })
     return pdf.output('blob')
   } finally {
     box.remove()
@@ -90,7 +90,7 @@ export async function elementToPdf(el: HTMLElement, title: string): Promise<Blob
   const h = canvas.height / 2
   const pdf = new jsPDF({ unit: 'px', format: [w + 40, h + 40], orientation: w > h ? 'landscape' : 'portrait', hotfixes: ['px_scaling'] })
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 20, 20, w, h)
-  pdf.setProperties({ title, creator: 'Études' })
+  pdf.setProperties({ title, creator: 'Regulya' })
   return pdf.output('blob')
 }
 

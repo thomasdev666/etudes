@@ -1,12 +1,12 @@
-# Emails d'Études
+# Emails d'Regulya
 
-Tous les emails partagent la même mise en page (fond crème, logo « Études. », bouton corail).
+Tous les emails partagent la même mise en page (fond crème, logo « Regulya. », bouton corail).
 
 | Fichier | Quand il part | Qui l'envoie | Objet à mettre |
 |---|---|---|---|
-| `confirm-signup.html` | Après la création d’un compte | Supabase | Confirme ton adresse pour activer ton compte Études |
-| `reset-password.html` | Quand on clique sur « Mot de passe oublié » | Supabase | Réinitialise ton mot de passe Études |
-| `login-code.html` | Connexion par code reçu par email (« Magic link ») | Supabase | Ton code de connexion Études |
+| `confirm-signup.html` | Après la création d’un compte | Supabase | Confirme ton adresse pour activer ton compte Regulya |
+| `reset-password.html` | Quand on clique sur « Mot de passe oublié » | Supabase | Réinitialise ton mot de passe Regulya |
+| `login-code.html` | Connexion par code reçu par email (« Magic link ») | Supabase | Ton code de connexion Regulya |
 | `reminder-example.html` | Rappels d’échéances, chaque matin | L’appli (Brevo) | Généré automatiquement, rien à coller |
 | `test-email-example.html` | Bouton « M’envoyer un email de test » | L’appli (Brevo) | Généré automatiquement |
 | `account-deletion.html` | Demande de suppression du compte | Pas encore envoyé : l’appli ne l’envoie pas encore | Suppression de ton compte demandée |

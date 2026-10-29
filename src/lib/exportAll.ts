@@ -140,7 +140,7 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
   zip.file(
     'LISEZMOI.txt',
     [
-      'Export complet — Études',
+      'Export complet — Regulya',
       `Créé le ${new Date().toLocaleString('fr')}`,
       '',
       'lisible/       Notes (.html), cours et transcriptions (.txt), cartes mentales (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',

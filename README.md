@@ -1,4 +1,4 @@
-# Études
+# Regulya
 
 Application web installable (PWA) pour organiser ses études et réviser efficacement : agenda des devoirs, matières, cours importés, QCM générés par IA, flash cards à répétition espacée (SM-2), révision des erreurs, plans de révision et prise de notes.
 
@@ -34,7 +34,7 @@ Stack : React + Vite + TypeScript + Tailwind, Supabase (base, authentification, 
 | `GEMINI_MODEL` | *optionnel* : modèle Gemini, `gemini-flash-latest` par défaut |
 | `BREVO_SMTP_LOGIN` | *rappels par email* : identifiant SMTP Brevo (`xxxx@smtp-brevo.com`) |
 | `BREVO_SMTP_KEY` | *rappels par email* : clé SMTP Brevo |
-| `MAIL_FROM` | *rappels par email* : expéditeur validé dans Brevo, ex. `Études <adresse@exemple.fr>` |
+| `MAIL_FROM` | *rappels par email* : expéditeur validé dans Brevo, ex. `Regulya <adresse@exemple.fr>` |
 
 3. Redéployer. Pour le domaine : **Domain management → Add a domain → jadecaruana.fr**.
 

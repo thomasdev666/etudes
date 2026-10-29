@@ -1,4 +1,4 @@
-// Mise en page commune de tous les emails d'Études.
+// Mise en page commune de tous les emails d'Regulya.
 // Tables et styles en ligne : compatible avec Gmail, Outlook, Apple Mail et les téléphones.
 // Utilisé par les rappels (Brevo) et, via les fichiers de supabase/email-templates, par les emails d'authentification.
 
@@ -58,7 +58,7 @@ export function emailLayout(preheader: string, b: EmailBlock): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg};">
 <tr><td align="center" style="padding:32px 14px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-<tr><td style="padding:0 4px 18px;font:bold 28px ${FONT};color:${C.ink};">Études<span style="color:${C.accent};">.</span></td></tr>
+<tr><td style="padding:0 4px 18px;font:bold 28px ${FONT};color:${C.ink};">Regulya<span style="color:${C.accent};">.</span></td></tr>
 <tr><td style="background:${C.card};border:1px solid ${C.line};border-radius:18px;padding:28px 26px 24px;">
 <h1 style="margin:0 0 14px;font:bold 22px/1.3 ${FONT};color:${C.ink};">${b.heading}</h1>
 ${paragraphs}
@@ -68,8 +68,8 @@ ${btn}
 ${foot}
 </td></tr>
 <tr><td style="padding:18px 6px 0;font:12px/1.6 ${FONT};color:${C.muted};">
-Études · Organise tes cours, révise mieux, réussis tes examens.<br>
-Tu reçois cet email parce que tu as un compte Études.
+Regulya · Organise tes cours, révise mieux, réussis tes examens.<br>
+Tu reçois cet email parce que tu as un compte Regulya.
 </td></tr>
 </table>
 </td></tr>
