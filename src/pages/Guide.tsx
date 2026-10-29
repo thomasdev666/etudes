@@ -170,7 +170,7 @@ function SubjectsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
 }
 
 // Choix de l'offre à la création du compte : gratuit, code d'accès, ou Premium (paiement bientôt)
-function OfferStep({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+export function OfferStep({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const redeem = useRedeemCode()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -212,11 +212,13 @@ function OfferStep({ onDone, onBack }: { onDone: () => void; onBack: () => void 
         {info && <p className="text-sm text-success">{info}</p>}
         <ErrorBox error={error} />
       </form>
-      <div className="flex justify-center">
-        <Button variant="ghost" onClick={onBack}>
-          Retour
-        </Button>
-      </div>
+      {onBack && (
+        <div className="flex justify-center">
+          <Button variant="ghost" onClick={onBack}>
+            Retour
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

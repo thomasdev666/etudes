@@ -1,13 +1,32 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
+import { OfferStep } from '@/pages/Guide'
 import { supabase } from '@/lib/supabase'
 
 export function Onboarding() {
   const qc = useQueryClient()
+  const [step, setStep] = useState<'offre' | 'espace'>('offre')
   const [name, setName] = useState('TBS')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Premier écran après l'inscription : choisir son offre avant de créer l'espace
+  if (step === 'offre')
+    return (
+      <div className="flex min-h-dvh items-start justify-center px-4 py-10">
+        <div className="w-full max-w-4xl">
+          <div className="mb-6 text-center">
+            <h1 className="font-display text-2xl font-bold">Choisis ton offre</h1>
+            <p className="mt-1 text-muted">Tu pourras changer à tout moment, dans Paramètres.</p>
+          </div>
+          <OfferStep onDone={() => setStep('espace')} />
+          <button type="button" onClick={() => supabase.auth.signOut()} className="mt-6 w-full text-center text-sm text-muted hover:underline">
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    )
 
   async function submit(e: FormEvent) {
     e.preventDefault()
