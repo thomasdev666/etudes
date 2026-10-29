@@ -4,7 +4,9 @@ import { useSpace } from '@/context/space'
 import { useCalendarEvents } from '@/lib/calendar'
 import { fmt, minutesLabel, toLocalInput } from '@/lib/dates'
 import { useAssignments, useInsert, useInvalidate, useSubjects, useTrash, useUpdate, useWorkBlocks } from '@/lib/data'
+import { dayCapacity, freeSlots, weekdayIndex } from '@/lib/availability'
 import { dayKey, proposePlan, type PlanProposal } from '@/lib/planner'
+import { useAvailability } from '@/lib/planning'
 import { must, supabase } from '@/lib/supabase'
 import type { Assignment, AssignmentStatus } from '@/lib/types'
 import { Button, ErrorBox, Field, IconButton, Input, Modal, Select, Tabs, Textarea } from './ui'
@@ -38,6 +40,7 @@ function PlanEditor({ assignment, onDone }: { assignment: Assignment; onDone: ()
   const { data: blocks = [] } = useWorkBlocks()
   const { events } = useCalendarEvents()
   const invalidate = useInvalidate()
+  const { availability } = useAvailability()
   const [proposal, setProposal] = useState<PlanProposal>([])
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -45,16 +48,20 @@ function PlanEditor({ assignment, onDone }: { assignment: Assignment; onDone: ()
   useEffect(() => {
     const busyMinutes: Record<string, number> = {}
     for (const b of blocks) if (b.assignment_id !== assignment.id && !b.done) busyMinutes[b.day] = (busyMinutes[b.day] ?? 0) + b.minutes
-    // Les journées très chargées en cours laissent moins de temps de travail perso
-    const classes: Record<string, number> = {}
-    for (const e of events) if (!e.allDay) classes[dayKey(e.start)] = (classes[dayKey(e.start)] ?? 0) + (e.end.getTime() - e.start.getTime()) / 60_000
-    for (const [d, m] of Object.entries(classes)) busyMinutes[d] = (busyMinutes[d] ?? 0) + Math.max(0, m - 300)
+    // Temps disponible chaque jour : créneaux libres de la plage choisie, hors cours
+    const classes = events.filter((e) => !e.allDay)
+    const now = new Date()
+    const capacity = (day: string) => {
+      const d = new Date(`${day}T00:00:00`)
+      return dayCapacity(freeSlots(d, availability, classes, now), availability.days[weekdayIndex(d)].minutes)
+    }
     setProposal(
       proposePlan({
         totalMinutes: assignment.estimated_minutes ?? 60,
         today: new Date(),
         dueAt: new Date(assignment.due_at),
         dailyBudget: getDailyBudget(),
+        capacity,
         busyMinutes,
       }),
     )

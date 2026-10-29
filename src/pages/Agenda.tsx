@@ -10,7 +10,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns'
-import { Check, ChevronLeft, ChevronRight, Clock, MapPin, Pencil, Plus } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Clock, MapPin, Pencil, Plus, Wand2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AssignmentForm, STATUS_LABEL } from '@/components/AssignmentForm'
@@ -41,7 +41,7 @@ function useItems() {
     for (const ev of cal.events) add(dayKey(ev.start), { kind: 'event', at: ev.start, ev })
     for (const a of assignments) add(dayKey(new Date(a.due_at)), { kind: 'assignment', at: new Date(a.due_at), a })
     for (const b of blocks)
-      add(b.day, { kind: 'block', at: new Date(b.day + 'T00:00:00'), b, a: assignments.find((x) => x.id === b.assignment_id) })
+      add(b.day, { kind: 'block', at: new Date(`${b.day}T${b.start_time ?? '00:00:00'}`), b, a: assignments.find((x) => x.id === b.assignment_id) })
     for (const list of m.values()) list.sort((x, y) => x.at.getTime() - y.at.getTime())
     return m
   }, [assignments, blocks, cal.events])
@@ -115,6 +115,8 @@ function CourseTitle({ title }: { title: string }) {
   )
 }
 
+const blockTitle = (it: Extract<Item, { kind: 'block' }>) => (it.b.kind === 'revision' ? (it.b.title ?? 'Révisions') : (it.a?.title ?? 'Séance'))
+
 function ItemRow({ it, onOpen, compact }: { it: Item; onOpen: (a: Assignment) => void; compact?: boolean }) {
   const subjects = useSubjectMap()
   const updateA = useUpdate<Assignment>('assignments')
@@ -176,13 +178,20 @@ function ItemRow({ it, onOpen, compact }: { it: Item; onOpen: (a: Assignment) =>
     )
   }
 
-  const s = it.a?.subject_id ? subjects.get(it.a.subject_id) : undefined
+  const sid = it.a?.subject_id ?? it.b.subject_id
+  const s = sid ? subjects.get(sid) : undefined
+  const time = it.b.start_time ? `${it.b.start_time.slice(0, 5).replace(':', 'h')} · ` : ''
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-dashed border-border px-2 py-1.5">
+    <div className="flex items-center gap-2 rounded-xl border border-dashed px-2 py-1.5" style={{ borderColor: s?.color ?? 'var(--border)' }}>
       {!compact && <Checkbox checked={it.b.done} color={s?.color} label="Séance faite" onChange={(done) => updateB.mutate({ id: it.b.id, patch: { done } })} />}
       <button type="button" onClick={() => it.a && onOpen(it.a)} className="min-w-0 flex-1 text-left">
-        <p className={cx('text-sm', compact ? 'line-clamp-2 break-words' : 'truncate', it.b.done && 'text-muted line-through')}>⏱ {it.a?.title ?? 'Séance'}{compact && ` · ${minutesLabel(it.b.minutes)}`}</p>
-        {!compact && <p className="text-xs text-muted">{minutesLabel(it.b.minutes)} de travail</p>}
+        <p className={cx('text-sm', compact ? 'line-clamp-2 break-words' : 'truncate', it.b.done && 'text-muted line-through')}>⏱ {blockTitle(it)}{compact && ` · ${time}${minutesLabel(it.b.minutes)}`}</p>
+        {!compact && (
+          <p className="text-xs text-muted">
+            {time}
+            {minutesLabel(it.b.minutes)} de {it.b.kind === 'revision' ? 'révision' : 'travail'}
+          </p>
+        )}
       </button>
     </div>
   )
@@ -212,9 +221,16 @@ export default function AgendaPage() {
       <PageHeader
         title="Agenda"
         actions={
-          <Button icon={<Plus className="size-4" />} onClick={() => setForm({ open: true, date: view === 'day' ? cursor : undefined })}>
-            Devoir
-          </Button>
+          <>
+            <Link to="/planification">
+              <Button variant="secondary" icon={<Wand2 className="size-4" />}>
+                Planifier
+              </Button>
+            </Link>
+            <Button icon={<Plus className="size-4" />} onClick={() => setForm({ open: true, date: view === 'day' ? cursor : undefined })}>
+              Devoir
+            </Button>
+          </>
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -330,13 +346,13 @@ function MonthView({ cursor, byDay, onPick }: { cursor: Date; byDay: Map<string,
       ? (it.ev.color ?? 'var(--muted)')
       : it.kind === 'assignment'
         ? (it.a.subject_id && subjects.get(it.a.subject_id)?.color) || 'var(--accent)'
-        : 'var(--border)'
+        : ((it.a?.subject_id ?? it.b.subject_id) && subjects.get((it.a?.subject_id ?? it.b.subject_id)!)?.color) || 'var(--border)'
   const label = (it: Item) =>
     it.kind === 'event'
       ? `${it.ev.title}${it.ev.detail ? ` · ${it.ev.detail.replace(' n°', ' ')}` : ''}`
       : it.kind === 'assignment'
         ? `📌 ${it.a.title}`
-        : `⏱ ${it.a?.title ?? 'Séance'}`
+        : `⏱ ${blockTitle(it)}`
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="grid grid-cols-7 border-b border-border text-center text-xs font-semibold text-muted">

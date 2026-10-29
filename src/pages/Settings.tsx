@@ -2,7 +2,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, ArchiveRestore, Coffee, Download, LogOut, Monitor, Moon, Pencil, Sun, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getDailyBudget, setDailyBudget } from '@/components/AssignmentForm'
+import { AvailabilityEditor } from '@/components/AvailabilityEditor'
+import { useAvailability } from '@/lib/planning'
 import { TimetableImport } from '@/components/TimetableImport'
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Tabs } from '@/components/ui'
 import { useAuth, useUserId } from '@/context/auth'
@@ -122,6 +123,18 @@ function ReminderSettings() {
         {test.ok && <span className="text-sm text-success">{test.ok}</span>}
       </div>
       <ErrorBox error={test.error} />
+    </div>
+  )
+}
+
+function PlanningSettings() {
+  const { availability, save } = useAvailability()
+  return (
+    <div className="flex flex-col gap-4">
+      <AvailabilityEditor value={availability} onChange={save} />
+      <Link to="/planification">
+        <Button variant="secondary">Planifier mes séances</Button>
+      </Link>
     </div>
   )
 }
@@ -310,7 +323,6 @@ function Account() {
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>(readTheme)
-  const [budget, setBudget] = useState(getDailyBudget())
   const [exporting, setExporting] = useState('')
   const [exportError, setExportError] = useState<unknown>(null)
   const onboarding = useOnboarding()
@@ -379,22 +391,8 @@ export default function SettingsPage() {
         <AudioSetting />
       </Section>
 
-      <Section title="Planification" description="Temps de travail personnel visé par jour, utilisé pour répartir les devoirs.">
-        <Field label={`${budget} minutes par jour`} id="budget">
-          <input
-            id="budget"
-            type="range"
-            min={30}
-            max={360}
-            step={15}
-            value={budget}
-            onChange={(e) => {
-              setBudget(Number(e.target.value))
-              setDailyBudget(Number(e.target.value))
-            }}
-            className="w-full accent-[var(--accent)]"
-          />
-        </Field>
+      <Section id="disponibilites" title="Disponibilités" description="Temps de travail personnel par jour et plage horaire : le planificateur y place tes séances, en dehors de tes cours.">
+        <PlanningSettings />
       </Section>
 
       <Section title="Données" description="Export complet en archive ZIP, lisible sans l’application. Fais-en un chaque semaine pour être tranquille.">

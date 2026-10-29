@@ -15,6 +15,8 @@ export type Subject = Base & {
   keywords: string[]
   exam_date: string | null
   position: number
+  // temps de révision visé avant l'examen (minutes)
+  revision_minutes?: number | null
 }
 
 export type Course = Base & {
@@ -63,7 +65,18 @@ export type Assignment = Base & {
   done_at: string | null
 }
 
-export type WorkBlock = Base & { assignment_id: string; day: string; minutes: number; done: boolean }
+export type WorkBlock = Base & {
+  assignment_id: string | null
+  kind?: 'assignment' | 'revision'
+  // révision d'examen : matière concernée
+  subject_id?: string | null
+  // heure de début (HH:MM:SS), quand la séance a été placée dans un créneau
+  start_time?: string | null
+  title?: string | null
+  day: string
+  minutes: number
+  done: boolean
+}
 
 export type StudyPlan = Base & { subject_id: string; title: string; color: string | null }
 export type PlanItem = Base & { plan_id: string; label: string; done: boolean; position: number }

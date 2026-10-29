@@ -9,6 +9,8 @@ export type PlannerInput = {
   today: Date
   dueAt: Date
   dailyBudget: number // minutes de travail personnel visées par jour
+  // temps de travail possible un jour donné (créneaux libres) ; remplace dailyBudget
+  capacity?: (day: string) => number
   busyMinutes: Record<string, number> // minutes déjà prévues par jour (yyyy-mm-dd)
   sessionMax?: number
   sessionMin?: number
@@ -30,7 +32,8 @@ export function proposePlan(input: PlannerInput): PlanProposal {
   const days: { day: string; free: number }[] = []
   for (const d = new Date(start); d <= last; d.setDate(d.getDate() + 1)) {
     const key = dayKey(d)
-    days.push({ day: key, free: Math.max(0, input.dailyBudget - (input.busyMinutes[key] ?? 0)) })
+    const target = input.capacity ? input.capacity(key) : input.dailyBudget
+    days.push({ day: key, free: Math.max(0, target - (input.busyMinutes[key] ?? 0)) })
   }
   if (!days.length || input.totalMinutes <= 0) return []
 

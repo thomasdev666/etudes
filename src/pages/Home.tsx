@@ -49,7 +49,7 @@ export function HomePage() {
   const pending = assignments.filter((a) => a.status !== 'done')
   const upcoming = pending.slice(0, 5)
   const todayAssignments = assignments.filter((a) => isSameDay(new Date(a.due_at), now))
-  const todayBlocks = blocks.filter((b) => b.day === dayKey(now))
+  const todayBlocks = blocks.filter((b) => b.day === dayKey(now)).sort((x, y) => (x.start_time ?? '99').localeCompare(y.start_time ?? '99'))
   const due = cards.filter((c) => new Date(c.due_at) <= now).length
   const openErrors = errors.filter((e) => !e.resolved_at).length
   const resume = sessions.find((s) => !s.finished_at)
@@ -191,13 +191,18 @@ export function HomePage() {
               })}
               {todayBlocks.map((b) => {
                 const a = assignments.find((x) => x.id === b.assignment_id)
-                const s = a?.subject_id ? subjectsMap.get(a.subject_id) : undefined
+                const sid = a?.subject_id ?? b.subject_id
+                const s = sid ? subjectsMap.get(sid) : undefined
+                const label = b.kind === 'revision' ? (b.title ?? `Révisions ${s?.name ?? ''}`) : `Travailler : ${a?.title ?? 'devoir'}`
                 return (
                   <li key={b.id} className="flex items-center gap-3">
-                    <Checkbox checked={b.done} color={s?.color} label={`Séance ${a?.title ?? ''} faite`} onChange={(done) => updateB.mutate({ id: b.id, patch: { done } })} />
+                    <Checkbox checked={b.done} color={s?.color} label={`Séance ${label} faite`} onChange={(done) => updateB.mutate({ id: b.id, patch: { done } })} />
                     <div className="min-w-0 flex-1">
-                      <p className={b.done ? 'truncate text-muted line-through' : 'truncate font-medium'}>Travailler : {a?.title ?? 'devoir'}</p>
-                      <p className="text-xs text-muted">{minutesLabel(b.minutes)} prévues</p>
+                      <p className={b.done ? 'truncate text-muted line-through' : 'truncate font-medium'}>{label}</p>
+                      <p className="text-xs text-muted">
+                        {b.start_time ? `${b.start_time.slice(0, 5).replace(':', 'h')} · ` : ''}
+                        {minutesLabel(b.minutes)} prévues
+                      </p>
                     </div>
                     {s && <SubjectChip name={s.name} color={s.color} />}
                   </li>

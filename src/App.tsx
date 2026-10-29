@@ -16,6 +16,7 @@ const AgendaPage = lazy(() => import('./pages/Agenda'))
 const SearchPage = lazy(() => import('./pages/Search'))
 const StatsPage = lazy(() => import('./pages/Stats'))
 const ExamsPage = lazy(() => import('./pages/Exams'))
+const PlannerPage = lazy(() => import('./pages/Planner'))
 const ExamRunPage = lazy(() => import('./pages/ExamRun'))
 const SubjectsPage = lazy(() => import('./pages/Subjects'))
 const SubjectPage = lazy(() => import('./pages/Subject'))
@@ -83,6 +84,7 @@ function SpaceGate() {
           <Route path="/recherche" element={<SearchPage />} />
           <Route path="/statistiques" element={<StatsPage />} />
           <Route path="/entrainements" element={<ExamsPage />} />
+          <Route path="/planification" element={<PlannerPage />} />
           <Route path="/cartes-mentales/:id" element={<MindmapPage />} />
           <Route path="/qcm/demarrer/:id" element={<QuizStart />} />
           <Route path="/bienvenue" element={<GuidePage />} />
