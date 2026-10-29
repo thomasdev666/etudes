@@ -4,8 +4,14 @@ import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+
+// Version affichée dans l'appli : date du build et identifiant du commit (Netlify fournit COMMIT_REF)
+const commit = (process.env.COMMIT_REF ?? (() => { try { return execSync('git rev-parse HEAD').toString() } catch { return 'local' } })()).slice(0, 7)
+const appVersion = `${new Date().toISOString().slice(0, 10)} · ${commit}`
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   plugins: [
     react(),
     tailwindcss(),

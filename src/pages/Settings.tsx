@@ -428,6 +428,9 @@ export default function SettingsPage() {
       <Section title="Compte">
         <Account />
       </Section>
+      <p className="pt-2 text-center text-xs text-muted" aria-label="Version de l’appli">
+        Études · version {__APP_VERSION__}
+      </p>
     </div>
   )
 }
