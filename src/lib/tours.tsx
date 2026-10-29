@@ -64,6 +64,22 @@ export const TOURS: Record<TourId, TourStep[]> = {
       body: 'Thème, emploi du temps, disponibilités pour la planification, rappels par email, enregistrements, export complet de tes données… et cette présentation.',
     },
     {
+      title: 'Regulya sur ton écran d’accueil 📱',
+      body: (
+        <>
+          <p>Installe l’appli sur ton téléphone pour l’ouvrir en un geste, comme une vraie appli.</p>
+          <p className="mt-2 font-semibold">Sur iPhone (Safari) :</p>
+          <ol className="ml-5 list-decimal">
+            <li>Touche le bouton Partager (le carré avec une flèche vers le haut).</li>
+            <li>Choisis « Sur l’écran d’accueil ».</li>
+            <li>Touche « Ajouter ».</li>
+          </ol>
+          <p className="mt-2 font-semibold">Sur Android (Chrome) :</p>
+          <p>Menu ⋮, puis « Installer l’application ».</p>
+        </>
+      ),
+    },
+    {
       title: 'À toi de jouer !',
       body: 'Commence par importer un cours dans une de tes matières. Chaque écran a sa petite présentation la première fois que tu l’ouvres.',
     },
