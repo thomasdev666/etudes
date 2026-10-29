@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth, useUserId } from '@/context/auth'
+import { useUserId } from '@/context/auth'
 import { useImportedEvents } from './calendar'
 import { useSubjects } from './data'
 import { supabase } from './supabase'
 
 // Configuration de départ (assistant), puis présentations en bulles au fil de l'appli
 // Les dates d'examen se règlent plus tard, dans chaque matière
-export type SetupStep = 'agenda' | 'matieres' | 'offre'
+export type SetupStep = 'agenda' | 'matieres'
 export type TourId = 'main' | 'news' | 'subject' | 'quizzes' | 'course' | 'resources' | 'mindmap' | 'note' | 'planner' | 'exams' | 'stats' | 'search'
 
 type Progress = {
@@ -15,9 +15,7 @@ type Progress = {
   tours?: Partial<Record<TourId, boolean>>
 }
 
-export const SETUP_ORDER: SetupStep[] = ['agenda', 'matieres', 'offre']
-// Comptes créés avant l'étape « offre » : ils ne sont pas renvoyés vers l'assistant pour ça
-const OFFER_STEP_DATE = Date.parse('2026-10-30T00:00:00Z')
+export const SETUP_ORDER: SetupStep[] = ['agenda', 'matieres']
 
 export function useOnboarding() {
   const userId = useUserId()
@@ -36,13 +34,10 @@ export function useOnboarding() {
   const imported = useImportedEvents()
 
   const p = settings.data ?? {}
-  const created = useAuth().session?.user.created_at
-  const legacyAccount = !!created && Date.parse(created) < OFFER_STEP_DATE
   const ok = (id: string) => !!p.confirmed?.[id] || !!p.skipped?.[id]
   const done: Record<SetupStep, boolean> = {
     agenda: (imported.data?.length ?? 0) > 0 || ok('agenda'),
     matieres: (subjects.data?.length ?? 0) > 0 && ok('matieres'),
-    offre: ok('offre') || !!p.confirmed?.offre || legacyAccount,
   }
 
   async function save(next: Progress) {

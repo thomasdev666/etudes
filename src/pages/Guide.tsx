@@ -228,10 +228,6 @@ const TEXTS: Record<SetupStep, { title: string; why: string }> = {
     title: 'Relie ton emploi du temps',
     why: 'Tes cours s’affichent dans l’agenda avec la couleur de leur matière, et on s’en sert pour créer tes matières automatiquement.',
   },
-  offre: {
-    title: 'Ton offre',
-    why: 'Commence gratuitement, ou active directement un code d’accès. Tu pourras changer d’offre à tout moment dans Mon abonnement.',
-  },
   matieres: {
     title: 'Vérifie tes matières',
     why: 'Chaque matière regroupe ses cours, notes, QCM, flash cards et cartes mentales. Garde les bonnes et choisis leurs couleurs.',
@@ -293,7 +289,6 @@ export default function GuidePage() {
           </div>
         )}
         {step === 'matieres' && <SubjectsStep onDone={() => next('confirm')} onBack={() => setIndex(0)} />}
-        {step === 'offre' && <OfferStep onDone={() => next('confirm')} onBack={() => setIndex(1)} />}
       </Card>
 
       {!ob.available && (
