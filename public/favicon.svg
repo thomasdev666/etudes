@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#4F46E5"/>
-  <rect x="150" y="104" width="250" height="300" rx="40" fill="#A5A1FF" transform="rotate(10 275 254)"/>
-  <rect x="112" y="128" width="250" height="300" rx="40" fill="#FFFFFF"/>
-  <path d="M170 280l52 50 98-112" fill="none" stroke="#4F46E5" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Regulya logo" >
+
+  <rect width="512" height="512" rx="112" fill="#FBF6EC"/>
+  <g transform="translate(119 130) scale(1.22)">
+    <path d="M 70,26 C 70,11 82,0 98,0 L 170,0 C 204,0 226,22 226,51 C 226,78 207,94 174,97 L 116,99 C 99,100 89,110 89,127 L 89,154 C 89,170 77,182 62,182 C 54,182 49,177 49,169 L 49,127 C 49,96 69,76 101,74 L 165,72 C 178,71 186,64 186,53 C 186,42 178,35 165,35 L 98,35 C 82,35 70,34 70,26 Z" fill="#2B2118"/>
+    <path d="M 126,105 L 156,105 C 165,105 172,109 179,117 L 226,169 C 230,174 227,182 219,182 L 190,182 C 180,182 173,178 166,170 L 122,119 C 117,113 119,105 126,105 Z" fill="#F26B4F"/>
+  </g>
+
 </svg>

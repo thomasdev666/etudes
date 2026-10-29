@@ -1,3 +1,4 @@
+import { Logo } from '@/components/Logo'
 import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Trash2 } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
@@ -99,8 +100,8 @@ export function AppShell() {
 
       {/* Menu latéral (ordinateur) */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-4 border-r border-border bg-surface px-3 py-4 lg:flex">
-        <div className="px-2 font-display text-xl font-bold">
-          Études<span className="text-accent">.</span>
+        <div className="px-2 text-text">
+          <Logo withBaseline={false} className="h-9 w-auto" />
         </div>
         <SpaceSwitcher />
         <Link

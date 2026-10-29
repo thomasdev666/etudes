@@ -3,6 +3,7 @@ import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { useAuth } from '@/context/auth'
 import { supabase } from '@/lib/supabase'
 import { Link } from 'react-router-dom'
+import { Logo } from '@/components/Logo'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
 
 type Mode = 'login' | 'signup' | 'reset'
@@ -53,9 +54,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="font-display text-3xl font-bold">
-            Études<span className="text-accent">.</span>
-          </div>
+          <Logo className="mx-auto h-28 w-auto text-text" />
           <p className="mt-1 text-muted">Organise tes cours, révise mieux, réussis tes examens.</p>
         </div>
         <Card className="p-5">{children}</Card>
