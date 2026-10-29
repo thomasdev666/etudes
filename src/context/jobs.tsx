@@ -35,6 +35,7 @@ const AFFECTS: Record<AiJob['kind'], Table[]> = {
   course_images: ['courses'],
   mindmap: ['note_outputs'],
   sheet: ['notes'],
+  transcription: ['recordings', 'courses'],
 }
 
 // Progression : celle envoyée par le serveur quand elle existe, sinon une estimation
@@ -74,7 +75,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('space_id', spaceId)
       .in('status', ['pending', 'running'])
-      .gt('created_at', new Date(Date.now() - 30 * 60_000).toISOString())
+      .gt('created_at', new Date(Date.now() - 70 * 60_000).toISOString())
       .then(({ data }) => {
         if (!data?.length) return
         setJobs((cur) => [
@@ -136,7 +137,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)
           toast({ message: `${j.meta.label} : échec`, tone: 'error' })
         }
-        if (r?.status === 'running' && now - j.startedAt > STALE_MS) {
+        // Une transcription longue se relance d'elle-même : on lui laisse une heure
+        if (r?.status === 'running' && now - j.startedAt > (j.kind === 'transcription' ? 60 * 60_000 : STALE_MS)) {
           r.status = 'error'
           r.error = 'La génération a été interrompue (trop longue). Relance-la.'
           await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)

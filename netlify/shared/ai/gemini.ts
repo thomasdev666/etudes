@@ -41,9 +41,7 @@ async function call(apiKey: string, model: string, { system, prompt, schema, ima
         {
           role: 'user',
           parts: [
-            ...images.map((i) => ({
-              inlineData: { mimeType: i.mime, data: i.base64 },
-            })),
+            ...images.map((i) => ('fileUri' in i ? { fileData: { mimeType: i.mime, fileUri: i.fileUri } } : { inlineData: { mimeType: i.mime, data: i.base64 } })),
             { text: prompt },
           ],
         },
@@ -95,4 +93,43 @@ export async function listGeminiModels(apiKey: string): Promise<string[]> {
     .map((m) => m.name.replace(/^models\//, ''))
     .filter((n) => /^gemini-(\d+(\.\d+)?-)?flash(-lite)?(-latest|-preview(-[\w-]+)?|-\d{3})?$/.test(n))
     .filter((n) => !/image|tts|audio|live|thinking|exp/i.test(n))
+}
+
+// Dépôt d'un fichier (audio long) chez Google : gardé 48 h, utilisable par tous les modèles du projet
+export async function uploadGeminiFile(apiKey: string, bytes: Uint8Array<ArrayBuffer>, mime: string, displayName: string) {
+  const start = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
+    method: 'POST',
+    headers: {
+      'x-goog-api-key': apiKey,
+      'X-Goog-Upload-Protocol': 'resumable',
+      'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(bytes.byteLength),
+      'X-Goog-Upload-Header-Content-Type': mime,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ file: { display_name: displayName.slice(0, 100) } }),
+    signal: AbortSignal.timeout(30_000),
+  })
+  const url = start.headers.get('x-goog-upload-url')
+  if (!start.ok || !url) throw new Error(`Envoi de l'audio au service IA impossible (${start.status})`)
+  const done = await fetch(url, {
+    method: 'POST',
+    headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' },
+    body: bytes,
+    signal: AbortSignal.timeout(180_000),
+  })
+  if (!done.ok) throw new Error(`Envoi de l'audio au service IA impossible (${done.status})`)
+  let file = ((await done.json()) as { file: { name: string; uri: string; state?: string } }).file
+  // Le fichier est traité quelques secondes avant d'être utilisable
+  for (let i = 0; i < 60 && file.state === 'PROCESSING'; i++) {
+    await new Promise((r) => setTimeout(r, 3000))
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${file.name}`, { headers: { 'x-goog-api-key': apiKey } })
+    if (res.ok) file = (await res.json()) as typeof file
+  }
+  if (file.state === 'FAILED') throw new Error('Le service IA n’a pas pu lire ce fichier audio')
+  return { uri: file.uri, name: file.name }
+}
+
+export async function deleteGeminiFile(apiKey: string, name: string) {
+  await fetch(`https://generativelanguage.googleapis.com/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': apiKey } }).catch(() => {})
 }

@@ -26,6 +26,19 @@ export type Course = Base & {
   file_name: string | null
 }
 
+export type Recording = Base & {
+  subject_id: string
+  course_id: string | null
+  title: string
+  language: 'auto' | 'fr' | 'en'
+  duration_sec: number
+  size_bytes: number
+  source: 'micro' | 'import'
+  status: 'uploading' | 'transcribing' | 'done' | 'error'
+  audio_state: 'stored' | 'deleted'
+  error: string | null
+}
+
 export type AssignmentStatus = 'todo' | 'doing' | 'done'
 export type Assignment = Base & {
   subject_id: string | null
@@ -139,7 +152,7 @@ export type NoteOutput = Base & {
 }
 
 export type AiJob = Base & {
-  kind: 'quiz' | 'flashcards' | 'course_images' | 'mindmap' | 'sheet'
+  kind: 'quiz' | 'flashcards' | 'course_images' | 'mindmap' | 'sheet' | 'transcription'
   params: Record<string, unknown>
   status: 'pending' | 'running' | 'done' | 'error'
   error: string | null

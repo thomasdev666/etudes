@@ -1,7 +1,7 @@
 // Couche IA unique. Pour changer de fournisseur, ajouter un fichier à côté de gemini.ts
 // et l'ajouter dans getAi() : le reste du code n'appelle que getAi() et les générateurs.
 import { z } from 'zod'
-import { createGeminiProvider, listGeminiModels } from './gemini'
+import { createGeminiProvider, deleteGeminiFile, listGeminiModels, uploadGeminiFile } from './gemini'
 import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -33,13 +33,13 @@ async function modelChain(key: string, bulk: boolean): Promise<string[]> {
   return chain.filter((m) => (benched.get(m) ?? 0) < now).slice(0, MAX_MODELS)
 }
 
-export function getAi(opts: { quick?: boolean; bulk?: boolean } = {}): AiProvider {
+export function getAi(opts: { quick?: boolean; bulk?: boolean; budgetMs?: number } = {}): AiProvider {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
   // quick : un seul tour (fonctions qui doivent répondre en quelques secondes)
   const rounds = opts.quick ? 1 : 3
   // Au-delà, on abandonne avec un message clair plutôt que de laisser tourner
-  const budgetMs = opts.quick ? 25_000 : 6 * 60_000
+  const budgetMs = opts.budgetMs ?? (opts.quick ? 25_000 : 6 * 60_000)
   return {
     name: 'gemini',
     async generateJson(req: JsonRequest) {
@@ -471,4 +471,94 @@ export async function generateSheet(opts: { source: string; title: string }): Pr
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Génération impossible')
+}
+
+// ---------------------------------------------------------------- Transcription audio
+
+export type Segment = { start: number; text: string }
+
+// Au-delà, l'audio est déposé chez Google plutôt qu'envoyé dans la requête (limite 20 Mo)
+export const INLINE_AUDIO_MAX = 14 * 1024 * 1024
+
+export async function uploadAudio(bytes: Uint8Array<ArrayBuffer>, mime: string, name: string) {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
+  return uploadGeminiFile(key, bytes, mime, name)
+}
+
+export async function forgetAudio(name: string) {
+  const key = process.env.GEMINI_API_KEY
+  if (key) await deleteGeminiFile(key, name)
+}
+
+const segmentsSchema: JsonSchema = {
+  type: 'object',
+  properties: {
+    segments: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          start: { type: 'string', description: 'Début du passage, au format mm:ss ou h:mm:ss depuis le début du fichier' },
+          text: { type: 'string' },
+        },
+        required: ['start', 'text'],
+        propertyOrdering: ['start', 'text'],
+      },
+    },
+  },
+  required: ['segments'],
+}
+
+// « 1:02:03 », « 62:03 » ou « 03 » → secondes
+export function parseClock(s: string): number {
+  const parts = s.trim().split(':').map((x) => Number(x))
+  if (parts.some((n) => !Number.isFinite(n))) return 0
+  return parts.reduce((acc, n) => acc * 60 + n, 0)
+}
+
+export function clock(sec: number): string {
+  const s = Math.max(0, Math.round(sec))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const r = String(s % 60).padStart(2, '0')
+  return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${String(m).padStart(2, '0')}:${r}`
+}
+
+const LANG: Record<string, string> = {
+  fr: 'Le cours est en français.',
+  en: 'The lecture is in English: transcribe in English, do not translate.',
+  auto: 'Détecte la langue parlée et transcris dans cette langue, sans traduire.',
+}
+
+// Transcrit un passage [from, to] (secondes) d'un audio. Les horodatages renvoyés
+// sont relatifs au début du fichier.
+export async function transcribeAudio(opts: {
+  audio: { mime: string; base64: string } | { mime: string; fileUri: string }
+  language: string
+  subject: string
+  from?: number
+  to?: number
+}): Promise<Segment[]> {
+  const ai = getAi({ bulk: true, budgetMs: 4 * 60_000 })
+  const system = [
+    "Tu transcris des enregistrements de cours d'école de commerce, mot pour mot.",
+    'Ne résume pas, ne traduis pas, ne commente pas. Retire seulement les hésitations (euh, hum) et les répétitions involontaires.',
+    'Garde exactement le vocabulaire technique, les chiffres, les noms propres et les formules (en LaTeX entre $...$ si elles sont dictées).',
+    'Découpe en passages de 20 secondes à 2 minutes, coupés aux changements d’idée, chacun avec l’horodatage de son début.',
+    'Passage inaudible : [inaudible]. Aucune parole dans la partie demandée : renvoie une liste vide.',
+  ].join('\n')
+  const range =
+    opts.from !== undefined && opts.to !== undefined
+      ? `Transcris uniquement la partie de l'audio entre ${clock(opts.from)} et ${clock(opts.to)}. Les horodatages restent comptés depuis le début du fichier.`
+      : "Transcris tout l'audio."
+  const prompt = [range, LANG[opts.language] ?? LANG.auto, `Matière : ${opts.subject}.`].join('\n')
+  const raw = await ai.generateJson({ system, prompt, schema: segmentsSchema, images: [opts.audio], temperature: 0, timeoutMs: 3 * 60_000 })
+  const parsed = z.object({ segments: z.array(z.object({ start: z.string(), text: z.string() })) }).parse(raw)
+  return parsed.segments.map((x) => ({ start: parseClock(x.start), text: x.text.trim() })).filter((x) => x.text)
+}
+
+// Texte final du cours : un paragraphe par passage, précédé de son horodatage
+export function transcriptText(segments: Segment[]) {
+  return segments.map((x) => `[${clock(x.start)}] ${x.text}`).join('\n\n')
 }

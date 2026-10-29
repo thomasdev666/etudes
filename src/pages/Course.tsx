@@ -1,4 +1,4 @@
-import { Download, FileText, ImageIcon, ListChecks, Network, Sparkles, Trash2 } from 'lucide-react'
+import { Check, Copy, Download, FileText, ImageIcon, ListChecks, Mic, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { GenerateCardsModal, GenerateMindmapModal, useGenerateSheet } from '@/components/Generate'
@@ -7,7 +7,8 @@ import { useJobs } from '@/context/jobs'
 import { useToast } from '@/context/toast'
 import { Button, Card, EmptyState, IconButton, Spinner, SubjectChip } from '@/components/ui'
 import { fmt } from '@/lib/dates'
-import { useCourses, useSubjectMap, useTrash } from '@/lib/data'
+import { useCourses, useRecordings, useSubjectMap, useTrash } from '@/lib/data'
+import { RecordingAudio } from '@/components/Recording'
 import { BUCKET, supabase } from '@/lib/supabase'
 
 export default function CoursePage() {
@@ -16,6 +17,8 @@ export default function CoursePage() {
   const { data: courses, isLoading } = useCourses()
   const subjects = useSubjectMap()
   const trash = useTrash('courses')
+  const { data: recordings = [] } = useRecordings()
+  const [copied, setCopied] = useState(false)
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
   const { find } = useJobs()
@@ -27,6 +30,13 @@ export default function CoursePage() {
   const course = courses?.find((c) => c.id === id)
   if (!course) return <EmptyState title="Cours introuvable" />
   const subject = subjects.get(course.subject_id)
+  const recording = recordings.find((r) => r.course_id === course.id)
+
+  async function copy() {
+    await navigator.clipboard.writeText(course!.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   async function download() {
     if (!course?.file_path) return
@@ -44,8 +54,19 @@ export default function CoursePage() {
             </Link>
           )}
           <h1 className="mt-1 text-2xl font-bold">{course.title}</h1>
-          <p className="text-sm text-muted">Ajouté le {fmt(course.created_at, 'd MMMM yyyy')}</p>
+          <p className="text-sm text-muted">
+            {recording ? (
+              <span className="inline-flex items-center gap-1">
+                <Mic className="size-3.5" aria-hidden /> Transcription de l’enregistrement du {fmt(recording.created_at, 'd MMMM yyyy')}
+              </span>
+            ) : (
+              <>Ajouté le {fmt(course.created_at, 'd MMMM yyyy')}</>
+            )}
+          </p>
         </div>
+        <IconButton label={copied ? 'Texte copié' : 'Copier le texte'} onClick={copy}>
+          {copied ? <Check className="size-5 text-success" /> : <Copy className="size-5" />}
+        </IconButton>
         {course.file_path && (
           <IconButton label="Télécharger le fichier original" onClick={download}>
             <Download className="size-5" />
@@ -102,6 +123,11 @@ export default function CoursePage() {
       )}
       {course.status === 'error' && (
         <p className="mb-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">Les images n’ont pas pu être lues (service IA indisponible). Le texte du cours reste utilisable.</p>
+      )}
+      {recording?.audio_state === 'stored' && (
+        <div className="mb-4">
+          <RecordingAudio recordingId={recording.id} />
+        </div>
       )}
       <Card>
         <div className="whitespace-pre-wrap break-words leading-relaxed">{course.content.replace(/\[\[image:\d+\]\]/g, '⏳ [image en cours de lecture]') || <span className="text-muted">Aucun texte.</span>}</div>

@@ -4,6 +4,7 @@
 import { describeImages, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
 import { sheetToDoc } from '../shared/sheetDoc'
 import { userClient } from '../shared/supabase'
+import { runTranscription, type TranscriptionState } from '../shared/transcription'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type QuizParams = {
@@ -113,18 +114,22 @@ async function loadSource(db: SupabaseClient, p: { course_ids?: string[]; note_i
 }
 
 export default async (req: Request) => {
+  const startedAt = Date.now()
   let db: SupabaseClient
   try {
     ;({ db } = await userClient(req))
   } catch {
     return
   }
-  const { job_id } = (await req.json().catch(() => ({}))) as { job_id?: string }
+  const { job_id, resume } = (await req.json().catch(() => ({}))) as { job_id?: string; resume?: boolean }
   if (!job_id) return
 
   const { data: job } = await db.from('ai_jobs').select('*').eq('id', job_id).single()
-  if (!job || job.status !== 'pending') return
-  await db.from('ai_jobs').update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } }).eq('id', job_id)
+  // Une transcription longue se relance elle-même pour continuer (status déjà « running »)
+  const resuming = resume === true && job?.kind === 'transcription' && job.status === 'running'
+  if (!job || (job.status !== 'pending' && !resuming)) return
+  if (!resuming)
+    await db.from('ai_jobs').update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } }).eq('id', job_id)
 
   const progress: Progress = async (value, phase) => {
     await db.from('ai_jobs').update({ result: { progress: value, phase } }).eq('id', job_id)
@@ -151,7 +156,37 @@ export default async (req: Request) => {
   })
 
   const run = async () => {
-    if (job.kind === 'quiz') {
+    if (job.kind === 'transcription') {
+      const recordingId = (job.params as { recording_id: string }).recording_id
+      try {
+        await db.from('recordings').update({ status: 'transcribing', error: null }).eq('id', recordingId)
+        const state = resuming ? (job.result as TranscriptionState) : null
+        const outcome = await runTranscription(
+          db,
+          { ...job, result: state },
+          {
+            // Marge avant l'arrêt de sécurité : on sauvegarde et on se relance
+            stopAt: startedAt + 9 * 60_000,
+            save: async (st) => {
+              await db.from('ai_jobs').update({ result: st }).eq('id', job_id)
+            },
+          },
+        )
+        if (outcome === 'continue') {
+          await fetch(new URL('/.netlify/functions/ai-job-background', req.url), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: req.headers.get('authorization') ?? '' },
+            body: JSON.stringify({ job_id, resume: true }),
+          })
+          return
+        }
+        await db.from('ai_jobs').update({ status: 'done', result: { count: 1, progress: 1 } }).eq('id', job_id)
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        await db.from('recordings').update({ status: 'error', error: message }).eq('id', recordingId)
+        throw e
+      }
+    } else if (job.kind === 'quiz') {
       const p = job.params as QuizParams
       try {
         const source = await prepare(p)
@@ -254,6 +289,8 @@ export default async (req: Request) => {
     if (p.output_id) await db.from('note_outputs').update({ status: 'error', error: message }).eq('id', p.output_id).eq('status', 'generating')
     if (p.quiz_id) await db.from('quizzes').update({ status: 'error', error: message }).eq('id', p.quiz_id).neq('status', 'ready')
     if (p.note_id && job.kind === 'sheet') await db.from('notes').delete().eq('id', p.note_id)
+    const rid = (job.params as { recording_id?: string }).recording_id
+    if (rid) await db.from('recordings').update({ status: 'error', error: message }).eq('id', rid).neq('status', 'done')
     if (p.course_id && job.kind === 'course_images') await db.from('courses').update({ status: 'ready' }).eq('id', p.course_id).eq('status', 'processing')
     await db.from('ai_jobs').update({ status: 'error', error: message }).eq('id', job_id)
   } finally {

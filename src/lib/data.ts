@@ -15,6 +15,7 @@ import type {
   QuizSession,
   StudyPlan,
   Subject,
+  Recording,
   WorkBlock,
 } from './types'
 
@@ -35,6 +36,7 @@ export type Table =
   | 'files'
   | 'calendar_links'
   | 'ai_jobs'
+  | 'recordings'
   | 'spaces'
 
 // Lecture de toutes les lignes actives d'une table dans l'espace courant
@@ -62,6 +64,7 @@ export const useQuizzes = () => useTable<Quiz>('quizzes', { order: 'created_at',
 export const useQuizSessions = () => useTable<QuizSession>('quiz_sessions', { order: 'started_at', ascending: false })
 export const useErrorItems = () => useTable<ErrorItem>('error_items')
 export const useNoteOutputs = () => useTable<NoteOutput>('note_outputs', { order: 'created_at', ascending: false })
+export const useRecordings = () => useTable<Recording>('recordings', { order: 'created_at', ascending: false })
 export const useCalendarLinks = () => useTable<CalendarLink>('calendar_links')
 
 // Notes sans le contenu complet (liste)

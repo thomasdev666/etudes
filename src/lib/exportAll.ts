@@ -51,6 +51,11 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
     onProgress(`Lecture : ${t}`)
     data[t] = await fetchAll(t)
   }
+  // Tables des mises à jour récentes : absentes si la mise à jour n'a pas été lancée
+  for (const t of ['recordings', 'imported_events']) {
+    onProgress(`Lecture : ${t}`)
+    data[t] = await fetchAll(t).catch(() => [])
+  }
   onProgress('Lecture : questions de QCM')
   data.quiz_questions = must(await supabase.rpc('export_quiz_questions')) as Row[]
 
@@ -89,7 +94,9 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
     zip.file(unique(`${dir(m)}/cartes-mentales/${safeFilename(String(m.title))}.txt`), toOutline(m.content as MindNode))
   }
 
-  for (const c of data.courses.filter(live)) zip.file(unique(`${dir(c)}/cours/${safeFilename(String(c.title))}.txt`), String(c.content ?? ''))
+  const transcribed = new Set(data.recordings.map((r) => r.course_id))
+  for (const c of data.courses.filter(live))
+    zip.file(unique(`${dir(c)}/${transcribed.has(c.id) ? 'transcriptions' : 'cours'}/${safeFilename(String(c.title))}.txt`), String(c.content ?? ''))
 
   for (const s of data.subjects.filter(live)) {
     const cards = data.flashcards.filter((f) => f.subject_id === s.id && live(f))
@@ -136,8 +143,8 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
       'Export complet — Études',
       `Créé le ${new Date().toLocaleString('fr')}`,
       '',
-      'lisible/       Notes (.html), cours (.txt), cartes mentales (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',
-      'fichiers/      Fichiers originaux (PDF de cours, images et pièces jointes des notes)',
+      'lisible/       Notes (.html), cours et transcriptions (.txt), cartes mentales (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',
+      'fichiers/      Fichiers originaux (PDF de cours, images et pièces jointes des notes, audios gardés)',
       'donnees-json/  Toutes les données brutes, table par table',
       '',
       `Les images des notes sont référencées par « ${STORAGE_PREFIX}chemin » : le fichier correspondant est dans fichiers/.`,

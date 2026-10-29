@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
+import { RecorderBar } from './components/Recording'
+import { RecorderProvider } from './context/recorder'
 import { Spinner } from './components/ui'
 import { useAuth } from './context/auth'
 import { JobsProvider } from './context/jobs'
@@ -57,6 +59,7 @@ function SpaceGate() {
 
   return (
     <JobsProvider>
+    <RecorderProvider>
     <Suspense fallback={<Spinner />}>
       <Routes>
         {/* Sessions de révision en mode focus, sans navigation */}
@@ -83,6 +86,9 @@ function SpaceGate() {
         </Route>
       </Routes>
     </Suspense>
+    {/* Voyant d'enregistrement visible partout, même en mode focus */}
+    <RecorderBar />
+    </RecorderProvider>
     </JobsProvider>
   )
 }

@@ -1,10 +1,11 @@
-import { AlertTriangle, FileText, ListChecks, NotebookPen, Pencil, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { AlertTriangle, FileAudio, FileText, ListChecks, Mic, NotebookPen, Pencil, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CardsPanel } from '@/components/Cards'
 import { startQuizJob } from '@/components/Generate'
 import { GeneratingBar, MindmapsPanel } from '@/components/Mindmaps'
 import { CourseImport } from '@/components/CourseImport'
+import { AudioImportModal, RecordingsPanel, RecordModal } from '@/components/Recording'
 import { PlansPanel } from '@/components/Plans'
 import { SubjectForm } from '@/components/SubjectForm'
 import { Badge, Button, Card, EmptyState, ErrorBox, IconButton, Spinner, Tabs } from '@/components/ui'
@@ -21,6 +22,7 @@ import {
   useNotesList,
   useQuizSessions,
   useQuizzes,
+  useRecordings,
   useSubjects,
   useTrash,
 } from '@/lib/data'
@@ -175,9 +177,12 @@ export default function SubjectPage() {
   const { data: notes = [] } = useNotesList()
   const { data: cards = [] } = useFlashcards()
   const { data: errors = [] } = useErrorItems()
-  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs'])
+  const { data: recordings = [] } = useRecordings()
+  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs', 'recordings'])
   const [edit, setEdit] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [recordOpen, setRecordOpen] = useState(false)
+  const [audioOpen, setAudioOpen] = useState(false)
   const tour = useFirstTimeTour('subject', !isLoading && tab === 'cours')
 
   if (isLoading) return <Spinner />
@@ -185,6 +190,7 @@ export default function SubjectPage() {
   if (!subject) return <EmptyState title="Matière introuvable" action={<Link to="/matieres">Retour aux matières</Link>} />
 
   const sc = courses.filter((c) => c.subject_id === id)
+  const transcribed = new Set(recordings.map((r) => r.course_id).filter(Boolean))
   const sn = notes.filter((n) => n.subject_id === id)
   const due = cards.filter((c) => c.subject_id === id && new Date(c.due_at) <= new Date()).length
   const errs = errors.filter((e) => e.subject_id === id && !e.resolved_at).length
@@ -249,20 +255,31 @@ export default function SubjectPage() {
       <div className="mt-4">
         {tab === 'cours' && (
           <div className="flex flex-col gap-3">
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" icon={<FileAudio className="size-4" />} onClick={() => setAudioOpen(true)}>
+                Fichier audio
+              </Button>
+              <Button variant="secondary" icon={<Mic className="size-4" />} onClick={() => setRecordOpen(true)}>
+                Enregistrer
+              </Button>
               <Button data-tour="import-course" icon={<Plus className="size-4" />} onClick={() => setImportOpen(true)}>
                 Importer un cours
               </Button>
             </div>
+            <RecordingsPanel subjectId={id} />
             {!sc.length ? (
               <EmptyState icon={<FileText className="size-8" />} title="Aucun cours">
-                Importe tes supports (PDF ou texte) : ils serviront à générer QCM et flash cards.
+                Importe tes supports (PowerPoint, PDF ou texte) ou enregistre un cours en classe : ils serviront à générer QCM, fiches et flash cards.
               </EmptyState>
             ) : (
               sc.map((c) => (
                 <Link key={c.id} to={`/cours/${c.id}`}>
                   <Card className="flex items-center gap-3 hover:shadow-md">
-                    <FileText className="size-5 shrink-0 text-muted" aria-hidden />
+                    {transcribed.has(c.id) ? (
+                      <Mic className="size-5 shrink-0 text-accent-ink" aria-label="Transcription d’un enregistrement" />
+                    ) : (
+                      <FileText className="size-5 shrink-0 text-muted" aria-hidden />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{c.title}</p>
                       <p className="text-sm text-muted">
@@ -306,6 +323,8 @@ export default function SubjectPage() {
 
       <SubjectForm open={edit} onClose={() => setEdit(false)} subject={subject} />
       <CourseImport open={importOpen} onClose={() => setImportOpen(false)} subjectId={id} />
+      <RecordModal open={recordOpen} onClose={() => setRecordOpen(false)} subjectId={id} />
+      <AudioImportModal open={audioOpen} onClose={() => setAudioOpen(false)} subjectId={id} />
     </>
   )
 }

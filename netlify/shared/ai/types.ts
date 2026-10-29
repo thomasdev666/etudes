@@ -10,7 +10,8 @@ export type JsonSchema = {
   propertyOrdering?: string[]
 }
 
-export type InlineImage = { mime: string; base64: string }
+// Image ou audio : envoyé dans la requête (base64) ou déjà déposé chez le fournisseur (fileUri)
+export type InlineImage = { mime: string; base64: string } | { mime: string; fileUri: string }
 
 export type JsonRequest = {
   system: string

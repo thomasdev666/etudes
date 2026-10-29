@@ -15,6 +15,37 @@ import { useOnboarding } from '@/lib/onboarding'
 import { applyTheme, readTheme, type Theme } from '@/lib/theme'
 import { must, supabase } from '@/lib/supabase'
 
+// Que faire de l'audio une fois la transcription terminée (la transcription reste toujours)
+function AudioSetting() {
+  const userId = useUserId()
+  const qc = useQueryClient()
+  const key = ['user_settings', userId, 'audio_after']
+  const { data, isError } = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('user_settings').select('audio_after').maybeSingle()
+      if (error) throw error
+      return (data?.audio_after ?? 'delete') as 'delete' | 'keep'
+    },
+    retry: false,
+  })
+  if (isError) return <p className="text-sm text-muted">Lance la mise à jour 0007_recordings.sql dans Supabase pour régler cette option.</p>
+  return (
+    <Tabs
+      label="Audio après la transcription"
+      value={data ?? 'delete'}
+      onChange={async (v) => {
+        qc.setQueryData(key, v)
+        await supabase.from('user_settings').upsert({ user_id: userId, audio_after: v })
+      }}
+      items={[
+        { value: 'delete', label: 'Supprimer l’audio' },
+        { value: 'keep', label: 'Garder l’audio' },
+      ]}
+    />
+  )
+}
+
 function Section({ id, title, children, description }: { id?: string; title: string; description?: string; children: React.ReactNode }) {
   return (
     <section id={id} className="scroll-mt-20">
@@ -255,6 +286,13 @@ export default function SettingsPage() {
 
       <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda à partir du PDF du planning de l’école.">
         <TimetableImport />
+      </Section>
+
+      <Section
+        title="Enregistrements"
+        description="Après la transcription, l’audio peut être supprimé (recommandé : il prend de la place) ou gardé pour être réécouté avant les examens. La transcription est toujours conservée."
+      >
+        <AudioSetting />
       </Section>
 
       <Section title="Planification" description="Temps de travail personnel visé par jour, utilisé pour répartir les devoirs.">
