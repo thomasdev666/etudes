@@ -62,3 +62,15 @@ export function reminderEmail(list: Pick[], appUrl: string) {
   })
   return { subject, text, html }
 }
+
+// Notification courte sur le téléphone pour les mêmes échéances
+export function reminderPush(list: Pick[]) {
+  const first = list[0]
+  return list.length === 1
+    ? { title: `À rendre ${when(first.days)}`, body: `${first.title}${first.subject ? ` · ${first.subject}` : ''}`, url: '/agenda', tag: 'echeances' }
+    : { title: `${list.length} devoirs à rendre bientôt`, body: list.map((p) => `${p.title} (${when(p.days)})`).join(' · '), url: '/agenda', tag: 'echeances' }
+}
+
+export function cardsPush(due: number) {
+  return { title: `${due} flash card${due > 1 ? 's' : ''} à revoir`, body: `Environ ${Math.max(1, Math.round((due * 25) / 60))} minute${due * 25 >= 90 ? 's' : ''}. C’est le bon moment pour ne pas les oublier.`, url: '/reviser/cartes', tag: 'cartes' }
+}

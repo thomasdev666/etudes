@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
 import { OfferStep } from '@/components/OfferStep'
+import { signOutEverywhere } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
 
 export function Onboarding() {
@@ -21,7 +22,7 @@ export function Onboarding() {
             <p className="mt-1 text-muted">Tu pourras changer à tout moment, dans Paramètres.</p>
           </div>
           <OfferStep onDone={() => setStep('espace')} />
-          <button type="button" onClick={() => supabase.auth.signOut()} className="mt-6 w-full text-center text-sm text-muted hover:underline">
+          <button type="button" onClick={signOutEverywhere} className="mt-6 w-full text-center text-sm text-muted hover:underline">
             Se déconnecter
           </button>
         </div>
@@ -53,7 +54,7 @@ export function Onboarding() {
             Commencer
           </Button>
         </form>
-        <button type="button" onClick={() => supabase.auth.signOut()} className="mt-4 w-full text-center text-sm text-muted hover:underline">
+        <button type="button" onClick={signOutEverywhere} className="mt-4 w-full text-center text-sm text-muted hover:underline">
           Se déconnecter
         </button>
       </Card>

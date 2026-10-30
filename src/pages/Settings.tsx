@@ -3,6 +3,8 @@ import { Archive, ArchiveRestore, Coffee, Download, LogOut, Monitor, Moon, Penci
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AvailabilityEditor } from '@/components/AvailabilityEditor'
+import { PushSettings } from '@/components/PushSettings'
+import { signOutEverywhere } from '@/lib/session'
 import { useAvailability } from '@/lib/planning'
 import { TimetableImport } from '@/components/TimetableImport'
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Tabs } from '@/components/ui'
@@ -314,7 +316,7 @@ function Account() {
         )}
       </div>
       <ErrorBox error={error} />
-      <Button variant="secondary" icon={<LogOut className="size-4" />} onClick={() => supabase.auth.signOut()}>
+      <Button variant="secondary" icon={<LogOut className="size-4" />} onClick={signOutEverywhere}>
         Se déconnecter
       </Button>
     </div>
@@ -384,6 +386,10 @@ export default function SettingsPage() {
         <Link to="/abonnement">
           <Button variant="secondary">Voir mon abonnement</Button>
         </Link>
+      </Section>
+
+      <Section title="Notifications sur le téléphone" description="Un petit rappel le matin : devoirs qui arrivent et flash cards à revoir.">
+        <PushSettings />
       </Section>
 
       <Section title="Rappels par email" description="Chaque matin, un email récapitule les devoirs qui arrivent, selon les délais choisis.">

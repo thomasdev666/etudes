@@ -38,3 +38,14 @@ describe('rappels par email', () => {
     expect(mail.html).toContain('https://jadecaruana.fr/agenda')
   })
 })
+
+describe('notifications', () => {
+  it('résume une ou plusieurs échéances', async () => {
+    const { reminderPush, cardsPush } = await import('./reminders')
+    const base = { id: '1', user_id: 'u', due_at: '2026-11-02T10:00:00Z', subject: 'Finance', space: 'École' }
+    expect(reminderPush([{ ...base, title: 'Cas pratique', days: 1 }]).title).toBe('À rendre demain')
+    expect(reminderPush([{ ...base, title: 'A', days: 1 }, { ...base, id: '2', title: 'B', days: 3 }]).title).toBe('2 devoirs à rendre bientôt')
+    expect(cardsPush(14).title).toBe('14 flash cards à revoir')
+    expect(cardsPush(1).body).toContain('1 minute.')
+  })
+})

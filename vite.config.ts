@@ -38,6 +38,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/\.netlify\//],
+        // Réception des notifications (public/push-sw.js)
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
