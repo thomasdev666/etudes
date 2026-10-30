@@ -1,5 +1,5 @@
 import { isSameDay } from 'date-fns'
-import { AlertTriangle, Brain, CalendarClock, CheckCircle2, Play, Plus } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Brain, Upload, CalendarClock, CheckCircle2, Play, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { AssignmentForm } from '@/components/AssignmentForm'
@@ -9,6 +9,7 @@ import { capitalize, countdown, fmt, minutesLabel } from '@/lib/dates'
 import { dayKey } from '@/lib/planner'
 import {
   useAssignments,
+  useCourses,
   useErrorItems,
   useFlashcards,
   usePlanItems,
@@ -35,6 +36,7 @@ export function HomePage() {
   const { data: assignments = [] } = useAssignments()
   const { data: blocks = [] } = useWorkBlocks()
   const { data: cards = [] } = useFlashcards()
+  const courses = useCourses()
   const { data: errors = [] } = useErrorItems()
   const { data: plans = [] } = usePlans()
   const { data: items = [] } = usePlanItems()
@@ -83,6 +85,23 @@ export function HomePage() {
         <p className="text-muted">{capitalize(fmt(now, 'EEEE d MMMM'))}</p>
         <h1 className="text-2xl font-bold sm:text-3xl">{greeting()} 👋</h1>
       </div>
+
+      {/* Premier objectif tant qu'aucun cours n'est importé */}
+      {courses.isSuccess && courses.data.length === 0 && (
+        <Card className="mb-4 flex flex-col gap-4 border-accent bg-accent-soft sm:flex-row sm:items-center">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-white">
+            <Upload className="size-6" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-accent-ink">Ton premier objectif</p>
+            <p className="font-display text-xl font-bold">Importe un cours</p>
+            <p className="text-sm text-muted">Un PDF ou un PowerPoint suffit. En une minute, tu as tes premières flash cards et ton premier QCM.</p>
+          </div>
+          <Link to={subjects[0] ? `/matieres/${subjects[0].id}?onglet=cours` : '/matieres'}>
+            <Button icon={<ArrowRight className="size-4" />}>{subjects[0] ? `Importer dans ${subjects[0].name}` : 'Créer une matière'}</Button>
+          </Link>
+        </Card>
+      )}
 
       {/* Priorité du jour : ce qui fait vraiment progresser */}
       <div data-tour="today" className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

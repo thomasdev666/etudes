@@ -190,6 +190,12 @@ export default function GuidePage() {
   const step = SETUP_ORDER[i]
   const pct = Math.round((SETUP_ORDER.filter((s) => ob.done[s]).length / SETUP_ORDER.length) * 100)
 
+  // Tout passer : l'emploi du temps et les matières se règlent plus tard
+  async function skipAll() {
+    for (const s of SETUP_ORDER) if (!ob.done[s]) await ob.skip(s)
+    navigate('/', { replace: true })
+  }
+
   async function next(action: 'confirm' | 'skip') {
     if (action === 'confirm') await ob.confirm(step)
     else await ob.skip(step)
@@ -200,7 +206,12 @@ export default function GuidePage() {
   return (
     <div className="mx-auto max-w-xl">
       <p className="text-sm font-medium text-accent-ink">Bienvenue 👋</p>
-      <h1 className="text-2xl font-bold sm:text-3xl">Préparons ton espace</h1>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h1 className="text-2xl font-bold sm:text-3xl">Préparons ton espace</h1>
+        <button type="button" onClick={skipAll} className="text-sm text-muted underline-offset-2 hover:underline">
+          Passer, je verrai plus tard
+        </button>
+      </div>
       <div className="mt-4 mb-5">
         <div className="mb-1.5 flex justify-between text-sm text-muted">
           <span>

@@ -37,7 +37,7 @@ export function useOnboarding() {
   const ok = (id: string) => !!p.confirmed?.[id] || !!p.skipped?.[id]
   const done: Record<SetupStep, boolean> = {
     agenda: (imported.data?.length ?? 0) > 0 || ok('agenda'),
-    matieres: (subjects.data?.length ?? 0) > 0 && ok('matieres'),
+    matieres: !!p.skipped?.matieres || ((subjects.data?.length ?? 0) > 0 && ok('matieres')),
   }
 
   async function save(next: Progress) {
