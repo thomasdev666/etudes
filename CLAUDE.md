@@ -329,3 +329,19 @@ Tables principales, toutes avec `id`, `space_id`, `user_id`, `created_at`, `upda
 4. Date cible de la V1.
 5. Taille à partir de laquelle avertir (500 Mo proposés).
 6. Confirmer la palette et la typographie après une première maquette.
+
+---
+
+## 14. Décisions prises après la V1 (validées par la titulaire)
+
+Ces choix remplacent les points correspondants plus haut.
+
+- **Nom** : Regulya. Charte : brun `#2B2118`, corail `#F26B4F`, police du logo Nunito.
+- **Langues** : interface en français et en anglais (sélecteur), contenus de l'utilisateur jamais traduits. Pages légales en français (version de référence).
+- **Connexion** : email et mot de passe, et connexion Google.
+- **Partage** : lien en lecture seule (note ou fiche, carte mentale, paquet de flash cards), désactivable.
+- **Offres** : Gratuit (quotas hebdomadaires, 10 générations la première semaine) et Premium à 2,99 €/mois, 14,99 €/semestre, 24,99 €/an ; essai Premium de 7 jours sans carte ; codes d'accès. Paiement Stripe prêt, activé par les variables d'environnement.
+- **Agenda** : agendas reliés par lien iCal (Google, Hyperplanning, Celcat, Outlook publié) en plus de l'import PDF.
+- **Notifications** : push web (échéances, cartes du jour) en plus des emails.
+- **Hors ligne** : données déjà chargées consultables, révisions de flash cards mises en file d'attente.
+- **Imports** : flash cards Anki, Quizlet, CSV ; notes Markdown (Notion), Word, texte.
