@@ -164,6 +164,7 @@ export async function* streamGemini(apiKey: string, model: string, req: StreamRe
   })
   if (res.status === 429) throw new QuotaAiError(`Quota atteint pour ${model}`, /per ?day|PerDay/i.test(await res.text()))
   if (res.status === 404 || res.status === 400) throw new ModelUnavailableError(`Modèle indisponible : ${model} (${(await res.text()).slice(0, 200)})`)
+  if (res.status === 401 || res.status === 403) throw new Error(`La clé Gemini est refusée par Google (${res.status}) : vérifie GEMINI_API_KEY sur Netlify.`)
   if (!res.ok || !res.body) throw new RetryableAiError(`Service IA indisponible (${res.status})`, 0)
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
   let buffer = ''

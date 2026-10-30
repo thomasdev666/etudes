@@ -667,7 +667,16 @@ async function* streamFast(req: StreamRequest): AsyncGenerator<StreamChunk> {
       if (e instanceof Error && e.name === 'AbortError') throw e
     }
   }
-  throw last instanceof QuotaAiError ? new Error('Le service IA de Google est saturé en ce moment. Réessaie dans quelques instants.') : (last ?? new Error('GIRAFA n’a pas pu répondre.'))
+  // Message précis selon la cause, pour savoir quoi faire
+  if (last instanceof QuotaAiError)
+    throw new Error(
+      last.daily
+        ? 'Le quota gratuit du jour de la clé Gemini est épuisé sur tous les modèles. Il se remet à zéro vers 9 h.'
+        : 'Trop de questions en même temps pour la clé Gemini gratuite (limite par minute). Réessaie dans une minute.',
+    )
+  if (last instanceof ModelUnavailableError) throw new Error(`Aucun modèle Gemini disponible pour cette clé. ${last.message}`)
+  if (last instanceof RetryableAiError) throw new Error(`Les serveurs de Google ne répondent pas en ce moment (${last.message}). Réessaie dans un instant.`)
+  throw last instanceof Error ? last : new Error('GIRAFA n’a pas pu répondre.')
 }
 
 const toContents = (history: ChatTurn[], last: string) => [
