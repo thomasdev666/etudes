@@ -1,5 +1,5 @@
 import { BookOpen, Check, NotebookPen, RotateCcw, Send, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJobs } from '@/context/jobs'
 import { useCreateAssistantDoc } from '@/lib/assistant'
@@ -11,10 +11,88 @@ import { Button, cx, SubjectDot } from './ui'
 // La conversation est guidée : il demande ce qui manque (type de document, matières,
 // contenus, précisions) avec des boutons simples, puis crée le document.
 
-// Visage de GIRAFA : la girafe en crochet, photo détourée en rond.
-// Pendant un travail, elle se balance doucement (sauf si l'utilisateur limite les animations).
+// GIRAFA dessinée d'après la girafe en crochet : tête ronde orange, cornes à bout brun,
+// museau avec deux taches, cou tacheté. Vectoriel : net à toutes les tailles.
 export function Mascot({ className, mood = 'happy' }: { className?: string; mood?: 'happy' | 'busy' }) {
-  return <img src="/girafa.webp" alt="" aria-hidden draggable={false} className={cx('rounded-full object-cover', mood === 'busy' && 'motion-safe:animate-bounce', className)} />
+  const id = useId().replace(/:/g, '')
+  const u = (n: string) => `url(#${id}${n})`
+  const O = '#EE7F22'
+  const B = '#6E3B22'
+  return (
+    <svg viewBox="8 4 104 104" className={className} aria-hidden>
+      <defs>
+        <clipPath id={`${id}c`}>
+          <circle cx="60" cy="56" r="52" />
+        </clipPath>
+        <radialGradient id={`${id}bg`} cx="0.5" cy="0.4" r="0.7">
+          <stop offset="0" stopColor="#FFF4EA" />
+          <stop offset="1" stopColor="#FBD8C2" />
+        </radialGradient>
+        <radialGradient id={`${id}head`} cx="0.38" cy="0.32" r="0.75">
+          <stop offset="0" stopColor="#F9A651" />
+          <stop offset="1" stopColor="#E46F18" />
+        </radialGradient>
+        <radialGradient id={`${id}muz`} cx="0.42" cy="0.35" r="0.7">
+          <stop offset="0" stopColor="#FBB066" />
+          <stop offset="1" stopColor="#EC8128" />
+        </radialGradient>
+        <linearGradient id={`${id}neck`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#E36E18" />
+          <stop offset="0.5" stopColor="#F28C33" />
+          <stop offset="1" stopColor="#E36E18" />
+        </linearGradient>
+      </defs>
+      <g clipPath={`url(#${id}c)`}>
+        <rect width="120" height="120" fill={u('bg')} />
+        {/* cou tacheté */}
+        <path d="M47 76 C46 94 43 108 38 124 L82 124 C77 108 74 94 73 76 Z" fill={u('neck')} />
+        <ellipse cx="53" cy="99" rx="4.6" ry="4.2" fill={B} />
+        <ellipse cx="69" cy="110" rx="4" ry="3.6" fill={B} />
+        <ellipse cx="46" cy="116" rx="3.4" ry="3.2" fill={B} />
+        {/* cornes */}
+        <g transform="rotate(-16 45 26)">
+          <rect x="40.5" y="12" width="9" height="24" rx="4.5" fill={O} />
+          <rect x="39.5" y="8" width="11" height="12" rx="5.5" fill={B} />
+        </g>
+        <g transform="rotate(16 75 26)">
+          <rect x="70.5" y="12" width="9" height="24" rx="4.5" fill={O} />
+          <rect x="69.5" y="8" width="11" height="12" rx="5.5" fill={B} />
+        </g>
+        {/* oreilles */}
+        <ellipse cx="28" cy="48" rx="12" ry="7.5" transform="rotate(-22 28 48)" fill={O} />
+        <ellipse cx="29.5" cy="48.5" rx="7.5" ry="4.2" transform="rotate(-22 29.5 48.5)" fill="#F9B36E" />
+        <ellipse cx="92" cy="48" rx="12" ry="7.5" transform="rotate(22 92 48)" fill={O} />
+        <ellipse cx="90.5" cy="48.5" rx="7.5" ry="4.2" transform="rotate(22 90.5 48.5)" fill="#F9B36E" />
+        {/* tête */}
+        <circle cx="60" cy="52" r="29" fill={u('head')} />
+        {/* yeux */}
+        {mood === 'busy' ? (
+          <>
+            <path d="M41.5 50 Q45.5 53.5 49.5 50" stroke="#1E130D" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+            <path d="M70.5 50 Q74.5 53.5 78.5 50" stroke="#1E130D" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          </>
+        ) : (
+          <>
+            <circle cx="45.5" cy="50" r="4" fill="#1E130D" />
+            <circle cx="74.5" cy="50" r="4" fill="#1E130D" />
+            <circle cx="46.9" cy="48.6" r="1.4" fill="#fff" />
+            <circle cx="75.9" cy="48.6" r="1.4" fill="#fff" />
+          </>
+        )}
+        {/* joues */}
+        <ellipse cx="38.5" cy="60" rx="4.6" ry="2.8" fill="#F0605A" opacity="0.28" />
+        <ellipse cx="81.5" cy="60" rx="4.6" ry="2.8" fill="#F0605A" opacity="0.28" />
+        {/* museau */}
+        <ellipse cx="60" cy="64" rx="16" ry="13.5" fill={u('muz')} />
+        <ellipse cx="60" cy="64" rx="16" ry="13.5" fill="none" stroke="#D96A16" strokeWidth="0.8" opacity="0.6" />
+        <ellipse cx="53.5" cy="62" rx="3.4" ry="3.8" transform="rotate(-18 53.5 62)" fill={B} />
+        <ellipse cx="66.5" cy="62" rx="3.4" ry="3.8" transform="rotate(18 66.5 62)" fill={B} />
+        <path d="M55.5 70 Q60 73.6 64.5 70" stroke={B} strokeWidth="1.6" strokeLinecap="round" fill="none" />
+        {/* reflet */}
+        <ellipse cx="49" cy="35" rx="8" ry="4" transform="rotate(-25 49 35)" fill="#fff" opacity="0.18" />
+      </g>
+    </svg>
+  )
 }
 
 const KINDS = [
