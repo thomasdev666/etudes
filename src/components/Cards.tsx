@@ -1,8 +1,9 @@
-import { Brain, FileUp, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Brain, FileUp, Pencil, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { relativeDay } from '@/lib/dates'
-import { useFlashcards, useInsert, useTrash, useUpdate } from '@/lib/data'
+import { useFlashcards, useInsert, useInvalidate, useTrash, useUpdate } from '@/lib/data'
+import { must, supabase } from '@/lib/supabase'
 import { MASTERED_DAYS } from '@/lib/sm2'
 import type { Flashcard, Subject } from '@/lib/types'
 import { GenerateCardsModal } from './Generate'
@@ -73,30 +74,88 @@ export function CardsPanel({ subject }: { subject: Subject }) {
   const [imp, setImp] = useState(false)
   const cards = all.filter((c) => c.subject_id === subject.id)
   const due = cards.filter((c) => new Date(c.due_at) <= new Date()).length
+  const invalidate = useInvalidate()
+  const [resetting, setResetting] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
+  const [resetError, setResetError] = useState<unknown>(null)
+
+  // Remet toutes les cartes de la matière comme neuves : elles reviennent aujourd'hui.
+  // L'historique des révisions (flashcard_reviews) est gardé.
+  async function resetAll() {
+    setResetBusy(true)
+    setResetError(null)
+    try {
+      must(
+        await supabase
+          .from('flashcards')
+          .update({ interval_days: 0, ease: 2.5, repetitions: 0, lapses: 0, due_at: new Date().toISOString(), last_reviewed_at: null })
+          .eq('subject_id', subject.id)
+          .is('deleted_at', null),
+      )
+      await invalidate('flashcards')
+      setResetting(false)
+    } catch (e) {
+      setResetError(e)
+    } finally {
+      setResetBusy(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
-      <Card className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-2xl font-bold">{due}</p>
-          <p className="text-sm text-muted">carte{due > 1 ? 's' : ''} à réviser maintenant</p>
+      <Card className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-2xl font-bold">{due}</p>
+            <p className="text-sm text-muted">carte{due > 1 ? 's' : ''} à réviser maintenant</p>
+          </div>
+          {due > 0 && (
+            <Link to={`/reviser/cartes?matiere=${subject.id}`}>
+              <Button icon={<Brain className="size-4" />}>Réviser</Button>
+            </Link>
+          )}
         </div>
-        <Button variant="secondary" icon={<Sparkles className="size-4" />} onClick={() => setGen(true)}>
-          Générer avec l’IA
-        </Button>
-        <Button variant="secondary" icon={<Plus className="size-4" />} onClick={() => setForm({ open: true })}>
-          Ajouter
-        </Button>
-        <Button variant="secondary" icon={<FileUp className="size-4" />} onClick={() => setImp(true)}>
-          Importer
-        </Button>
-        {cards.length > 0 && <ShareButton kind="deck" targetId={subject.id} size="md" />}
-        {due > 0 && (
-          <Link to={`/reviser/cartes?matiere=${subject.id}`}>
-            <Button icon={<Brain className="size-4" />}>Réviser</Button>
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" icon={<Sparkles className="size-4" />} onClick={() => setGen(true)}>
+            Générer avec l’IA
+          </Button>
+          <Button variant="secondary" size="sm" icon={<Plus className="size-4" />} onClick={() => setForm({ open: true })}>
+            Ajouter
+          </Button>
+          <Button variant="secondary" size="sm" icon={<FileUp className="size-4" />} onClick={() => setImp(true)}>
+            Importer
+          </Button>
+          {cards.length > 0 && <ShareButton kind="deck" targetId={subject.id} />}
+          {cards.length > 0 && (
+            <Button variant="ghost" size="sm" icon={<RotateCcw className="size-4" />} onClick={() => setResetting(true)}>
+              Recommencer les révisions
+            </Button>
+          )}
+        </div>
       </Card>
+      <Modal
+        open={resetting}
+        onClose={() => !resetBusy && setResetting(false)}
+        title="Recommencer les révisions ?"
+        footer={
+          <>
+            <Button variant="secondary" disabled={resetBusy} onClick={() => setResetting(false)}>
+              Annuler
+            </Button>
+            <Button loading={resetBusy} onClick={resetAll}>
+              Tout remettre à zéro
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 text-sm">
+          <p>
+            Les {cards.length} carte{cards.length > 1 ? 's' : ''} de cette matière repartent de zéro : elles seront à revoir aujourd’hui, et l’espacement recommence.
+          </p>
+          <p className="text-muted">Tes cartes et ton historique de révisions sont gardés.</p>
+          {resetError ? <p className="text-danger">Impossible de remettre les cartes à zéro. Réessaie dans un instant.</p> : null}
+        </div>
+      </Modal>
 
       {!cards.length ? (
         <EmptyState icon={<Brain className="size-8" />} title="Aucune flash card">
