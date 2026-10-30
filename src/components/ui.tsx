@@ -156,7 +156,7 @@ export function Modal({
             </IconButton>
           </div>
           <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
-          {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-3 pb-safe">{footer}</div>}
+          {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>}
         </div>
       )}
     </dialog>

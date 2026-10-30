@@ -381,6 +381,11 @@ export const EN4: Record<string, string> = {
   'Dans le train ou en amphi sans wifi, tes données restent consultables et tes réponses aux flash cards sont envoyées au retour du réseau.': 'On the train or in a lecture hall without wifi, your data stays available and your flash card answers are sent when you’re back online.',
   'Regulya en anglais': 'Regulya in English',
   'Pour les cours en anglais ou tes amis en échange : toute l’interface existe maintenant en anglais. Tes contenus ne sont jamais traduits.': 'For courses in English or exchange friends: the whole interface is now available in English. Your content is never translated.',
+  'Import de « {0} »': 'Importing “{0}”',
+  'Cours enregistré': 'Course saved',
+  'Fichier envoyé': 'File uploaded',
+  'Préparation…': 'Preparing…',
+  '{0} · Garde l’appli ouverte.': '{0} · Keep the app open.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

@@ -15,7 +15,7 @@ const safeName = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').repla
 export function CourseImport({ open, onClose, subjectId }: { open: boolean; onClose: () => void; subjectId: string }) {
   const { spaceId } = useSpace()
   const userId = useUserId()
-  const { start } = useJobs()
+  const { start, runLocal } = useJobs()
   const invalidate = useInvalidate()
   const [mode, setMode] = useState<'file' | 'text'>('file')
   const [title, setTitle] = useState('')
@@ -27,7 +27,6 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
   const sheet = useGenerateSheet()
   const [progress, setProgress] = useState('')
   const [error, setError] = useState<unknown>(null)
-  const [busy, setBusy] = useState(false)
   const lock = useRef(false)
 
   function reset() {
@@ -76,65 +75,61 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
     }
   }
 
-  async function save() {
+  // L'envoi se fait en arrière-plan : la fenêtre se ferme tout de suite, la progression
+  // s'affiche dans le panneau des tâches, et on peut continuer à utiliser l'appli.
+  function save() {
     if (lock.current) return
     lock.current = true
-    setBusy(true)
-    setError(null)
-    try {
-      const images = readImages ? (extracted?.images ?? []) : []
-      let content = text
-      // Repères d'images non traitées : retirés du texte
-      for (const im of extracted?.images ?? []) if (!images.includes(im)) content = content.replace(im.marker, '')
+    const images = readImages ? (extracted?.images ?? []) : []
+    let content = text
+    // Repères d'images non traitées : retirés du texte
+    for (const im of extracted?.images ?? []) if (!images.includes(im)) content = content.replace(im.marker, '')
+    const name = title.trim() || 'Cours sans titre'
+    const original = file
+    const withSheet = makeSheet
+    const steps = 1 + (original ? 1 : 0) + images.length
 
-      let file_path: string | null = null
-      if (file) {
-        file_path = `${userId}/${spaceId}/courses/${crypto.randomUUID()}-${safeName(file.name)}`
-        setProgress('Envoi du fichier…')
-        must(await supabase.storage.from(BUCKET).upload(file_path, file, { contentType: file.type || undefined }))
-      }
+    runLocal({ label: `Import de « ${name} »`, estimateSec: 10 + images.length * 2 }, async (report) => {
+      let done = 0
+      const tick = (phase: string) => report(phase, Math.min(0.99, ++done / steps))
+      const file_path = original ? `${userId}/${spaceId}/courses/${crypto.randomUUID()}-${safeName(original.name)}` : null
       const course = must(
         await supabase
           .from('courses')
-          .insert({
-            space_id: spaceId,
-            subject_id: subjectId,
-            title: title.trim() || 'Cours sans titre',
-            content,
-            file_path,
-            file_name: file?.name ?? null,
-            status: images.length ? 'processing' : 'ready',
-          })
+          .insert({ space_id: spaceId, subject_id: subjectId, title: name, content, file_path, file_name: original?.name ?? null, status: images.length ? 'processing' : 'ready' })
           .select('id')
           .single(),
       ) as { id: string }
-
+      await invalidate('courses')
+      tick('Cours enregistré')
+      if (original && file_path) {
+        report('Envoi du fichier…', done / steps)
+        must(await supabase.storage.from(BUCKET).upload(file_path, original, { contentType: original.type || undefined }))
+        tick('Fichier envoyé')
+      }
       if (images.length) {
         const uploaded: { path: string; label: string; marker: string }[] = []
         for (const [i, im] of images.entries()) {
-          setProgress(`Envoi des images… ${i + 1} / ${images.length}`)
+          report(`Envoi des images… ${i + 1} / ${images.length}`, done / steps)
           const path = `${userId}/${spaceId}/courses/${course.id}/image-${i}.jpg`
           must(await supabase.storage.from(BUCKET).upload(path, im.blob, { contentType: 'image/jpeg', upsert: true }))
           must(await supabase.from('files').insert({ space_id: spaceId, course_id: course.id, path, name: `image-${i}.jpg`, mime: 'image/jpeg', size: im.blob.size }))
           uploaded.push({ path, label: im.label, marker: im.marker })
+          done++
         }
         await start(
           'course_images',
           { course_id: course.id, images: uploaded },
-          { label: `Lecture des images de « ${title.trim() || 'cours'} »`, estimateSec: estimateSeconds('course_images', uploaded.length), link: `/cours/${course.id}`, linkLabel: 'Voir le cours' },
+          { label: `Lecture des images de « ${name} »`, estimateSec: estimateSeconds('course_images', uploaded.length), link: `/cours/${course.id}`, linkLabel: 'Voir le cours' },
         )
       }
       // La fiche attend côté serveur que les images soient lues, pour être complète
-      if (makeSheet) await sheet.generate({ subjectId, title: title.trim() || 'Cours', courseIds: [course.id] })
+      if (withSheet) await sheet.generate({ subjectId, title: name, courseIds: [course.id] })
       await invalidate('courses')
-      reset()
-      onClose()
-    } catch (e) {
-      setError(e)
-    } finally {
-      setBusy(false)
-      lock.current = false
-    }
+    })
+    reset()
+    lock.current = false
+    onClose()
   }
 
   const hasImages = !!extracted?.images.length
@@ -150,7 +145,7 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
           <Button variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          <Button onClick={save} loading={busy} disabled={!text.trim()}>
+          <Button onClick={save} disabled={!text.trim()}>
             Enregistrer le cours
           </Button>
         </>

@@ -9,9 +9,10 @@ import type { AiJob } from '@/lib/types'
 import { useSpace } from './space'
 import { useToast } from './toast'
 
+// « upload » : tâche locale (envoi de fichiers depuis l'appareil), sans ligne ai_jobs
 type TrackedJob = {
   id: string
-  kind: AiJob['kind']
+  kind: AiJob['kind'] | 'upload'
   params: Record<string, unknown>
   status: AiJob['status']
   error: string | null
@@ -25,6 +26,8 @@ type JobsState = {
   jobs: TrackedJob[]
   start: (kind: AiJob['kind'], params: Record<string, unknown>, meta: JobMeta) => Promise<string>
   find: (pred: (j: TrackedJob) => boolean) => TrackedJob | undefined
+  // Tâche de fond côté appareil, suivie dans le même panneau que les générations
+  runLocal: (meta: JobMeta, task: (report: (phase: string, progress: number) => void) => Promise<void>) => void
 }
 
 const Ctx = createContext<JobsState | null>(null)
@@ -112,12 +115,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     const { invalidate, navigate, toast } = deps.current
     const anim = setInterval(() => tick((n) => n + 1), 500)
     const poll = setInterval(async () => {
-      const ids = jobsRef.current.filter((j) => j.status === 'pending' || j.status === 'running').map((j) => j.id)
+      const ids = jobsRef.current.filter((j) => j.kind !== 'upload' && (j.status === 'pending' || j.status === 'running')).map((j) => j.id)
       if (!ids.length) return
       const rows = must(await supabase.from('ai_jobs').select('id, status, error, result').in('id', ids)) as Pick<AiJob, 'id' | 'status' | 'error' | 'result'>[]
       for (const r of rows) {
         const prev = jobsRef.current.find((j) => j.id === r.id)
-        if (!prev || prev.status === r.status) continue
+        if (!prev || prev.kind === 'upload' || prev.status === r.status) continue
         if (r.status === 'done' || r.status === 'error') {
           invalidate(...AFFECTS[prev.kind])
           if (r.status === 'done')
@@ -131,6 +134,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       // Tâche jamais prise en charge par le serveur : on l'arrête avec un message clair
       const now = Date.now()
       for (const j of jobsRef.current) {
+        if (j.kind === 'upload') continue
         const r = rows.find((x) => x.id === j.id)
         if (r?.status === 'pending' && now - j.startedAt > START_TIMEOUT_MS) {
           r.status = 'error'
@@ -144,7 +148,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           r.error = 'La génération a été interrompue (trop longue). Relance-la.'
           await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)
           if (j.params.output_id) await supabase.from('note_outputs').update({ status: 'error', error: r.error }).eq('id', j.params.output_id as string).eq('status', 'generating')
-          invalidate(...AFFECTS[j.kind])
+          invalidate(...AFFECTS[j.kind as AiJob['kind']])
           toast({ message: `${j.meta.label} : échec`, tone: 'error' })
         }
       }
@@ -158,11 +162,35 @@ export function JobsProvider({ children }: { children: ReactNode }) {
 
   const find = useCallback<JobsState['find']>((pred) => [...jobsRef.current].reverse().find(pred), [])
 
+  const runLocal = useCallback<JobsState['runLocal']>((meta, task) => {
+    const id = `upload-${crypto.randomUUID()}`
+    const patch = (p: Partial<TrackedJob>) => setJobs((cur) => cur.map((j) => (j.id === id ? { ...j, ...p } : j)))
+    setJobs((cur) => [...cur, { id, kind: 'upload', params: {}, status: 'running', error: null, result: { phase: 'Préparation…', progress: 0 }, startedAt: Date.now(), meta }])
+    task((phase, progress) => patch({ result: { phase, progress } }))
+      .then(() => {
+        patch({ status: 'done', result: { progress: 1 } })
+        deps.current.toast({ message: `${meta.label} : terminé ✓`, action: meta.link ? { label: meta.linkLabel ?? 'Voir', run: () => deps.current.navigate(meta.link!) } : undefined })
+      })
+      .catch((e: unknown) => {
+        patch({ status: 'error', error: e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e) })
+        deps.current.toast({ message: `${meta.label} : échec`, tone: 'error' })
+      })
+  }, [])
+
+  // Un envoi en cours depuis l'appareil serait perdu si l'onglet se ferme
+  const uploading = jobs.some((j) => j.kind === 'upload' && j.status === 'running')
+  useEffect(() => {
+    if (!uploading) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [uploading])
+
   const visible = jobs.filter((j) => !j.dismissed)
   const dismiss = (id: string) => setJobs((cur) => cur.map((j) => (j.id === id ? { ...j, dismissed: true } : j)))
 
   return (
-    <Ctx.Provider value={{ jobs, start, find }}>
+    <Ctx.Provider value={{ jobs, start, find, runLocal }}>
       {children}
       {visible.length > 0 && (
         <div
@@ -204,7 +232,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
                 </div>
                 <div className={cx('mt-1.5 text-xs', j.status === 'error' ? 'text-danger' : 'text-muted')}>
                   {running ? (
-                    (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.')
+                    (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.') +
+                    (j.kind === 'upload' ? ' · Garde l’appli ouverte.' : '')
                   ) : j.status === 'error' ? (
                     (j.error ?? 'La génération a échoué.')
                   ) : (
