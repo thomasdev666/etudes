@@ -229,7 +229,7 @@ export default function ExamsPage() {
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-muted">
           <li>Le format suit l’épreuve : sections, nombre de questions, temps imparti et barème. Les questions sont originales, créées par l’IA, jamais copiées de sujets officiels.</li>
           <li>Le score donne une tendance pour suivre tes progrès. Il ne remplace pas un test blanc officiel ni un livre de préparation, à utiliser en complément.</li>
-          <li>Chaque correction détaille le raisonnement. Si une réponse te semble fausse, vérifie-la avec l’explication et signale-la-nous.</li>
+          <li>Chaque correction détaille le raisonnement. Si une réponse te semble fausse, vérifie-la avec l’explication, et écris-nous à l’adresse de contact (en bas de la page d’accueil).</li>
           <li>Listening TOEIC : la voix vient de ton appareil. Les voix les plus naturelles sont sur Edge, Safari (Mac, iPhone) et Chrome récent.</li>
         </ul>
       </details>
