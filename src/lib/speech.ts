@@ -21,7 +21,9 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
 
 async function englishVoices() {
   const all = (await loadVoices()).filter((v) => /^en[-_]/i.test(v.lang))
-  const rank = (v: SpeechSynthesisVoice) => (/en[-_](US|GB)/i.test(v.lang) ? 0 : 1) + (v.localService ? 0 : 0.5)
+  // Les voix « naturelles » (neuronales) d'Edge, Chrome, macOS et iOS d'abord : bien plus proches d'un vrai enregistrement
+  const quality = (v: SpeechSynthesisVoice) => (/natural|neural|premium|enhanced|siri/i.test(v.name) ? 0 : /google/i.test(v.name) ? 1 : 2)
+  const rank = (v: SpeechSynthesisVoice) => quality(v) * 2 + (/en[-_](US|GB)/i.test(v.lang) ? 0 : 1)
   const sorted = all.sort((a, b) => rank(a) - rank(b))
   const woman = sorted.find((v) => FEMALE.test(v.name) && !/\bmale\b/i.test(v.name)) ?? sorted[0]
   const man = sorted.find((v) => MALE.test(v.name) && v !== woman) ?? sorted.find((v) => v !== woman) ?? woman
