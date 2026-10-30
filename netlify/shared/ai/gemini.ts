@@ -30,7 +30,7 @@ export function createGeminiProvider(apiKey: string, model: string): AiProvider 
   }
 }
 
-async function call(apiKey: string, model: string, { system, prompt, schema, images = [], temperature = 0.4, timeoutMs = 120_000 }: JsonRequest) {
+async function call(apiKey: string, model: string, { system, prompt, schema, images = [], temperature = 0.4, timeoutMs = 120_000, webSearch }: JsonRequest) {
   const res = await fetch(`${ENDPOINT}/${model}:generateContent`, {
     signal: AbortSignal.timeout(timeoutMs),
     method: 'POST',
@@ -46,11 +46,10 @@ async function call(apiKey: string, model: string, { system, prompt, schema, ima
           ],
         },
       ],
-      generationConfig: {
-        temperature,
-        responseMimeType: 'application/json',
-        responseSchema: toGeminiSchema(schema),
-      },
+      // La recherche Google ne se combine pas avec une réponse JSON imposée : texte libre dans ce cas
+      ...(webSearch
+        ? { tools: [{ google_search: {} }], generationConfig: { temperature } }
+        : { generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: toGeminiSchema(schema) } }),
     }),
   })
   if (res.status === 429) {
@@ -70,6 +69,11 @@ async function call(apiKey: string, model: string, { system, prompt, schema, ima
   const data = await res.json()
   const text: string | undefined = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('')
   if (!text) throw new RetryableAiError('Réponse vide du service IA', 2000)
+  if (webSearch) {
+    const chunks: { web?: { uri?: string; title?: string } }[] = data?.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []
+    const sources = chunks.flatMap((c) => (c.web?.uri ? [{ title: c.web.title ?? c.web.uri, uri: c.web.uri }] : []))
+    return { text: text.trim(), sources }
+  }
   try {
     return JSON.parse(text)
   } catch {

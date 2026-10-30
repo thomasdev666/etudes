@@ -49,6 +49,7 @@ const AFFECTS: Record<AiJob['kind'], Table[]> = {
   transcription: ['recordings', 'courses'],
   exam: ['exam_sessions'],
   assistant: ['notes'],
+  chat: [],
 }
 
 // Progression : celle envoyée par le serveur quand elle existe, sinon une estimation
@@ -89,6 +90,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('space_id', spaceId)
       .in('status', ['pending', 'running'])
+      // Les questions à GIRAFA sont suivies dans sa fenêtre, pas dans le panneau des tâches
+      .neq('kind', 'chat')
       .gt('created_at', new Date(Date.now() - 70 * 60_000).toISOString())
       .then(({ data }) => {
         if (!data?.length) return

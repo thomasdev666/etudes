@@ -14,6 +14,7 @@ export const KIND_LABEL: Record<string, string> = {
   exam_section: 'Sections d’entraînement TAGE MAGE / TOEIC',
   exam_full: 'Examens blancs complets',
   transcription: 'Minutes de transcription d’audio',
+  chat: 'Questions à GIRAFA',
 }
 
 export type Usage = { kind: string; used: number; max: number; next_free_at: string | null }

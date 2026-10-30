@@ -2,7 +2,7 @@
 // et l'ajouter dans getAi() : le reste du code n'appelle que getAi() et les générateurs.
 import { z } from 'zod'
 import { createGeminiProvider, deleteGeminiFile, listGeminiModels, uploadGeminiFile } from './gemini'
-import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
+import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema, type WebAnswer } from './types'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -624,6 +624,101 @@ export async function generateCustomDoc(opts: { source: string; instruction: str
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Génération impossible')
+}
+
+// ---------------------------------------------------------------- GIRAFA : conversation
+
+export type ChatTurn = { from: 'me' | 'bot'; text: string }
+export type ChatReply = {
+  intent: 'answer' | 'document'
+  answer: string
+  from: 'courses' | 'web' | 'none'
+  sources: string[]
+  web_sources: { title: string; uri: string }[]
+  suggest_document: boolean
+  document_instruction: string
+  subject_ids: string[]
+}
+
+const chatSchema: JsonSchema = {
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['answer', 'document'] },
+    found_in_courses: { type: 'boolean' },
+    answer: { type: 'string' },
+    sources: { type: 'array', items: { type: 'string' }, description: 'Titres des cours utilisés pour répondre' },
+    suggest_document: { type: 'boolean' },
+    document_instruction: { type: 'string' },
+    subject_ids: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['intent', 'found_in_courses', 'answer', 'sources', 'suggest_document', 'document_instruction', 'subject_ids'],
+  propertyOrdering: ['intent', 'found_in_courses', 'answer', 'sources', 'suggest_document', 'document_instruction', 'subject_ids'],
+}
+
+const chatValidator = z.object({
+  intent: z.enum(['answer', 'document']).catch('answer'),
+  found_in_courses: z.boolean().catch(false),
+  answer: z.string().catch(''),
+  sources: z.array(z.string()).catch([]),
+  suggest_document: z.boolean().catch(false),
+  document_instruction: z.string().catch(''),
+  subject_ids: z.array(z.string()).catch([]),
+})
+
+const GIRAFA = "Tu es GIRAFA, la petite girafe de Regulya qui aide un étudiant d'école de commerce à réviser. Tu le tutoies, tu es chaleureuse, claire et précise, sans blabla."
+const STYLE = 'Réponse courte et claire : 2 à 8 phrases ou une courte liste à puces (« - »), mots clés en **gras**, formules en LaTeX entre $...$. Réponds dans la langue de la question.'
+
+// Une question de l'étudiant : réponse tirée de ses cours, sinon d'Internet ; ou demande de document
+export async function chatReply(opts: { question: string; history: ChatTurn[]; passages: string; subjects: { id: string; name: string }[] }): Promise<ChatReply> {
+  const ai = getAi({ budgetMs: 90_000 })
+  const history = opts.history
+    .slice(-8)
+    .map((t) => `${t.from === 'me' ? 'Étudiant' : 'GIRAFA'} : ${t.text.slice(0, 1500)}`)
+    .join('\n')
+  const system = [
+    GIRAFA,
+    "Si l'étudiant demande de PRODUIRE un document (fiche, liste complète, résumé, questions d'examen, tableau récapitulatif, plan de révision…) : intent = document, document_instruction = sa demande reformulée précisément, subject_ids = les identifiants des matières concernées (vide si elles le sont toutes), answer = une phrase qui annonce que tu vas t'en occuper.",
+    "Sinon : intent = answer. Réponds directement à la question en t'appuyant sur les EXTRAITS DE SES COURS. " + STYLE,
+    "sources = titres des cours réellement utilisés. Si les extraits ne permettent pas de répondre correctement : found_in_courses = false et answer vide (n'invente rien).",
+    'suggest_document = true seulement si une fiche aiderait vraiment (notion vaste, ou plusieurs questions sur le même thème) ; document_instruction décrit alors cette fiche.',
+    'Tiens compte de la conversation précédente (questions de suivi, « et pour… », « explique plus simplement »).',
+  ].join('\n')
+  const prompt = [
+    `=== MATIÈRES ===\n${opts.subjects.map((s) => `${s.id} : ${s.name}`).join('\n') || '(aucune)'}`,
+    history ? `=== CONVERSATION ===\n${history}` : '',
+    `=== EXTRAITS DE SES COURS ===\n${opts.passages || '(aucun extrait ne correspond)'}`,
+    `=== QUESTION ===\n${opts.question.slice(0, 2000)}`,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  const r = chatValidator.parse(await ai.generateJson({ system, prompt, schema: chatSchema, temperature: 0.3, timeoutMs: 60_000 }))
+  const known = new Set(opts.subjects.map((s) => s.id))
+  const base: ChatReply = {
+    intent: r.intent,
+    answer: r.answer.trim(),
+    from: 'courses',
+    sources: r.sources,
+    web_sources: [],
+    suggest_document: r.suggest_document,
+    document_instruction: r.document_instruction.trim(),
+    subject_ids: r.subject_ids.filter((id) => known.has(id)),
+  }
+  if (r.intent === 'document' || (r.found_in_courses && base.answer)) return base
+
+  // Pas dans ses cours : recherche sur Internet, en le disant clairement
+  try {
+    const web = (await ai.generateJson({
+      system: [GIRAFA, "La réponse n'est pas dans les cours de l'étudiant : appuie-toi sur une recherche Internet fiable. " + STYLE, 'Ne mentionne pas que tu as fait une recherche, l’application le signale déjà.'].join('\n'),
+      prompt: [history ? `Conversation :\n${history}\n` : '', `Question : ${opts.question.slice(0, 2000)}`].join('\n'),
+      schema: chatSchema,
+      webSearch: true,
+      temperature: 0.3,
+      timeoutMs: 60_000,
+    })) as WebAnswer
+    return { ...base, answer: web.text, from: 'web', sources: [], web_sources: web.sources.slice(0, 4) }
+  } catch {
+    return { ...base, from: 'none', answer: base.answer || 'Je n’ai trouvé la réponse ni dans tes cours ni sur Internet pour le moment. Tu peux reformuler ta question ?' }
+  }
 }
 
 // ---------------------------------------------------------------- Transcription audio

@@ -21,7 +21,12 @@ export type JsonRequest = {
   temperature?: number
   // délai maximal d'un appel avant de passer à un autre modèle
   timeoutMs?: number
+  // Réponse en texte libre appuyée sur une recherche Internet : le résultat est alors
+  // { text, sources: { title, uri }[] } au lieu d'un JSON conforme au schéma
+  webSearch?: boolean
 }
+
+export type WebAnswer = { text: string; sources: { title: string; uri: string }[] }
 
 export interface AiProvider {
   name: string

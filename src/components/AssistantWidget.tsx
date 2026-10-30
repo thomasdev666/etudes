@@ -2,7 +2,11 @@ import { BookOpen, Check, NotebookPen, RotateCcw, Send, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJobs } from '@/context/jobs'
+import { MathText } from '@/components/MathText'
+import { useSpace } from '@/context/space'
 import { useCreateAssistantDoc } from '@/lib/assistant'
+import { askGirafa, type ChatTurn } from '@/lib/girafaChat'
+import { rankSubjects, type Doc } from '@/lib/relevance'
 import { useGirafaHidden } from '@/lib/assistantPref'
 import { useCourses, useNotesList, useSubjects } from '@/lib/data'
 import { useUsage } from '@/lib/plans'
@@ -109,6 +113,47 @@ const DETAILS = ['Version courte', 'Très détaillée', 'Avec des tableaux compa
 type Step = 'kind' | 'subjects' | 'sources' | 'details' | 'confirm' | 'done'
 type Msg = { from: 'bot' | 'me'; text: ReactNode }
 
+// Réponse de GIRAFA : listes « - », **gras** et formules $…$
+function RichText({ text }: { text: string }) {
+  const inline = (line: string) =>
+    line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+      part.startsWith('**') && part.endsWith('**') && part.length > 4 ? <strong key={i}>{part.slice(2, -2)}</strong> : <MathText key={i} text={part} />,
+    )
+  const blocks: ReactNode[] = []
+  let items: string[] = []
+  const flush = () => {
+    if (items.length)
+      blocks.push(
+        <ul key={blocks.length} className="my-1 list-disc pl-4">
+          {items.map((it, i) => (
+            <li key={i}>{inline(it)}</li>
+          ))}
+        </ul>,
+      )
+    items = []
+  }
+  for (const line of text.split('\n')) {
+    const item = line.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/)
+    if (item) items.push(item[1])
+    else {
+      flush()
+      if (line.trim()) blocks.push(<p key={blocks.length} className="my-0.5">{inline(line)}</p>)
+    }
+  }
+  flush()
+  return <>{blocks}</>
+}
+
+function Typing() {
+  return (
+    <span className="inline-flex gap-1 py-1" aria-label="GIRAFA écrit…">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="size-1.5 rounded-full bg-muted motion-safe:animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+      ))}
+    </span>
+  )
+}
+
 function Bubble({ m }: { m: Msg }) {
   return (
     <div className={cx('flex gap-2', m.from === 'me' && 'justify-end')}>
@@ -140,8 +185,18 @@ function Conversation({ onClose }: { onClose: () => void }) {
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useNotesList()
   const { data: usage = [] } = useUsage()
+  const { spaceId } = useSpace()
   const [step, setStep] = useState<Step>('kind')
-  const [msgs, setMsgs] = useState<Msg[]>([{ from: 'bot', text: 'Salut, moi c’est GIRAFA ! Je prépare des documents de révision à partir de tes cours. Qu’est-ce que je fais pour toi ?' }])
+  const [msgs, setMsgs] = useState<Msg[]>([
+    { from: 'bot', text: 'Salut, moi c’est GIRAFA ! Pose-moi une question sur tes cours (« c’est quoi le fonds de roulement ? »), ou demande-moi un document de révision.' },
+  ])
+  // Conversation en texte, envoyée au serveur pour les questions de suivi
+  const [turns, setTurns] = useState<ChatTurn[]>([])
+  const [thinking, setThinking] = useState(false)
+  const [showKinds, setShowKinds] = useState(true)
+  // Matières proposées pour un document (les plus pertinentes), et toutes à la demande
+  const [relevant, setRelevant] = useState<string[]>([])
+  const [allSubjects, setAllSubjects] = useState(false)
   const [ask, setAsk] = useState('')
   const [picked, setPicked] = useState<string[]>([])
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
@@ -153,7 +208,15 @@ function Conversation({ onClose }: { onClose: () => void }) {
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' })
-  }, [msgs, step, showSources])
+  }, [msgs, step, showSources, thinking, allSubjects])
+
+  const docs = useMemo<Doc[]>(
+    () => [
+      ...courses.map((c) => ({ id: c.id, title: c.title, subject_id: c.subject_id, text: c.content })),
+      ...notes.map((n) => ({ id: n.id, title: n.title, subject_id: n.subject_id, text: n.content_text })),
+    ],
+    [courses, notes],
+  )
 
   const sources = useMemo(
     () =>
@@ -170,16 +233,87 @@ function Conversation({ onClose }: { onClose: () => void }) {
 
   const say = (...m: Msg[]) => setMsgs((cur) => [...cur, ...m])
 
-  function chooseKind(instruction: string, label: string) {
+  // Demande de document : on propose d'abord les matières concernées
+  function startDocument(instruction: string, suggested?: string[], label?: string) {
     setAsk(instruction)
-    say({ from: 'me', text: label })
+    if (label) say({ from: 'me', text: label })
+    setShowKinds(false)
     if (!subjects.length) {
       say({ from: 'bot', text: 'Il me faut au moins une matière avec des cours. Commence par en créer une et y importer un cours.' })
       setStep('done')
       return
     }
-    say({ from: 'bot', text: 'Sur quelle matière ? Tu peux en choisir plusieurs pour les mélanger.' })
+    const ranked = suggested?.length ? suggested : rankSubjects(instruction, subjects, docs)
+    setRelevant(ranked)
+    setAllSubjects(!ranked.length)
+    setPicked(ranked)
+    say({
+      from: 'bot',
+      text: ranked.length
+        ? ranked.length === 1
+          ? 'Je pense que c’est pour cette matière. Je la prends ?'
+          : 'Je pense que c’est pour ces matières. Je les prends ?'
+        : 'Sur quelle matière ? Tu peux en choisir plusieurs pour les mélanger.',
+    })
     setStep('subjects')
+  }
+
+  const chooseKind = (instruction: string, label: string) => startDocument(instruction, undefined, label)
+
+  // Question libre : GIRAFA répond (cours d'abord, sinon Internet), ou lance un document si c'en est un
+  async function askQuestion(question: string) {
+    setText('')
+    setShowKinds(false)
+    say({ from: 'me', text: question })
+    setStep('kind')
+    setThinking(true)
+    try {
+      const reply = await askGirafa(spaceId, question, turns)
+      setTurns((cur) => [...cur, { from: 'me' as const, text: question }, { from: 'bot' as const, text: reply.answer }].slice(-12))
+      if (reply.intent === 'document') {
+        if (reply.answer) say({ from: 'bot', text: <RichText text={reply.answer} /> })
+        startDocument(reply.document_instruction || question, reply.subject_ids)
+        return
+      }
+      say({
+        from: 'bot',
+        text: (
+          <>
+            <RichText text={reply.answer} />
+            {reply.from === 'courses' && reply.sources.length > 0 && (
+              <span className="mt-1.5 block text-xs text-muted">📚 D’après tes cours : {reply.sources.join(', ')}</span>
+            )}
+            {reply.from === 'web' && (
+              <span className="mt-1.5 block text-xs text-muted">
+                🌐 Pas dans tes cours : réponse trouvée sur Internet, à vérifier avec ton cours.
+                {reply.web_sources.length > 0 && (
+                  <span className="mt-0.5 flex flex-wrap gap-x-2">
+                    {reply.web_sources.map((w) => (
+                      <a key={w.uri} href={w.uri} target="_blank" rel="noopener noreferrer" className="underline" translate="no">
+                        {w.title}
+                      </a>
+                    ))}
+                  </span>
+                )}
+              </span>
+            )}
+            {reply.suggest_document && (
+              <button
+                type="button"
+                onClick={() => startDocument(reply.document_instruction || `Une fiche de révision sur : ${question}`, reply.subject_ids, 'Oui, fais-moi une fiche')}
+                className="mt-2 block rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent-ink hover:bg-accent-soft"
+              >
+                📄 Me faire une fiche là-dessus
+              </button>
+            )}
+          </>
+        ),
+      })
+    } catch (e) {
+      say({ from: 'bot', text: e instanceof Error ? e.message : 'Je n’ai pas pu répondre. Réessaie dans un instant.' })
+    } finally {
+      setThinking(false)
+    }
   }
 
   function confirmSubjects() {
@@ -230,8 +364,12 @@ function Conversation({ onClose }: { onClose: () => void }) {
   }
 
   function restart() {
-    setMsgs([{ from: 'bot', text: 'On recommence ! Qu’est-ce que je prépare pour toi ?' }])
+    setMsgs([{ from: 'bot', text: 'On recommence ! Pose-moi une question, ou dis-moi quel document je te prépare.' }])
     setStep('kind')
+    setTurns([])
+    setShowKinds(true)
+    setRelevant([])
+    setAllSubjects(false)
     setAsk('')
     setPicked([])
     setExcluded(new Set())
@@ -243,10 +381,8 @@ function Conversation({ onClose }: { onClose: () => void }) {
   function sendText() {
     const t = text.trim()
     if (!t) return
-    if (step === 'kind') {
-      setText('')
-      chooseKind(t, t)
-    } else if (step === 'details') confirmDetails(t)
+    if (step === 'details') confirmDetails(t)
+    else void askQuestion(t)
   }
 
   return (
@@ -256,21 +392,29 @@ function Conversation({ onClose }: { onClose: () => void }) {
           <Bubble key={i} m={m} />
         ))}
 
-        {step === 'kind' && (
+        {thinking && <Bubble m={{ from: 'bot', text: <Typing /> }} />}
+
+        {step === 'kind' && !thinking && showKinds && (
           <div className="flex flex-col gap-1.5 pl-9">
+            <p className="text-xs font-medium text-muted">Un document de révision :</p>
             {KINDS.map((k) => (
               <Chip key={k.id} onClick={() => chooseKind(k.ask, k.label)}>
                 {k.label}
               </Chip>
             ))}
-            <p className="mt-1 text-xs text-muted">Ou écris ta demande en bas, comme tu veux.</p>
+            <p className="mt-1 text-xs text-muted">Ou écris ta question en bas, comme tu veux.</p>
           </div>
+        )}
+        {step === 'kind' && !thinking && !showKinds && (
+          <button type="button" onClick={() => setShowKinds(true)} className="ml-9 self-start text-xs font-medium text-accent-ink hover:underline">
+            📄 Créer un document de révision
+          </button>
         )}
 
         {step === 'subjects' && (
           <div className="flex flex-col gap-2 pl-9">
             <div className="flex flex-wrap gap-1.5">
-              {subjects.map((s) => (
+              {subjects.filter((s) => allSubjects || relevant.includes(s.id) || picked.includes(s.id)).map((s) => (
                 <Chip key={s.id} on={picked.includes(s.id)} onClick={() => setPicked((cur) => (cur.includes(s.id) ? cur.filter((x) => x !== s.id) : [...cur, s.id]))}>
                   <SubjectDot color={s.color} />
                   <span translate="no">{s.name}</span>
@@ -281,9 +425,15 @@ function Conversation({ onClose }: { onClose: () => void }) {
               <Button size="sm" disabled={!picked.length} onClick={confirmSubjects}>
                 Valider
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setPicked(subjects.map((s) => s.id))}>
-                Toutes
-              </Button>
+              {allSubjects ? (
+                <Button size="sm" variant="ghost" onClick={() => setPicked(subjects.map((s) => s.id))}>
+                  Toutes
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => setAllSubjects(true)}>
+                  Voir les autres matières
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -391,7 +541,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
         <div ref={end} />
       </div>
 
-      {(step === 'kind' || step === 'details') && (
+      {(step === 'kind' || step === 'details' || step === 'done') && (
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -403,11 +553,12 @@ function Conversation({ onClose }: { onClose: () => void }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={1500}
-            placeholder={step === 'kind' ? 'Ex. : une fiche des formules d’analyse financière' : 'Ex. : seulement les chapitres 3 et 4'}
-            aria-label="Ta demande"
+            placeholder={step === 'details' ? 'Ex. : seulement les chapitres 3 et 4' : 'Pose ta question à GIRAFA…'}
+            aria-label={step === 'details' ? 'Ta précision' : 'Ta question'}
+            disabled={thinking}
             className="min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 py-2 text-sm"
           />
-          <Button type="submit" size="sm" aria-label="Envoyer" disabled={!text.trim()} icon={<Send className="size-4" />} />
+          <Button type="submit" size="sm" aria-label="Envoyer" disabled={!text.trim() || thinking} icon={<Send className="size-4" />} />
         </form>
       )}
     </>
@@ -440,7 +591,7 @@ export function AssistantWidget() {
             <Mascot className="size-8" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold" translate="no">GIRAFA</p>
-              <p className="text-xs text-muted">Je travaille uniquement à partir de tes cours</p>
+              <p className="text-xs text-muted">Tes cours d’abord, Internet si besoin</p>
             </div>
             <button
               type="button"
