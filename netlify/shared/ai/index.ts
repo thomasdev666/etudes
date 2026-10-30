@@ -669,8 +669,15 @@ const GIRAFA = "Tu es GIRAFA, la petite girafe de Regulya qui aide un étudiant 
 const STYLE = 'Réponse courte et claire : 2 à 8 phrases ou une courte liste à puces (« - »), mots clés en **gras**, formules en LaTeX entre $...$. Réponds dans la langue de la question.'
 
 // Une question de l'étudiant : réponse tirée de ses cours, sinon d'Internet ; ou demande de document
-export async function chatReply(opts: { question: string; history: ChatTurn[]; passages: string; subjects: { id: string; name: string }[] }): Promise<ChatReply> {
-  const ai = getAi({ budgetMs: 90_000 })
+export async function chatReply(opts: {
+  question: string
+  history: ChatTurn[]
+  passages: string
+  subjects: { id: string; name: string }[]
+  onPhase?: (phase: string) => Promise<void>
+}): Promise<ChatReply> {
+  // Conversation : une réponse en quelques secondes, sans longues attentes entre deux essais
+  const ai = getAi({ quick: true, budgetMs: 40_000 })
   const history = opts.history
     .slice(-8)
     .map((t) => `${t.from === 'me' ? 'Étudiant' : 'GIRAFA'} : ${t.text.slice(0, 1500)}`)
@@ -691,7 +698,7 @@ export async function chatReply(opts: { question: string; history: ChatTurn[]; p
   ]
     .filter(Boolean)
     .join('\n\n')
-  const r = chatValidator.parse(await ai.generateJson({ system, prompt, schema: chatSchema, temperature: 0.3, timeoutMs: 60_000 }))
+  const r = chatValidator.parse(await ai.generateJson({ system, prompt, schema: chatSchema, temperature: 0.3, timeoutMs: 30_000 }))
   const known = new Set(opts.subjects.map((s) => s.id))
   const base: ChatReply = {
     intent: r.intent,
@@ -706,6 +713,7 @@ export async function chatReply(opts: { question: string; history: ChatTurn[]; p
   if (r.intent === 'document' || (r.found_in_courses && base.answer)) return base
 
   // Pas dans ses cours : recherche sur Internet, en le disant clairement
+  await opts.onPhase?.('Pas dans tes cours, je cherche sur Internet…')
   try {
     const web = (await ai.generateJson({
       system: [GIRAFA, "La réponse n'est pas dans les cours de l'étudiant : appuie-toi sur une recherche Internet fiable. " + STYLE, 'Ne mentionne pas que tu as fait une recherche, l’application le signale déjà.'].join('\n'),
@@ -713,7 +721,7 @@ export async function chatReply(opts: { question: string; history: ChatTurn[]; p
       schema: chatSchema,
       webSearch: true,
       temperature: 0.3,
-      timeoutMs: 60_000,
+      timeoutMs: 30_000,
     })) as WebAnswer
     return { ...base, answer: web.text, from: 'web', sources: [], web_sources: web.sources.slice(0, 4) }
   } catch {

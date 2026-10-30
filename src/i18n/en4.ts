@@ -565,6 +565,12 @@ export const EN4: Record<string, string> = {
   'Questions à GIRAFA': 'Questions to GIRAFA',
   'GIRAFA met trop de temps à répondre. Réessaie dans un instant.': 'GIRAFA is taking too long to answer. Try again in a moment.',
   'Je n’ai pas pu répondre. Réessaie dans un instant.': 'I couldn’t answer. Try again in a moment.',
+  'Je réfléchis…': 'Thinking…',
+  'Je cherche dans tes cours…': 'Looking through your courses…',
+  'Pas dans tes cours, je cherche sur Internet…': 'Not in your courses, searching the web…',
+  '↻ Réessayer': '↻ Try again',
+  'Le service de GIRAFA n’a pas démarré. Réessaie dans un instant ; si ça continue, préviens-nous.': 'GIRAFA’s service didn’t start. Try again in a moment; if it keeps happening, let us know.',
+  'GIRAFA met trop de temps à répondre (service IA saturé). Réessaie dans un instant.': 'GIRAFA is taking too long to answer (AI service busy). Try again in a moment.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

@@ -193,6 +193,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
   // Conversation en texte, envoyée au serveur pour les questions de suivi
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [thinking, setThinking] = useState(false)
+  const [phase, setPhase] = useState('')
   const [showKinds, setShowKinds] = useState(true)
   // Matières proposées pour un document (les plus pertinentes), et toutes à la demande
   const [relevant, setRelevant] = useState<string[]>([])
@@ -267,8 +268,9 @@ function Conversation({ onClose }: { onClose: () => void }) {
     say({ from: 'me', text: question })
     setStep('kind')
     setThinking(true)
+    setPhase('')
     try {
-      const reply = await askGirafa(spaceId, question, turns)
+      const reply = await askGirafa(spaceId, question, turns, setPhase)
       setTurns((cur) => [...cur, { from: 'me' as const, text: question }, { from: 'bot' as const, text: reply.answer }].slice(-12))
       if (reply.intent === 'document') {
         if (reply.answer) say({ from: 'bot', text: <RichText text={reply.answer} /> })
@@ -310,7 +312,21 @@ function Conversation({ onClose }: { onClose: () => void }) {
         ),
       })
     } catch (e) {
-      say({ from: 'bot', text: e instanceof Error ? e.message : 'Je n’ai pas pu répondre. Réessaie dans un instant.' })
+      say({
+        from: 'bot',
+        text: (
+          <>
+            {e instanceof Error ? e.message : 'Je n’ai pas pu répondre. Réessaie dans un instant.'}
+            <button
+              type="button"
+              onClick={() => void askQuestion(question)}
+              className="mt-2 block rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent-ink hover:bg-accent-soft"
+            >
+              ↻ Réessayer
+            </button>
+          </>
+        ),
+      })
     } finally {
       setThinking(false)
     }
@@ -392,7 +408,19 @@ function Conversation({ onClose }: { onClose: () => void }) {
           <Bubble key={i} m={m} />
         ))}
 
-        {thinking && <Bubble m={{ from: 'bot', text: <Typing /> }} />}
+        {thinking && (
+          <Bubble
+            m={{
+              from: 'bot',
+              text: (
+                <>
+                  <Typing />
+                  <span className="block text-xs text-muted">{phase || 'Je réfléchis…'}</span>
+                </>
+              ),
+            }}
+          />
+        )}
 
         {step === 'kind' && !thinking && showKinds && (
           <div className="flex flex-col gap-1.5 pl-9">

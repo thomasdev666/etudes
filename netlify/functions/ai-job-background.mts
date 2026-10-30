@@ -212,6 +212,7 @@ export default async (req: Request) => {
     }
     if (job.kind === 'chat') {
       const p = job.params as ChatParams
+      await progress(0.2, 'Je cherche dans tes cours…')
       // Cours et notes de l'espace (lecture limitée à l'étudiant par la sécurité de la base)
       const [{ data: subjects }, { data: courses }, { data: notes }] = await Promise.all([
         db.from('subjects').select('id, name').eq('space_id', job.space_id).is('deleted_at', null),
@@ -225,7 +226,7 @@ export default async (req: Request) => {
       // La question précédente aide pour les questions de suivi (« et pour le BFR ? »)
       const lastAsk = [...(p.history ?? [])].reverse().find((t) => t.from === 'me')?.text ?? ''
       const { text } = pickPassages(`${p.question} ${p.question} ${lastAsk}`, docs)
-      const reply = await chatReply({ question: p.question, history: p.history ?? [], passages: text, subjects: subjects ?? [] })
+      const reply = await chatReply({ question: p.question, history: p.history ?? [], passages: text, subjects: subjects ?? [], onPhase: (phase) => progress(0.6, phase) })
       // Matières proposées pour un document : celles choisies par l'IA, sinon par mots-clés
       if (reply.intent === 'document' && !reply.subject_ids.length) reply.subject_ids = rankSubjects(reply.document_instruction || p.question, subjects ?? [], docs)
       await db.from('ai_jobs').update({ status: 'done', result: { reply } }).eq('id', job_id)
