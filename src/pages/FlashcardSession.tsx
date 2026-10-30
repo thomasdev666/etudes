@@ -13,6 +13,7 @@ import { timerLabel, useStudyTimer } from '@/lib/studyTimer'
 import type { Flashcard } from '@/lib/types'
 
 const SESSION_MAX = 80
+const HINT_KEY = 'regulya.hint.grades'
 const GRADE_STYLE: Record<Grade, string> = {
   0: 'border-danger/40 text-danger hover:bg-danger-soft',
   1: 'border-warning/40 text-warning hover:bg-warning-soft',
@@ -43,6 +44,14 @@ export default function FlashcardSession() {
   const [stats, setStats] = useState({ reviewed: 0, success: 0, total: 0 })
   const [error, setError] = useState<unknown>(null)
   const [offline, setOffline] = useState(false)
+  // Explication des boutons : seulement tant que la toute première carte n'a pas été notée
+  const [showHint, setShowHint] = useState(() => {
+    try {
+      return !localStorage.getItem(HINT_KEY)
+    } catch {
+      return false
+    }
+  })
   const qc = useQueryClient()
   const shownAt = useRef(Date.now())
   const celebrated = useRef(false)
@@ -100,6 +109,14 @@ export default function FlashcardSession() {
   async function grade(g: Grade) {
     if (!card || !queue || !flipped || locked()) return
     lock()
+    if (showHint) {
+      setShowHint(false)
+      try {
+        localStorage.setItem(HINT_KEY, '1')
+      } catch {
+        /* stockage indisponible */
+      }
+    }
     const r = review(card, g)
     const updated: Flashcard = { ...card, ...r, due_at: r.due_at.toISOString(), last_reviewed_at: new Date().toISOString() }
     // Carte ratée : elle revient en fin de session
@@ -208,7 +225,7 @@ export default function FlashcardSession() {
               <div className="mt-5 min-h-20">
                 {flipped ? (
                   <>
-                  <p className="mb-2 text-center text-xs text-muted">Tu la connaissais ? Sous chaque bouton : quand la carte reviendra.</p>
+                  {showHint && <p className="mb-2 text-center text-xs text-muted">Tu la connaissais ? Sous chaque bouton : quand la carte reviendra.</p>}
                   <div className="anim-pop grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {([0, 1, 2, 3] as Grade[]).map((g) => (
                       <button
