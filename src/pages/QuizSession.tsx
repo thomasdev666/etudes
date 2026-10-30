@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check, RotateCcw, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ReportQuestion } from '@/components/ReportQuestion'
 import { Badge, Button, Card, cx, ErrorBox, IconButton, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { celebrate } from '@/lib/confetti'
@@ -123,7 +124,13 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
             {c.chosen_index === null && <li className="text-sm text-muted">Pas de réponse</li>}
           </ul>
           <p className="mt-3 text-sm leading-relaxed">{c.explanation}</p>
+          {c.source_excerpt && (
+            <blockquote className="mt-3 border-l-4 border-border pl-3 text-sm italic text-muted">
+              <span className="mb-0.5 block text-xs font-semibold not-italic">Dans ton cours</span>« {c.source_excerpt} »
+            </blockquote>
+          )}
           {c.notion && <p className="mt-2 text-xs text-muted">Notion : {c.notion}</p>}
+          <ReportQuestion questionId={c.question_id} />
         </Card>
       ))}
     </div>

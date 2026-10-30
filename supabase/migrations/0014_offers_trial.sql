@@ -133,3 +133,25 @@ create policy "question_reports_own" on public.question_reports for all to authe
 
 -- Extrait du cours qui justifie la bonne réponse
 alter table public.quiz_questions add column if not exists source_excerpt text;
+
+-- La correction renvoie aussi l'extrait du cours (toujours invisible avant la fin de la session)
+create or replace function public.get_quiz_correction(p_session_id uuid)
+returns jsonb language sql security definer set search_path = '' stable as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'question_id', qq.id,
+      'question', qq.question,
+      'choices', qq.choices,
+      'correct_index', qq.correct_index,
+      'chosen_index', a.chosen_index,
+      'is_correct', a.is_correct,
+      'explanation', qq.explanation,
+      'notion', qq.notion,
+      'source_excerpt', qq.source_excerpt,
+      'time_ms', a.time_ms
+    ) order by u.ord), '[]')
+  from public.quiz_sessions s
+  cross join lateral unnest(s.question_ids) with ordinality as u(qid, ord)
+  join public.quiz_questions qq on qq.id = u.qid
+  left join public.quiz_answers a on a.session_id = s.id and a.question_id = qq.id
+  where s.id = p_session_id and s.user_id = auth.uid() and s.finished_at is not null;
+$$;

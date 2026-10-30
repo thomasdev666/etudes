@@ -141,6 +141,7 @@ export type Correction = {
   is_correct: boolean
   explanation: string
   notion: string
+  source_excerpt?: string | null
   time_ms: number | null
 }
 

@@ -247,6 +247,7 @@ export default async (req: Request) => {
             correct_index: q.correct_index,
             explanation: q.explanation,
             notion: q.notion,
+            source_excerpt: q.source_excerpt || null,
           })),
         )
         if (error) throw error

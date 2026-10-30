@@ -91,7 +91,7 @@ export type QuizType = 'mcq' | 'truefalse'
 const DIFFICULTY_FR: Record<Difficulty, string> = {
   easy: 'facile : définitions et notions de base',
   medium: 'moyen : compréhension et application des notions',
-  hard: "difficile : raisonnement, cas pratiques, pièges courants d'examen",
+  hard: "difficile, niveau partiel : mini-cas chiffrés, raisonnement en plusieurs étapes, comparaison de notions proches, distracteurs qui reprennent les erreurs classiques des étudiants. Aucune question de simple définition",
 }
 
 // ---------------------------------------------------------------- QCM
@@ -109,8 +109,9 @@ const quizSchema: JsonSchema = {
           correct_index: { type: 'integer' },
           explanation: { type: 'string' },
           notion: { type: 'string', description: 'Notion du cours évaluée, en 2 à 5 mots' },
+          source_excerpt: { type: 'string', description: 'Phrase du cours, recopiée mot pour mot, qui justifie la bonne réponse (300 caractères au plus)' },
         },
-        required: ['question', 'choices', 'correct_index', 'explanation', 'notion'],
+        required: ['question', 'choices', 'correct_index', 'explanation', 'notion', 'source_excerpt'],
       },
     },
   },
@@ -125,6 +126,11 @@ const questionValidator = (qtype: QuizType) =>
       correct_index: z.number().int().min(0).max(qtype === 'mcq' ? 3 : 1),
       explanation: z.string().trim().min(1),
       notion: z.string().trim().min(1).max(120),
+      source_excerpt: z
+        .string()
+        .trim()
+        .optional()
+        .transform((v) => (v ? v.slice(0, 400) : '')),
     })
     .refine((q) => new Set(q.choices.map((c) => c.toLowerCase())).size === q.choices.length, {
       message: 'Choix en double',
@@ -162,6 +168,7 @@ export async function generateQuiz(opts: {
     "N'invente aucun fait absent du cours. Ne reprends jamais un sujet officiel publié.",
     'Rédige questions, choix et explications dans la langue du cours.',
     "L'explication dit pourquoi la bonne réponse est juste et pourquoi le piège principal est faux.",
+    'Pour chaque question, recopie mot pour mot la phrase du cours qui justifie la bonne réponse (source_excerpt). Si aucune phrase ne la justifie, ne pose pas cette question.',
     'Varie la position de la bonne réponse et couvre tout le cours, pas seulement le début.',
   ].join('\n')
   const prompt = [
