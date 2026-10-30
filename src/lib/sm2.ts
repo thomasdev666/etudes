@@ -7,6 +7,14 @@
 // Un échec remet la carte au début et la reprogramme 10 minutes plus tard,
 // pour la revoir pendant la même session (SM-2 demande de répéter le jour même
 // les cartes notées sous 4).
+//
+// Variante (comme Anki) : SM-2 d'origine donne 1 jour puis 6 jours quelle que soit
+// la réponse, ce qui rend les boutons incompréhensibles au début. Ici le délai
+// dépend de la réponse dès la première révision :
+//   1re réussite : Difficile 1 j · Bien 2 j · Facile 4 j
+//   2e réussite  : Difficile 3 j · Bien 6 j · Facile 10 j
+//   ensuite      : Difficile ×1,2 · Bien × facilité · Facile × facilité × 1,3
+// La facilité (ease) évolue toujours selon la formule SM-2.
 
 export type Grade = 0 | 1 | 2 | 3
 
@@ -52,10 +60,15 @@ export function review(card: CardState, grade: Grade, now: Date = new Date()): S
   }
 
   const repetitions = card.repetitions + 1
+  const step = grade === 1 ? 0 : grade === 2 ? 1 : 2
   let interval: number
-  if (repetitions === 1) interval = 1
-  else if (repetitions === 2) interval = 6
-  else interval = Math.round(Math.max(card.interval_days, 1) * ease)
+  if (repetitions === 1) interval = [1, 2, 4][step]
+  else if (repetitions === 2) interval = [3, 6, 10][step]
+  else {
+    const prev = Math.max(card.interval_days, 1)
+    const good = Math.max(prev + 1, Math.round(prev * ease))
+    interval = step === 0 ? Math.max(prev + 1, Math.round(prev * 1.2)) : step === 1 ? good : Math.max(good + 1, Math.round(prev * ease * 1.3))
+  }
 
   return {
     interval_days: interval,

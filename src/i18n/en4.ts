@@ -391,6 +391,10 @@ export const EN4: Record<string, string> = {
   '✓ Installable sur téléphone': '✓ Installs on your phone',
   'Voir comment ça marche ↓': 'See how it works ↓',
   'ChatGPT, NotebookLM': 'ChatGPT, NotebookLM',
+  'Tu la connaissais ? Sous chaque bouton : quand la carte reviendra.': 'Did you know it? Under each button: when the card will come back.',
+  '{0} j': '{0} d',
+  '{0} mois': '{0} mo',
+  '{0} an': '{0} yr',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

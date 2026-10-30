@@ -7,9 +7,9 @@ const now = new Date('2026-10-28T10:00:00')
 const days = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / 86_400_000)
 
 describe('SM-2', () => {
-  it('première réussite : 1 jour, puis 6 jours, puis intervalle × facilité', () => {
+  it('« Bien » : 2 jours, puis 6 jours, puis intervalle × facilité', () => {
     const r1 = review(fresh, 2, now)
-    expect(r1.interval_days).toBe(1)
+    expect(r1.interval_days).toBe(2)
     expect(r1.repetitions).toBe(1)
     const r2 = review(r1, 2, now)
     expect(r2.interval_days).toBe(6)
@@ -40,6 +40,13 @@ describe('SM-2', () => {
     expect(r.due_at.getTime() - now.getTime()).toBe(10 * 60_000)
   })
 
+  it('dès la première révision, le délai dépend de la réponse', () => {
+    expect([1, 2, 3].map((g) => review(fresh, g as 1 | 2 | 3, now).interval_days)).toEqual([1, 2, 4])
+    const once: CardState = { interval_days: 2, ease: 2.5, repetitions: 1, lapses: 0 }
+    expect([1, 2, 3].map((g) => review(once, g as 1 | 2 | 3, now).interval_days)).toEqual([3, 6, 10])
+    expect([0, 1, 2, 3].map((g) => previewLabel(fresh, g as 0 | 1 | 2 | 3, now))).toEqual(['10 min', '1 j', '2 j', '4 j'])
+  })
+
   it('« Facile » espace plus que « Bien », qui espace plus que « Difficile »', () => {
     const c: CardState = { interval_days: 6, ease: 2.5, repetitions: 2, lapses: 0 }
     const hard = review(c, 1, now).interval_days
@@ -57,7 +64,7 @@ describe('SM-2', () => {
 
   it('aperçu lisible des intervalles', () => {
     expect(previewLabel(fresh, 0, now)).toBe('10 min')
-    expect(previewLabel(fresh, 2, now)).toBe('1 j')
+    expect(previewLabel(fresh, 2, now)).toBe('2 j')
     expect(previewLabel({ interval_days: 100, ease: 2.5, repetitions: 5, lapses: 0 }, 2, now)).toBe('8 mois')
   })
 })

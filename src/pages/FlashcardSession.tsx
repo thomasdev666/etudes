@@ -207,6 +207,8 @@ export default function FlashcardSession() {
               </div>
               <div className="mt-5 min-h-20">
                 {flipped ? (
+                  <>
+                  <p className="mb-2 text-center text-xs text-muted">Tu la connaissais ? Sous chaque bouton : quand la carte reviendra.</p>
                   <div className="anim-pop grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {([0, 1, 2, 3] as Grade[]).map((g) => (
                       <button
@@ -220,6 +222,7 @@ export default function FlashcardSession() {
                       </button>
                     ))}
                   </div>
+                  </>
                 ) : (
                   <Button size="lg" className="w-full" onClick={flip}>
                     Afficher la réponse
