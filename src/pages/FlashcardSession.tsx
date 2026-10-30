@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PartyPopper, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -7,6 +7,7 @@ import { useSpace } from '@/context/space'
 import { celebrate } from '@/lib/confetti'
 import { useInvalidate, useSubjectMap } from '@/lib/data'
 import { GRADE_LABELS, previewLabel, review, type Grade } from '@/lib/sm2'
+import { isNetworkError, queueReview } from '@/lib/offline'
 import { must, supabase } from '@/lib/supabase'
 import { timerLabel, useStudyTimer } from '@/lib/studyTimer'
 import type { Flashcard } from '@/lib/types'
@@ -41,6 +42,8 @@ export default function FlashcardSession() {
   const [flipped, setFlipped] = useState(false)
   const [stats, setStats] = useState({ reviewed: 0, success: 0, total: 0 })
   const [error, setError] = useState<unknown>(null)
+  const [offline, setOffline] = useState(false)
+  const qc = useQueryClient()
   const shownAt = useRef(Date.now())
   const celebrated = useRef(false)
   // Un pavé tactile peut envoyer deux clics : on ignore les actions trop rapprochées
@@ -56,10 +59,22 @@ export default function FlashcardSession() {
   const { data, isLoading } = useQuery({
     queryKey: ['flashcards', spaceId, 'due', subjectId],
     queryFn: async () => {
-      let q = supabase.from('flashcards').select('*').eq('space_id', spaceId).is('deleted_at', null).lte('due_at', new Date().toISOString())
-      if (subjectId) q = q.eq('subject_id', subjectId)
-      return must(await q.order('due_at').limit(SESSION_MAX)) as Flashcard[]
+      try {
+        let q = supabase.from('flashcards').select('*').eq('space_id', spaceId).is('deleted_at', null).lte('due_at', new Date().toISOString())
+        if (subjectId) q = q.eq('subject_id', subjectId)
+        return must(await q.order('due_at').limit(SESSION_MAX)) as Flashcard[]
+      } catch (e) {
+        if (!isNetworkError(e)) throw e
+        // Hors ligne : les cartes déjà chargées sur l'appareil
+        const now = new Date()
+        const cached = (qc.getQueryData<Flashcard[]>(['flashcards', spaceId]) ?? []).filter(
+          (c) => !c.deleted_at && new Date(c.due_at) <= now && (!subjectId || c.subject_id === subjectId),
+        )
+        setOffline(true)
+        return cached.sort((a, b) => a.due_at.localeCompare(b.due_at)).slice(0, SESSION_MAX)
+      }
     },
+    networkMode: 'always',
     staleTime: Infinity,
   })
 
@@ -93,32 +108,25 @@ export default function FlashcardSession() {
     setStats((s) => ({ ...s, reviewed: s.reviewed + 1, success: s.success + (g > 0 ? 1 : 0) }))
     const duration = Date.now() - shownAt.current
     shownAt.current = Date.now()
+    const patch = {
+      interval_days: r.interval_days,
+      ease: r.ease,
+      repetitions: r.repetitions,
+      lapses: r.lapses,
+      due_at: updated.due_at,
+      last_reviewed_at: updated.last_reviewed_at,
+    }
+    const reviewRow = { space_id: spaceId, flashcard_id: card.id, grade: g, interval_days: r.interval_days, ease: r.ease, duration_ms: duration }
+    // Garde la carte à jour dans le cache, pour une session hors ligne cohérente
+    qc.setQueryData<Flashcard[]>(['flashcards', spaceId], (list) => list?.map((c) => (c.id === card.id ? updated : c)))
     try {
-      must(
-        await supabase
-          .from('flashcards')
-          .update({
-            interval_days: r.interval_days,
-            ease: r.ease,
-            repetitions: r.repetitions,
-            lapses: r.lapses,
-            due_at: updated.due_at,
-            last_reviewed_at: updated.last_reviewed_at,
-          })
-          .eq('id', card.id),
-      )
-      must(
-        await supabase.from('flashcard_reviews').insert({
-          space_id: spaceId,
-          flashcard_id: card.id,
-          grade: g,
-          interval_days: r.interval_days,
-          ease: r.ease,
-          duration_ms: duration,
-        }),
-      )
+      must(await supabase.from('flashcards').update(patch).eq('id', card.id))
+      must(await supabase.from('flashcard_reviews').insert(reviewRow))
     } catch (e) {
-      setError(e)
+      if (isNetworkError(e)) {
+        queueReview({ cardId: card.id, patch, review: reviewRow })
+        setOffline(true)
+      } else setError(e)
     }
   }
 
@@ -219,6 +227,7 @@ export default function FlashcardSession() {
                 )}
               </div>
               <div className="mt-3">
+                {offline && <p className="text-sm text-muted">Hors ligne : tes réponses sont gardées sur l’appareil et seront envoyées au retour du réseau.</p>}
                 <ErrorBox error={error} />
               </div>
             </>

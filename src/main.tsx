@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -7,6 +8,8 @@ import App from './App'
 import { AuthProvider } from './context/auth'
 import { ToastProvider } from './context/toast'
 import './index.css'
+import { clearOfflineCache, flushReviews, persistOptions } from './lib/offline'
+import { supabase } from './lib/supabase'
 import { applyTheme } from './lib/theme'
 
 // Vérifie les nouvelles versions au retour dans l'appli et toutes les heures :
@@ -24,12 +27,25 @@ applyTheme()
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme())
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: true } },
+  // gcTime long : les données restent disponibles hors ligne après un rechargement
+  defaultOptions: { queries: { staleTime: 30_000, gcTime: 7 * 24 * 3600_000, retry: 1, refetchOnWindowFocus: true } },
+})
+
+// Révisions faites hors ligne : envoyées au retour du réseau. Cache effacé à la déconnexion.
+window.addEventListener('online', async () => {
+  if (await flushReviews()) await queryClient.invalidateQueries({ queryKey: ['flashcards'] })
+})
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') {
+    queryClient.clear()
+    clearOfflineCache()
+  }
+  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') flushReviews()
 })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
@@ -37,6 +53,6 @@ createRoot(document.getElementById('root')!).render(
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>,
 )
