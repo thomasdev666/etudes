@@ -386,6 +386,10 @@ export const EN4: Record<string, string> = {
   'Fichier envoyé': 'File uploaded',
   'Préparation…': 'Preparing…',
   '{0} · Garde l’appli ouverte.': '{0} · Keep the app open.',
+  '✓ Gratuit, sans carte bancaire': '✓ Free, no card needed',
+  'jours de Premium offerts': 'days of Premium included',
+  '✓ Installable sur téléphone': '✓ Installs on your phone',
+  'Voir comment ça marche ↓': 'See how it works ↓',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

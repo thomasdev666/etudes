@@ -1,5 +1,5 @@
 import { BarChart3, BellRing, BookOpen, CalendarDays, Check, ChevronDown, GraduationCap, Layers, Mic, NotebookPen, ShieldCheck, Upload, X } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LanguageSwitch } from '@/components/LanguageSwitch'
 import { Logo } from '@/components/Logo'
@@ -13,11 +13,11 @@ import { isEn } from '@/i18n/lang'
 
 function Section({ id, eyebrow, title, intro, children }: { id?: string; eyebrow?: string; title: string; intro?: string; children: ReactNode }) {
   return (
-    <section id={id} className="mx-auto w-full max-w-5xl scroll-mt-20 px-4 py-14 sm:px-6 sm:py-20">
+    <section id={id} className="mx-auto w-full max-w-5xl scroll-mt-20 px-5 py-10 sm:px-6 sm:py-20">
       {eyebrow && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-accent-ink">{eyebrow}</p>}
       <h2 className="max-w-2xl text-balance font-display text-3xl font-bold sm:text-4xl">{title}</h2>
       {intro && <p className="mt-3 max-w-2xl text-lg text-muted">{intro}</p>}
-      <div className="mt-10">{children}</div>
+      <div className="mt-7 sm:mt-10">{children}</div>
     </section>
   )
 }
@@ -142,45 +142,62 @@ function Faq() {
 export default function LandingPage() {
   const navigate = useNavigate()
   const signup = () => navigate('/connexion?mode=signup')
+  const heroCta = useRef<HTMLDivElement>(null)
+  const [showSticky, setShowSticky] = useState(false)
+  useEffect(() => {
+    const el = heroCta.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => setShowSticky(!e.isIntersecting && e.boundingClientRect.top < 0))
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   return (
     <div className="min-h-dvh bg-bg">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-bg/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Logo withBaseline={false} className="h-8 w-auto text-text" />
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-bg/90 backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
+          <Link to="/" aria-label="Regulya" className="shrink-0">
+            <Logo withBaseline={false} className="h-7 w-auto text-text sm:h-8" />
+          </Link>
           <nav className="ml-auto hidden items-center gap-5 text-sm text-muted md:flex" aria-label="Sections">
             <a href="#comment" className="hover:text-text">Comment ça marche</a>
             <a href="#comparaison" className="hover:text-text">Pourquoi Regulya</a>
             <a href="#offres" className="hover:text-text">Offres</a>
             <a href="#questions" className="hover:text-text">Questions</a>
           </nav>
-          <LanguageSwitch className="ml-auto md:ml-2" />
-          <Link to="/connexion" className="rounded-xl px-3 py-2 text-sm font-medium hover:bg-surface-2">
+          <LanguageSwitch className="ml-auto shrink-0 md:ml-2" />
+          <Link to="/connexion" className="shrink-0 whitespace-nowrap rounded-xl border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 sm:border-transparent">
             Se connecter
           </Link>
-          <Button size="sm" onClick={signup} className="hidden sm:inline-flex">
-            Créer un compte
-          </Button>
+          <div className="hidden sm:block">
+            <Button size="sm" onClick={signup}>
+              Créer un compte
+            </Button>
+          </div>
         </div>
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-5xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-20">
+        <section className="mx-auto grid max-w-5xl items-center gap-10 px-5 pb-4 pt-8 sm:pb-14 sm:gap-12 sm:px-6 sm:pt-12 lg:grid-cols-[1.1fr_1fr] lg:pt-20">
           <div>
-            <p className="mb-4 inline-flex rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent-ink">Pour les étudiants d’écoles de commerce et d’université</p>
-            <h1 className="text-balance font-display text-4xl font-bold leading-[1.1] sm:text-5xl">Tes cours deviennent un plan de révision qui tient jusqu’aux partiels.</h1>
-            <p className="mt-5 max-w-xl text-lg text-muted">
+            <p className="mb-4 inline-flex rounded-full bg-accent-soft px-3 py-1 text-xs font-medium text-accent-ink sm:text-sm">Pour les étudiants d’écoles de commerce et d’université</p>
+            <h1 className="text-balance font-display text-[2rem] font-bold leading-[1.12] tracking-tight sm:text-5xl sm:leading-[1.1]">Tes cours deviennent un plan de révision qui tient jusqu’aux partiels.</h1>
+            <p className="mt-4 max-w-xl text-base text-muted sm:mt-5 sm:text-lg">
               Importe tes PDF et tes PowerPoint : Regulya prépare tes QCM et tes flash cards, répartit tes révisions dans ta semaine et te dit chaque jour quoi revoir.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button size="lg" onClick={signup}>
+            <div ref={heroCta} className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap">
+              <Button size="lg" onClick={signup} className="w-full sm:w-auto">
                 Commencer gratuitement
               </Button>
-              <a href="#comment" className="inline-flex items-center rounded-2xl border border-border px-5 py-3 font-medium hover:bg-surface-2">
-                Voir comment ça marche
+              <a href="#comment" className="inline-flex items-center justify-center rounded-2xl px-5 py-2.5 font-medium text-accent-ink hover:bg-surface-2 sm:border sm:border-border sm:py-3 sm:text-text">
+                Voir comment ça marche ↓
               </a>
             </div>
-            <p className="mt-4 text-sm text-muted">Gratuit, sans carte bancaire · {ESSAI_JOURS} jours de Premium offerts · Installable sur téléphone</p>
+            <ul className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-muted sm:justify-start">
+              <li>✓ Gratuit, sans carte bancaire</li>
+              <li>✓ {ESSAI_JOURS} jours de Premium offerts</li>
+              <li>✓ Installable sur téléphone</li>
+            </ul>
           </div>
           <AppPreview />
         </section>
@@ -304,8 +321,14 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Bouton toujours visible sur téléphone */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+      {/* Sur téléphone, le bouton reste visible une fois celui du haut sorti de l'écran */}
+      <div
+        className={cx(
+          'fixed inset-x-0 bottom-0 z-20 border-t border-border bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur transition-transform duration-200 sm:hidden',
+          showSticky ? 'translate-y-0' : 'pointer-events-none translate-y-full',
+        )}
+        aria-hidden={!showSticky}
+      >
         <Button className="w-full" onClick={signup}>
           Commencer gratuitement
         </Button>
