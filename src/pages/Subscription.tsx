@@ -1,5 +1,7 @@
 import { CreditCard, Gift, Lock, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CodeForm } from '@/components/OfferStep'
 import { PlanChoice } from '@/components/PlanChoice'
 import { Badge, Button, Card, ErrorBox, PageHeader, ProgressBar, Spinner } from '@/components/ui'
@@ -14,6 +16,16 @@ export default function SubscriptionPage() {
   const { data: usage = [] } = useUsage()
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
+  const [params] = useSearchParams()
+  const paid = params.get('paiement')
+  const qc = useQueryClient()
+
+  // Retour de la page de paiement : l'abonnement arrive par le webhook, on relit l'offre
+  useEffect(() => {
+    if (paid !== 'ok') return
+    const t = [2000, 6000, 15000].map((ms) => setTimeout(() => ['plan', 'plan_details', 'usage'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })), ms))
+    return () => t.forEach(clearTimeout)
+  }, [paid, qc])
 
   if (isLoading) return <Spinner />
   const isPremium = details?.plan === 'premium'
@@ -21,6 +33,8 @@ export default function SubscriptionPage() {
   return (
     <div className="flex flex-col gap-6 pb-10">
       <PageHeader title="Mon abonnement" subtitle="Ton offre, tes quotas de la semaine et l’accès Premium." />
+      {paid === 'ok' && <p className="rounded-2xl bg-success-soft px-4 py-3 text-sm text-success">Merci ! Ton paiement est validé. Premium s’active dans quelques secondes.</p>}
+      {paid === 'annule' && <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">Paiement annulé : rien n’a été prélevé.</p>}
 
       <Card className="flex flex-wrap items-center gap-3">
         {details?.source === 'trial' ? <Gift className="size-6 text-accent-ink" aria-hidden /> : <Sparkles className="size-6 text-accent-ink" aria-hidden />}

@@ -5,7 +5,7 @@ const publishable = () =>
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY ?? ''
 
 // Client qui agit avec les droits de l'utilisateur (la RLS s'applique).
-export async function userClient(req: Request): Promise<{ db: SupabaseClient; userId: string }> {
+export async function userClient(req: Request): Promise<{ db: SupabaseClient; userId: string; email: string }> {
   const auth = req.headers.get('authorization') ?? ''
   const token = auth.replace(/^Bearer\s+/i, '')
   if (!token) throw new HttpError(401, 'Non connecté')
@@ -15,7 +15,7 @@ export async function userClient(req: Request): Promise<{ db: SupabaseClient; us
   })
   const { data, error } = await db.auth.getUser(token)
   if (error || !data.user) throw new HttpError(401, 'Session expirée')
-  return { db, userId: data.user.id }
+  return { db, userId: data.user.id, email: data.user.email ?? '' }
 }
 
 export function adminClient(): SupabaseClient | null {
