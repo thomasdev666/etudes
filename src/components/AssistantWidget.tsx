@@ -11,24 +11,10 @@ import { Button, cx, SubjectDot } from './ui'
 // La conversation est guidée : il demande ce qui manque (type de document, matières,
 // contenus, précisions) avec des boutons simples, puis crée le document.
 
+// Visage de GIRAFA : la girafe en crochet, photo détourée en rond.
+// Pendant un travail, elle se balance doucement (sauf si l'utilisateur limite les animations).
 export function Mascot({ className, mood = 'happy' }: { className?: string; mood?: 'happy' | 'busy' }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden>
-      {/* toque d'étudiant */}
-      <path d="M14 20 L32 12 L50 20 L32 28 Z" fill="#2B2118" />
-      <path d="M44 22.5 V30" stroke="#2B2118" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="44" cy="31.5" r="2.2" fill="#F5B841" />
-      {/* tête */}
-      <circle cx="32" cy="38" r="17" fill="#F26B4F" />
-      <ellipse cx="25.5" cy="36" rx="3" ry={mood === 'busy' ? 1.2 : 3.4} fill="#FFFDF8" />
-      <ellipse cx="38.5" cy="36" rx="3" ry={mood === 'busy' ? 1.2 : 3.4} fill="#FFFDF8" />
-      <circle cx="26" cy="36.6" r="1.5" fill="#2B2118" />
-      <circle cx="39" cy="36.6" r="1.5" fill="#2B2118" />
-      <path d="M25.5 44 Q32 49.5 38.5 44" stroke="#FFFDF8" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-      <circle cx="20" cy="42.5" r="2.4" fill="#F7A08A" />
-      <circle cx="44" cy="42.5" r="2.4" fill="#F7A08A" />
-    </svg>
-  )
+  return <img src="/girafa.webp" alt="" aria-hidden draggable={false} className={cx('rounded-full object-cover', mood === 'busy' && 'motion-safe:animate-bounce', className)} />
 }
 
 const KINDS = [
@@ -76,7 +62,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
   const { data: notes = [] } = useNotesList()
   const { data: usage = [] } = useUsage()
   const [step, setStep] = useState<Step>('kind')
-  const [msgs, setMsgs] = useState<Msg[]>([{ from: 'bot', text: 'Salut, moi c’est JadeBot ! Je prépare des documents de révision à partir de tes cours. Qu’est-ce que je fais pour toi ?' }])
+  const [msgs, setMsgs] = useState<Msg[]>([{ from: 'bot', text: 'Salut, moi c’est GIRAFA ! Je prépare des documents de révision à partir de tes cours. Qu’est-ce que je fais pour toi ?' }])
   const [ask, setAsk] = useState('')
   const [picked, setPicked] = useState<string[]>([])
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
@@ -359,25 +345,25 @@ export function AssistantWidget() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Ouvrir JadeBot"
-          title="JadeBot"
-          className="fixed right-3 z-30 flex size-14 items-center justify-center rounded-full border border-border bg-surface shadow-lg motion-safe:transition-transform motion-safe:hover:scale-105 lg:right-5"
+          aria-label="Ouvrir GIRAFA"
+          title="GIRAFA"
+          className="fixed right-3 z-30 flex size-14 items-center justify-center rounded-full border-2 border-accent bg-surface p-0.5 shadow-lg motion-safe:transition-transform motion-safe:hover:scale-105 lg:right-5"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset))' }}
         >
-          <Mascot className="size-11" />
+          <Mascot className="size-full" />
         </button>
       )}
       {open && (
-        <div role="dialog" aria-label="JadeBot" className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-3xl border border-border bg-bg shadow-2xl lg:inset-x-auto lg:right-5 lg:bottom-5 lg:h-[36rem] lg:w-[24rem] lg:rounded-3xl">
+        <div role="dialog" aria-label="GIRAFA" className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-3xl border border-border bg-bg shadow-2xl lg:inset-x-auto lg:right-5 lg:bottom-5 lg:h-[36rem] lg:w-[24rem] lg:rounded-3xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             <Mascot className="size-8" />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold" translate="no">JadeBot</p>
+              <p className="font-semibold" translate="no">GIRAFA</p>
               <p className="text-xs text-muted">Je travaille uniquement à partir de tes cours</p>
             </div>
             <button
               type="button"
-              aria-label="Fermer JadeBot"
+              aria-label="Fermer GIRAFA"
               onClick={() => {
                 setOpen(false)
                 setKey((k) => k + 1)

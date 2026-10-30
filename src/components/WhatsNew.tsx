@@ -5,15 +5,15 @@ import { Mascot } from './AssistantWidget'
 import { LanguageSwitch } from './LanguageSwitch'
 import { Button, Modal } from './ui'
 
-// Nouveautés de la mise à jour JadeBot, montrées une fois aux comptes existants
+// Nouveautés de la mise à jour GIRAFA, montrées une fois aux comptes existants
 type Item = { icon: ReactNode; title: string; text: string; action?: { label: string; to: string }; language?: boolean }
 
 const ITEMS: Item[] = [
   {
-    icon: <Mascot className="size-8" />,
-    title: 'Voici JadeBot, ton assistant',
-    text: 'Le petit bonhomme en bas à droite, sur toutes les pages. Dis-lui ce qu’il te faut (« les formules d’analyse financière », « les définitions du chapitre 3 »…) : il te pose quelques questions simples, puis prépare le document à partir de tes cours.',
-    action: { label: 'Découvrir JadeBot', to: '/assistant' },
+    icon: <Mascot className="size-10" />,
+    title: 'Voici GIRAFA 🦒, ta nouvelle alliée de révision',
+    text: 'La petite girafe en bas à droite, sur toutes les pages. Dis-lui ce qu’il te faut (« les formules d’analyse financière », « les définitions du chapitre 3 »…) : GIRAFA te pose quelques questions simples, puis prépare le document à partir de tes cours.',
+    action: { label: 'Découvrir GIRAFA', to: '/assistant' },
   },
   {
     icon: <Target className="size-5" />,

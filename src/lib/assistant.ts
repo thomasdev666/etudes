@@ -21,8 +21,8 @@ export function useCreateAssistantDoc() {
         .insert({
           space_id: spaceId,
           subject_id: r.subjectId,
-          title: r.title ?? `JadeBot — ${short}`,
-          content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'JadeBot prépare ce document…' }] }] },
+          title: r.title ?? `GIRAFA — ${short}`,
+          content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'GIRAFA prépare ce document…' }] }] },
         })
         .select('id')
         .single(),
@@ -30,7 +30,7 @@ export function useCreateAssistantDoc() {
     const jobId = await start(
       'assistant',
       { note_id: note.id, course_ids: r.courseIds, note_ids: r.noteIds, instruction: ask },
-      { label: r.title ?? `JadeBot : « ${short} »`, estimateSec: estimateSeconds('assistant', r.courseIds.length + r.noteIds.length), link: `/notes/${note.id}`, linkLabel: 'Ouvrir' },
+      { label: r.title ?? `GIRAFA : « ${short} »`, estimateSec: estimateSeconds('assistant', r.courseIds.length + r.noteIds.length), link: `/notes/${note.id}`, linkLabel: 'Ouvrir' },
     )
     await invalidate('notes')
     return { noteId: note.id, jobId }
