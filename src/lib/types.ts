@@ -155,6 +155,8 @@ export type ErrorItem = Base & {
 
 export type Note = Base & {
   subject_id: string | null
+  // « sheet » : fiche de révision (rangée à part, mais éditable comme une note)
+  kind?: 'note' | 'sheet'
   title: string
   content: unknown
   content_text: string

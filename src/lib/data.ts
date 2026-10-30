@@ -77,16 +77,30 @@ export function useNotesList() {
   return useQuery({
     queryKey: ['notes', spaceId, 'list'],
     enabled: !!spaceId,
-    queryFn: async () =>
-      must(
-        await supabase
+    queryFn: async () => {
+      const cols = 'id, space_id, user_id, subject_id, title, content_text, created_at, updated_at, deleted_at'
+      const list = (withKind: boolean) =>
+        supabase
           .from('notes')
-          .select('id, space_id, user_id, subject_id, title, content_text, created_at, updated_at, deleted_at')
+          .select(withKind ? `${cols}, kind` : cols)
           .eq('space_id', spaceId)
           .is('deleted_at', null)
-          .order('updated_at', { ascending: false }),
-      ) as Omit<Note, 'content'>[],
+          .order('updated_at', { ascending: false })
+      let res = await list(true)
+      // Base pas encore mise à jour (colonne « kind » absente) : tout est rangé dans les notes
+      if (res.error && /kind/.test(res.error.message)) res = await list(false)
+      return must(res) as unknown as Omit<Note, 'content'>[]
+    },
   })
+}
+
+export const isSheet = (n: Pick<Note, 'kind'>) => n.kind === 'sheet'
+
+// Création d'une fiche de révision (note de type « sheet »), compatible avec une base pas encore à jour
+export async function insertSheetNote(row: Record<string, unknown>) {
+  let res = await supabase.from('notes').insert({ ...row, kind: 'sheet' }).select('id').single()
+  if (res.error && /kind/.test(res.error.message)) res = await supabase.from('notes').insert(row).select('id').single()
+  return must(res) as { id: string }
 }
 
 export function useSubjectMap() {

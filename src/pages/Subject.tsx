@@ -1,4 +1,4 @@
-import { AlertTriangle, FileAudio, FileText, ListChecks, Mic, NotebookPen, Pencil, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { AlertTriangle, FileAudio, FileText, ListChecks, Mic, NotebookPen, Pencil, Play, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CardsPanel } from '@/components/Cards'
@@ -21,6 +21,7 @@ import {
   useErrorItems,
   useFlashcards,
   useInvalidate,
+  isSheet,
   useNotesList,
   useQuizSessions,
   useQuizzes,
@@ -32,7 +33,7 @@ import { startErrorSession, startQuizSession } from '@/lib/quiz'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
 
-type Tab = 'cours' | 'notes' | 'qcm' | 'cartes' | 'mentales' | 'ressources' | 'plans' | 'erreurs'
+type Tab = 'cours' | 'notes' | 'fiches' | 'qcm' | 'cartes' | 'mentales' | 'ressources' | 'plans' | 'erreurs'
 
 const DIFF = { easy: 'Facile', medium: 'Moyen', hard: 'Difficile' }
 
@@ -175,7 +176,7 @@ export default function SubjectPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const TABS: Tab[] = ['cours', 'notes', 'qcm', 'cartes', 'mentales', 'ressources', 'plans', 'erreurs']
+  const TABS: Tab[] = ['cours', 'notes', 'fiches', 'qcm', 'cartes', 'mentales', 'ressources', 'plans', 'erreurs']
   // Onglet inconnu (ancien lien) : on revient aux cours plutôt que d'afficher une page vide
   const tab: Tab = TABS.includes(params.get('onglet') as Tab) ? (params.get('onglet') as Tab) : 'cours'
   const { spaceId } = useSpace()
@@ -201,7 +202,8 @@ export default function SubjectPage() {
 
   const sc = courses.filter((c) => c.subject_id === id)
   const transcribed = new Set(recordings.map((r) => r.course_id).filter(Boolean))
-  const sn = notes.filter((n) => n.subject_id === id)
+  const sn = notes.filter((n) => n.subject_id === id && !isSheet(n))
+  const sf = notes.filter((n) => n.subject_id === id && isSheet(n))
   const due = cards.filter((c) => c.subject_id === id && new Date(c.due_at) <= new Date()).length
   const errs = errors.filter((e) => e.subject_id === id && !e.resolved_at).length
   const exam = subject.exam_date ? countdown(subject.exam_date + 'T08:00:00') : null
@@ -253,6 +255,7 @@ export default function SubjectPage() {
         items={[
           { value: 'cours', label: 'Cours', count: sc.length },
           { value: 'notes', label: 'Notes', count: sn.length },
+          { value: 'fiches', label: 'Fiches', count: sf.length },
           { value: 'qcm', label: 'QCM' },
           { value: 'cartes', label: 'Flash cards', count: due },
           { value: 'mentales', label: 'Cartes mentales' },
@@ -315,6 +318,29 @@ export default function SubjectPage() {
               <EmptyState icon={<NotebookPen className="size-8" />} title="Aucune note" />
             ) : (
               sn.map((n) => (
+                <Link key={n.id} to={`/notes/${n.id}`}>
+                  <Card className="hover:shadow-md">
+                    <p className="font-medium">{n.title}</p>
+                    <p className="line-clamp-1 text-sm text-muted">{n.content_text || 'Vide'}</p>
+                  </Card>
+                </Link>
+              ))
+            )}
+          </div>
+        )}
+        {tab === 'fiches' && (
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-end">
+              <Link to="/assistant">
+                <Button icon={<Sparkles className="size-4" />}>Demander une fiche à GIRAFA</Button>
+              </Link>
+            </div>
+            {!sf.length ? (
+              <EmptyState icon={<FileText className="size-8" />} title="Aucune fiche de révision">
+                Ouvre un cours et touche « Fiche de révision », ou demande à GIRAFA une fiche sur ce que tu veux.
+              </EmptyState>
+            ) : (
+              sf.map((n) => (
                 <Link key={n.id} to={`/notes/${n.id}`}>
                   <Card className="hover:shadow-md">
                     <p className="font-medium">{n.title}</p>

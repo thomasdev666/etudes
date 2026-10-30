@@ -2,17 +2,17 @@ import { AssistantWidget } from '@/components/AssistantWidget'
 import { Logo } from '@/components/Logo'
 import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Sparkles, Trash2 } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSpace } from '@/context/space'
 import { useGirafaHidden } from '@/lib/assistantPref'
 import { cx, Spinner } from './ui'
 
 const NAV = [
-  { to: '/', label: 'Accueil', icon: Home, end: true, tour: 'nav-accueil' },
+  { to: '/', label: 'Accueil', icon: Home, end: true, tour: 'nav-accueil', also: [] as string[] },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays, tour: 'nav-agenda' },
   { to: '/reviser', label: 'Réviser', icon: Brain, tour: 'nav-reviser' },
   { to: '/matieres', label: 'Matières', icon: BookOpen, tour: 'nav-matieres' },
-  { to: '/notes', label: 'Notes', icon: NotebookPen, tour: 'nav-notes' },
+  { to: '/notes', label: 'Notes', icon: NotebookPen, tour: 'nav-notes', also: ['/fiches'] },
 ]
 
 function SpaceSwitcher() {
@@ -109,6 +109,7 @@ function useSearchShortcut() {
 
 export function AppShell() {
   useSearchShortcut()
+  const { pathname } = useLocation()
   const girafaHidden = useGirafaHidden()
   return (
     <div className="min-h-dvh lg:flex">
@@ -132,7 +133,7 @@ export function AppShell() {
           <kbd className="rounded-md border border-border px-1.5 text-[11px]">Ctrl K</kbd>
         </Link>
         <nav aria-label="Navigation principale" className="flex flex-col gap-1">
-          {NAV.map(({ to, label, icon: Icon, end, tour }) => (
+          {NAV.map(({ to, label, icon: Icon, end, tour, also }) => (
             <NavLink
               key={to}
               to={to}
@@ -141,7 +142,7 @@ export function AppShell() {
               className={({ isActive }) =>
                 cx(
                   'flex items-center gap-3 rounded-xl px-3 py-2.5 font-medium transition-colors',
-                  isActive ? 'bg-accent-soft text-accent-ink' : 'text-muted hover:bg-surface-2 hover:text-text',
+                  isActive || also?.includes(pathname) ? 'bg-accent-soft text-accent-ink' : 'text-muted hover:bg-surface-2 hover:text-text',
                 )
               }
             >
@@ -203,19 +204,19 @@ export function AppShell() {
       {/* Barre inférieure (mobile), utilisable au pouce */}
       <nav aria-label="Navigation principale" className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface/95 backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-lg grid-cols-5">
-          {NAV.map(({ to, label, icon: Icon, end, tour }) => (
+          {NAV.map(({ to, label, icon: Icon, end, tour, also }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               data-tour={tour}
               className={({ isActive }) =>
-                cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-accent-ink' : 'text-muted')
+                cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive || also?.includes(pathname) ? 'text-accent-ink' : 'text-muted')
               }
             >
               {({ isActive }) => (
                 <>
-                  <span className={cx('flex h-7 w-12 items-center justify-center rounded-full transition-colors', isActive && 'bg-accent-soft')}>
+                  <span className={cx('flex h-7 w-12 items-center justify-center rounded-full transition-colors', (isActive || also?.includes(pathname)) && 'bg-accent-soft')}>
                     <Icon className="size-5" strokeWidth={2.2} aria-hidden />
                   </span>
                   {label}

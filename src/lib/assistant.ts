@@ -3,8 +3,7 @@
 import { useJobs } from '@/context/jobs'
 import { useSpace } from '@/context/space'
 import { estimateSeconds } from './ai'
-import { useInvalidate } from './data'
-import { must, supabase } from './supabase'
+import { insertSheetNote, useInvalidate } from './data'
 
 export type AssistantRequest = { subjectId: string | null; courseIds: string[]; noteIds: string[]; instruction: string; title?: string }
 
@@ -15,18 +14,12 @@ export function useCreateAssistantDoc() {
   return async (r: AssistantRequest) => {
     const ask = r.instruction.trim()
     const short = r.title ?? (ask.length > 60 ? ask.slice(0, 57) + '…' : ask)
-    const note = must(
-      await supabase
-        .from('notes')
-        .insert({
-          space_id: spaceId,
-          subject_id: r.subjectId,
-          title: r.title ?? `GIRAFA — ${short}`,
-          content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'GIRAFA prépare ce document…' }] }] },
-        })
-        .select('id')
-        .single(),
-    ) as { id: string }
+    const note = await insertSheetNote({
+      space_id: spaceId,
+      subject_id: r.subjectId,
+      title: r.title ?? `GIRAFA — ${short}`,
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'GIRAFA prépare ce document…' }] }] },
+    })
     const jobId = await start(
       'assistant',
       { note_id: note.id, course_ids: r.courseIds, note_ids: r.noteIds, instruction: ask },

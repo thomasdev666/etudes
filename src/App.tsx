@@ -28,6 +28,7 @@ const FlashcardSession = lazy(() => import('./pages/FlashcardSession'))
 const QuizNewPage = lazy(() => import('./pages/QuizNew'))
 const QuizSessionPage = lazy(() => import('./pages/QuizSession'))
 const NotesPage = lazy(() => import('./pages/Notes'))
+const SheetsPage = lazy(() => import('./pages/Notes').then((m) => ({ default: m.SheetsPage })))
 const NoteEditorPage = lazy(() => import('./pages/NoteEditor'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const TrashPage = lazy(() => import('./pages/Trash'))
@@ -112,6 +113,7 @@ function SpaceGate() {
           <Route path="/reviser" element={<ReviewPage />} />
           <Route path="/qcm/nouveau" element={<QuizNewPage />} />
           <Route path="/notes" element={<NotesPage />} />
+          <Route path="/fiches" element={<SheetsPage />} />
           <Route path="/notes/:id" element={<NoteEditorPage />} />
           <Route path="/parametres" element={<SettingsPage />} />
           <Route path="/corbeille" element={<TrashPage />} />

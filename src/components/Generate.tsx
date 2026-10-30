@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSpace } from '@/context/space'
 import { useJobs } from '@/context/jobs'
 import { estimateSeconds } from '@/lib/ai'
-import { useCourses, useInvalidate, useNotesList, useSubjects } from '@/lib/data'
+import { insertSheetNote, useCourses, useInvalidate, useNotesList, useSubjects } from '@/lib/data'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
 import { Button, ErrorBox, Field, Input, Modal, Select } from './ui'
@@ -310,13 +310,12 @@ export function useGenerateSheet() {
   const generate = async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[] }) => {
     if (running(o)) throw new Error('Une fiche de révision est déjà en cours pour ce contenu. Attends qu’elle soit terminée.')
     const t = `Fiche — ${o.title}`
-    const note = must(
-      await supabase
-        .from('notes')
-        .insert({ space_id: spaceId, subject_id: o.subjectId, title: t, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Fiche en cours de rédaction par l’IA…' }] }] } })
-        .select('id')
-        .single(),
-    ) as { id: string }
+    const note = await insertSheetNote({
+      space_id: spaceId,
+      subject_id: o.subjectId,
+      title: t,
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Fiche en cours de rédaction par l’IA…' }] }] },
+    })
     await start(
       'sheet',
       { note_id: note.id, course_ids: o.courseIds ?? [], note_ids: o.noteIds ?? [], title: o.title },

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react'
-import { ArrowLeft, Download, Workflow, X, FileDown, FileText, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, NotebookPen, Workflow, X, FileDown, FileText, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
@@ -393,6 +393,21 @@ function NoteEditor({ id }: { id: string }) {
               >
                 {sheet.running({ noteIds: [id] }) ? 'Fiche en cours de rédaction…' : 'Générer une fiche de révision'}
               </MenuItem>
+              {note?.kind && (
+                <MenuItem
+                  icon={note.kind === 'sheet' ? <NotebookPen className="size-4" /> : <FileText className="size-4" />}
+                  onClick={async () => {
+                    setMenu(false)
+                    const kind = note.kind === 'sheet' ? 'note' : 'sheet'
+                    await supabase.from('notes').update({ kind }).eq('id', id)
+                    qc.setQueryData(['notes', spaceId, 'one', id], { ...note, kind })
+                    await invalidate('notes')
+                    toast({ message: kind === 'sheet' ? 'Rangée dans les fiches de révision' : 'Rangée dans les notes' })
+                  }}
+                >
+                  {note.kind === 'sheet' ? 'Ranger dans mes notes' : 'Ranger dans les fiches de révision'}
+                </MenuItem>
+              )}
               <MenuItem
                 icon={<History className="size-4" />}
                 onClick={() => {
