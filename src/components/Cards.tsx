@@ -1,4 +1,4 @@
-import { Brain, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Brain, FileUp, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { relativeDay } from '@/lib/dates'
@@ -6,6 +6,7 @@ import { useFlashcards, useInsert, useTrash, useUpdate } from '@/lib/data'
 import { MASTERED_DAYS } from '@/lib/sm2'
 import type { Flashcard, Subject } from '@/lib/types'
 import { GenerateCardsModal } from './Generate'
+import { ImportCardsModal } from './ImportCards'
 import { Badge, Button, Card, EmptyState, Field, IconButton, Modal, Textarea } from './ui'
 
 export function CardForm({ open, onClose, subjectId, card }: { open: boolean; onClose: () => void; subjectId: string; card?: Flashcard }) {
@@ -68,6 +69,7 @@ export function CardsPanel({ subject }: { subject: Subject }) {
   const trash = useTrash('flashcards')
   const [form, setForm] = useState<{ open: boolean; card?: Flashcard }>({ open: false })
   const [gen, setGen] = useState(false)
+  const [imp, setImp] = useState(false)
   const cards = all.filter((c) => c.subject_id === subject.id)
   const due = cards.filter((c) => new Date(c.due_at) <= new Date()).length
 
@@ -84,6 +86,9 @@ export function CardsPanel({ subject }: { subject: Subject }) {
         <Button variant="secondary" icon={<Plus className="size-4" />} onClick={() => setForm({ open: true })}>
           Ajouter
         </Button>
+        <Button variant="secondary" icon={<FileUp className="size-4" />} onClick={() => setImp(true)}>
+          Importer
+        </Button>
         {due > 0 && (
           <Link to={`/reviser/cartes?matiere=${subject.id}`}>
             <Button icon={<Brain className="size-4" />}>Réviser</Button>
@@ -93,7 +98,7 @@ export function CardsPanel({ subject }: { subject: Subject }) {
 
       {!cards.length ? (
         <EmptyState icon={<Brain className="size-8" />} title="Aucune flash card">
-          Crée des cartes à la main ou génère-les depuis un cours. Elles reviendront au bon moment grâce à la répétition espacée.
+          Crée des cartes à la main, génère-les depuis un cours, ou importe-les depuis Anki ou Quizlet. Elles reviendront au bon moment grâce à la répétition espacée.
         </EmptyState>
       ) : (
         <ul className="flex flex-col divide-y divide-border rounded-[var(--radius-card)] border border-border bg-surface">
@@ -111,6 +116,7 @@ export function CardsPanel({ subject }: { subject: Subject }) {
                     <Badge>Prochaine : {relativeDay(c.due_at)}</Badge>
                   )}
                   {c.source === 'ai' && <Badge>IA</Badge>}
+                  {c.source === 'import' && <Badge>Importée</Badge>}
                 </div>
               </div>
               <IconButton label="Modifier" onClick={() => setForm({ open: true, card: c })}>
@@ -125,6 +131,7 @@ export function CardsPanel({ subject }: { subject: Subject }) {
       )}
       <CardForm open={form.open} card={form.card} subjectId={subject.id} onClose={() => setForm({ open: false })} />
       <GenerateCardsModal open={gen} onClose={() => setGen(false)} subjectId={subject.id} />
+      <ImportCardsModal open={imp} onClose={() => setImp(false)} subjectId={subject.id} />
     </div>
   )
 }

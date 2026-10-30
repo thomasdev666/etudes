@@ -85,7 +85,7 @@ export type Flashcard = Base & {
   subject_id: string
   front: string
   back: string
-  source: 'manual' | 'ai'
+  source: 'manual' | 'ai' | 'import'
   interval_days: number
   ease: number
   repetitions: number

@@ -1,10 +1,11 @@
-import { NotebookPen, Plus, Search } from 'lucide-react'
+import { FileUp, NotebookPen, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Card, EmptyState, Input, PageHeader, Select, Spinner, SubjectChip } from '@/components/ui'
+import { Button, Card, EmptyState, ErrorBox, Input, PageHeader, Select, Spinner, SubjectChip } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { fmt } from '@/lib/dates'
-import { useNotesList, useSubjectMap, useSubjects } from '@/lib/data'
+import { useInvalidate, useNotesList, useSubjectMap, useSubjects } from '@/lib/data'
+import { fileToNote, NOTE_IMPORT_ACCEPT } from '@/lib/importNote'
 import { must, supabase } from '@/lib/supabase'
 
 function Highlight({ text, q }: { text: string; q: string }) {
@@ -39,6 +40,31 @@ export default function NotesPage() {
     )
   }, [notes, q, subject])
 
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<unknown>(null)
+  const invalidate = useInvalidate()
+
+  // Import de fichiers : une note par fichier, dans la matière filtrée s'il y en a une
+  async function importFiles(files: FileList) {
+    setImporting(true)
+    setImportError(null)
+    try {
+      const ids: string[] = []
+      for (const file of Array.from(files)) {
+        if (file.size > 10 * 1024 * 1024) throw new Error(`« ${file.name} » dépasse 10 Mo.`)
+        const note = await fileToNote(file)
+        const row = must(await supabase.from('notes').insert({ space_id: spaceId, subject_id: subject || null, ...note }).select('id').single()) as { id: string }
+        ids.push(row.id)
+      }
+      await invalidate('notes')
+      if (ids.length === 1) navigate(`/notes/${ids[0]}`)
+    } catch (e) {
+      setImportError(e)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   async function create() {
     setCreating(true)
     const n = must(
@@ -59,11 +85,19 @@ export default function NotesPage() {
       <PageHeader
         title="Notes"
         actions={
-          <Button icon={<Plus className="size-4" />} onClick={create} loading={creating}>
-            Nouvelle note
-          </Button>
+          <>
+            <label className={`inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-border px-4 py-2 text-sm font-medium hover:bg-surface-2 ${importing ? 'pointer-events-none opacity-60' : ''}`}>
+              <FileUp className="size-4" aria-hidden />
+              {importing ? 'Import…' : 'Importer'}
+              <input type="file" multiple accept={NOTE_IMPORT_ACCEPT} className="sr-only" onChange={(e) => e.target.files?.length && importFiles(e.target.files)} />
+            </label>
+            <Button icon={<Plus className="size-4" />} onClick={create} loading={creating}>
+              Nouvelle note
+            </Button>
+          </>
         }
       />
+      <ErrorBox error={importError} />
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
@@ -82,7 +116,7 @@ export default function NotesPage() {
         <Spinner />
       ) : !filtered.length ? (
         <EmptyState icon={<NotebookPen className="size-8" />} title={notes?.length ? 'Aucun résultat' : 'Aucune note'}>
-          {notes?.length ? 'Essaie un autre mot.' : 'Prends tes notes de cours ici : titres, tableaux, formules, images.'}
+          {notes?.length ? 'Essaie un autre mot.' : 'Prends tes notes de cours ici : titres, tableaux, formules, images. Tu peux aussi importer tes notes Notion (Markdown), Word ou texte.'}
         </EmptyState>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

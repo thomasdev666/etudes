@@ -31,3 +31,7 @@ begin
 end $$;
 revoke execute on function public.save_push_subscription(text, text, text) from anon, public;
 grant execute on function public.save_push_subscription(text, text, text) to authenticated;
+
+-- Flash cards importées (Anki, Quizlet, CSV)
+alter table public.flashcards drop constraint if exists flashcards_source_check;
+alter table public.flashcards add constraint flashcards_source_check check (source in ('manual', 'ai', 'import'));
