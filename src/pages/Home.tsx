@@ -50,14 +50,14 @@ export function HomePage() {
   // Compte existant qui l'a déjà vue : seulement les nouveautés.
   const ready = !onboarding.loading && onboarding.setupDone
   // Nouveaux comptes : la présentation complète couvre déjà les nouveautés
-  const mainTour = useFirstTimeTour('main', ready, ['news', 'maj-2026-11'])
+  const mainTour = useFirstTimeTour('main', ready, ['news', 'maj-2026-11', 'maj-jadebot'])
   const newsTour = useFirstTimeTour('news', ready && onboarding.tourSeen('main'))
   const tour = mainTour ?? newsTour
   // Comptes existants : fenêtre « Quoi de neuf » une fois, ou à la demande (?nouveautes=1)
   const [params, setParams] = useSearchParams()
-  const showNews = (ready && onboarding.tourSeen('main') && onboarding.tourSeen('news') && !onboarding.tourSeen('maj-2026-11')) || params.has('nouveautes')
+  const showNews = (ready && onboarding.tourSeen('main') && onboarding.tourSeen('news') && !onboarding.tourSeen('maj-jadebot')) || params.has('nouveautes')
   const closeNews = () => {
-    onboarding.markTour('maj-2026-11')
+    onboarding.markTour('maj-jadebot')
     if (params.has('nouveautes')) setParams({}, { replace: true })
   }
 

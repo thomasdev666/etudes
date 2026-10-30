@@ -76,7 +76,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
   const { data: notes = [] } = useNotesList()
   const { data: usage = [] } = useUsage()
   const [step, setStep] = useState<Step>('kind')
-  const [msgs, setMsgs] = useState<Msg[]>([{ from: 'bot', text: 'Salut ! Je prépare des documents de révision à partir de tes cours. Qu’est-ce que je fais pour toi ?' }])
+  const [msgs, setMsgs] = useState<Msg[]>([{ from: 'bot', text: 'Salut, moi c’est JadeBot ! Je prépare des documents de révision à partir de tes cours. Qu’est-ce que je fais pour toi ?' }])
   const [ask, setAsk] = useState('')
   const [picked, setPicked] = useState<string[]>([])
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
@@ -359,8 +359,8 @@ export function AssistantWidget() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Ouvrir l’assistant"
-          title="Assistant"
+          aria-label="Ouvrir JadeBot"
+          title="JadeBot"
           className="fixed right-3 z-30 flex size-14 items-center justify-center rounded-full border border-border bg-surface shadow-lg motion-safe:transition-transform motion-safe:hover:scale-105 lg:right-5"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset))' }}
         >
@@ -368,16 +368,16 @@ export function AssistantWidget() {
         </button>
       )}
       {open && (
-        <div role="dialog" aria-label="Assistant" className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-3xl border border-border bg-bg shadow-2xl lg:inset-x-auto lg:right-5 lg:bottom-5 lg:h-[36rem] lg:w-[24rem] lg:rounded-3xl">
+        <div role="dialog" aria-label="JadeBot" className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-3xl border border-border bg-bg shadow-2xl lg:inset-x-auto lg:right-5 lg:bottom-5 lg:h-[36rem] lg:w-[24rem] lg:rounded-3xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             <Mascot className="size-8" />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">Assistant</p>
+              <p className="font-semibold" translate="no">JadeBot</p>
               <p className="text-xs text-muted">Je travaille uniquement à partir de tes cours</p>
             </div>
             <button
               type="button"
-              aria-label="Fermer l’assistant"
+              aria-label="Fermer JadeBot"
               onClick={() => {
                 setOpen(false)
                 setKey((k) => k + 1)

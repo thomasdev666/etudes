@@ -150,7 +150,7 @@ export function AppShell() {
         </nav>
         <div className="mt-auto flex flex-col gap-1">
           <NavLink to="/assistant" data-tour="nav-assistant" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
-            <Sparkles className="size-4" aria-hidden /> Assistant
+            <Sparkles className="size-4" aria-hidden /> <span translate="no">JadeBot</span>
           </NavLink>
           <NavLink to="/entrainements" data-tour="nav-exams" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
             <GraduationCap className="size-4" aria-hidden /> TAGE MAGE · TOEIC
@@ -173,7 +173,7 @@ export function AppShell() {
           <div className="min-w-0 flex-1">
             <SpaceSwitcher />
           </div>
-          <NavLink to="/assistant" aria-label="Assistant" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+          <NavLink to="/assistant" aria-label="JadeBot" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Sparkles className="size-5" aria-hidden />
           </NavLink>
           <NavLink to="/recherche" aria-label="Rechercher" data-tour="nav-search" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">

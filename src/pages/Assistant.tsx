@@ -70,7 +70,7 @@ export default function AssistantPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 pb-10">
-      <PageHeader title="Assistant" subtitle="Demande ce que tu veux à partir de tes cours. Le résultat devient une note que tu peux modifier, exporter ou partager." />
+      <PageHeader title="JadeBot" subtitle="Ton assistant de révision. Demande ce que tu veux à partir de tes cours. Le résultat devient une note que tu peux modifier, exporter ou partager." />
 
       <Card className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
@@ -142,7 +142,7 @@ export default function AssistantPage() {
                 )
               })}
             </ul>
-            {total > MAX_CHARS && <p className="text-xs text-warning">Beaucoup de contenu : l’assistant lira environ les {Math.round((MAX_CHARS / total) * 100)} % premiers. Choisis une matière ou moins de cours pour un résultat plus complet.</p>}
+            {total > MAX_CHARS && <p className="text-xs text-warning">Beaucoup de contenu : JadeBot lira environ les {Math.round((MAX_CHARS / total) * 100)} % premiers. Choisis une matière ou moins de cours pour un résultat plus complet.</p>}
           </div>
         )}
 
@@ -181,7 +181,7 @@ export default function AssistantPage() {
         )}
       </Card>
 
-      <p className="text-center text-xs text-muted">L’assistant ne s’appuie que sur les contenus cochés, et ne modifie jamais tes cours ni tes notes. Vérifie le résultat : une IA peut se tromper.</p>
+      <p className="text-center text-xs text-muted">JadeBot ne s’appuie que sur les contenus cochés, et ne modifie jamais tes cours ni tes notes. Vérifie le résultat : une IA peut se tromper.</p>
     </div>
   )
 }

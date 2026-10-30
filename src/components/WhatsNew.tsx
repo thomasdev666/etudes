@@ -1,62 +1,49 @@
-import { BellRing, CalendarSync, FileUp, Flag, Gift, Languages, Mic, Share2, WifiOff } from 'lucide-react'
+import { Calculator, Layers, ListChecks, Smartphone, Target, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { Mascot } from './AssistantWidget'
 import { LanguageSwitch } from './LanguageSwitch'
 import { Button, Modal } from './ui'
 
-// Nouveautés de la mise à jour de novembre 2026, montrées une fois aux comptes existants
+// Nouveautés de la mise à jour JadeBot, montrées une fois aux comptes existants
 type Item = { icon: ReactNode; title: string; text: string; action?: { label: string; to: string }; language?: boolean }
 
 const ITEMS: Item[] = [
   {
-    icon: <Gift className="size-5" />,
-    title: 'Essaie Premium 7 jours, gratuitement',
-    text: 'Sans carte bancaire : transcription de tes cours, examens blancs complets et 30 générations par semaine. Les prix baissent aussi : 2,99 € par mois, ou 14,99 € le semestre.',
-    action: { label: 'Voir les offres', to: '/abonnement' },
+    icon: <Mascot className="size-8" />,
+    title: 'Voici JadeBot, ton assistant',
+    text: 'Le petit bonhomme en bas à droite, sur toutes les pages. Dis-lui ce qu’il te faut (« les formules d’analyse financière », « les définitions du chapitre 3 »…) : il te pose quelques questions simples, puis prépare le document à partir de tes cours.',
+    action: { label: 'Découvrir JadeBot', to: '/assistant' },
   },
   {
-    icon: <BellRing className="size-5" />,
-    title: 'Des notifications sur ton téléphone',
-    text: 'Un rappel le matin pour tes devoirs qui arrivent et tes flash cards à revoir. Sur iPhone, ajoute d’abord Regulya à ton écran d’accueil.',
-    action: { label: 'Activer', to: '/parametres' },
+    icon: <Target className="size-5" />,
+    title: 'Une fiche sur tes erreurs',
+    text: 'À la fin d’un QCM, crée en un clic une fiche rien que pour ce que tu as raté : réexpliqué avec des schémas, des exemples et les pièges à éviter, puis un mini-défi.',
   },
   {
-    icon: <CalendarSync className="size-5" />,
-    title: 'Relie ton agenda en un lien',
-    text: 'Google Agenda, Hyperplanning, Celcat ou Outlook : colle le lien iCal, tes cours s’affichent et se mettent à jour chaque nuit.',
-    action: { label: 'Relier mon agenda', to: '/parametres#calendrier' },
+    icon: <Workflow className="size-5" />,
+    title: 'Des fiches beaucoup plus visuelles',
+    text: 'Schémas en étapes, cycles, cartes autour d’une notion, tableaux comparatifs et encadrés colorés : moins de texte, plus de repères.',
   },
   {
-    icon: <FileUp className="size-5" />,
-    title: 'Importe ce que tu as déjà',
-    text: 'Tes flash cards Anki ou Quizlet (bouton « Importer » dans les flash cards d’une matière), et tes notes Notion, Word ou texte (page Notes).',
-    action: { label: 'Mes notes', to: '/notes' },
+    icon: <ListChecks className="size-5" />,
+    title: 'Des QCM plus pertinents',
+    text: 'Plus de questions sur l’organisation du cours : les QCM portent sur le fond, en priorité sur les mots en gras de tes PowerPoint et PDF.',
   },
   {
-    icon: <Share2 className="size-5" />,
-    title: 'Partage avec ta promo',
-    text: 'Un lien en lecture seule pour une fiche, une carte mentale ou un paquet de flash cards. Tes amis l’ouvrent sans compte, et tu le désactives quand tu veux.',
+    icon: <Calculator className="size-5" />,
+    title: 'Les formules s’affichent enfin',
+    text: 'Dans les questions, les réponses et la correction, les formules sont écrites proprement, seules ou avec une phrase.',
   },
   {
-    icon: <Flag className="size-5" />,
-    title: 'Des corrections que tu peux vérifier',
-    text: 'Chaque question de QCM cite maintenant l’extrait du cours qui justifie la réponse. Une question fausse ? Signale-la en un clic, elle ne comptera pas dans tes erreurs.',
+    icon: <Layers className="size-5" />,
+    title: 'Une seule barre de chargement',
+    text: 'Plusieurs générations en même temps ? Une barre regroupée, le détail si tu veux, et chaque tâche terminée se ferme toute seule.',
   },
   {
-    icon: <Mic className="size-5" />,
-    title: 'Transcription plus généreuse',
-    text: '5 h par semaine en Premium, et les gros fichiers audio ou vidéo (jusqu’à 1 Go) sont convertis directement sur ton appareil.',
-  },
-  {
-    icon: <WifiOff className="size-5" />,
-    title: 'Révise même sans réseau',
-    text: 'Dans le train ou en amphi sans wifi, tes données restent consultables et tes réponses aux flash cards sont envoyées au retour du réseau.',
-  },
-  {
-    icon: <Languages className="size-5" />,
-    title: 'Regulya en anglais',
-    text: 'Pour les cours en anglais ou tes amis en échange : toute l’interface existe maintenant en anglais. Tes contenus ne sont jamais traduits.',
-    language: true,
+    icon: <Smartphone className="size-5" />,
+    title: 'Plus confortable sur téléphone',
+    text: 'Les textes ne sont plus écrasés à côté des boutons, sur toutes les pages.',
   },
 ]
 
