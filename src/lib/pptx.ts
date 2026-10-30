@@ -32,14 +32,47 @@ function insideCell(el: Element) {
   return false
 }
 
+// Texte d'un paragraphe, avec le gras entre ** ** : l'IA s'en sert pour repérer l'essentiel.
+// Un paragraphe entièrement en gras (titre) reste sans marque.
+export function paragraphText(p: Element) {
+  const runs = Array.from(p.getElementsByTagNameNS('*', 't')).map((t) => {
+    const rPr = (t.parentNode as Element | null)?.getElementsByTagNameNS('*', 'rPr')[0]
+    const b = rPr?.getAttribute('b')
+    return { text: t.textContent ?? '', bold: b === '1' || b === 'true' }
+  })
+  const visible = runs.filter((r) => r.text.trim())
+  if (!visible.length || visible.every((r) => r.bold)) return runs.map((r) => r.text).join('').trim()
+  let out = ''
+  let open = false
+  for (const r of runs) {
+    if (r.bold && r.text.trim()) {
+      if (!open) {
+        const lead = r.text.match(/^\s*/)![0]
+        out += lead + '**'
+        open = true
+        out += r.text.slice(lead.length)
+      } else out += r.text
+    } else {
+      if (open) {
+        const trail = out.match(/\s*$/)![0]
+        out = out.slice(0, out.length - trail.length) + '**' + trail
+        open = false
+      }
+      out += r.text
+    }
+  }
+  if (open) out = out.replace(/\s*$/, '') + '**'
+  return out.trim()
+}
+
 // Texte d'une diapositive : un paragraphe par ligne, cellules de tableau séparées par « | »
 function slideText(doc: Document) {
   const lines: string[] = []
   for (const p of doc.getElementsByTagNameNS('*', 'p')) {
     if (p.namespaceURI?.includes('drawingml') === false) continue
     if (insideCell(p)) continue
-    const t = [...p.getElementsByTagNameNS('*', 't')].map((n) => n.textContent ?? '').join('')
-    if (t.trim()) lines.push(t.trim())
+    const t = paragraphText(p)
+    if (t) lines.push(t)
   }
   for (const row of doc.getElementsByTagNameNS('*', 'tr')) {
     const cells = [...row.getElementsByTagNameNS('*', 'tc')].map((c) =>

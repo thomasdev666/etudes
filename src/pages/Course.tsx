@@ -13,6 +13,13 @@ import { BUCKET, supabase } from '@/lib/supabase'
 import { useFirstTimeTour } from '@/lib/tours'
 import { useStudyTimer } from '@/lib/studyTimer'
 
+// Le gras du document d'origine est conservé entre ** ** dans le texte extrait
+function WithBold({ text }: { text: string }) {
+  return text.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? <strong key={i}>{part.slice(2, -2)}</strong> : part,
+  )
+}
+
 export default function CoursePage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -135,7 +142,7 @@ export default function CoursePage() {
         </div>
       )}
       <Card>
-        <div className="whitespace-pre-wrap break-words leading-relaxed">{course.content.replace(/\[\[image:\d+\]\]/g, '⏳ [image en cours de lecture]') || <span className="text-muted">Aucun texte.</span>}</div>
+        <div className="whitespace-pre-wrap break-words leading-relaxed">{course.content ? <WithBold text={course.content.replace(/\[\[image:\d+\]\]/g, '⏳ [image en cours de lecture]')} /> : <span className="text-muted">Aucun texte.</span>}</div>
       </Card>
       <GenerateMindmapModal open={mind} onClose={() => setMind(false)} subjectId={course.subject_id} initialCourseIds={[course.id]} />
       <GenerateCardsModal open={gen} onClose={() => setGen(false)} subjectId={course.subject_id} initialCourseIds={[course.id]} />

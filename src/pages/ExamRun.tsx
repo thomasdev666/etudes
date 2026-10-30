@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Flag, Headphones, Loader2, RotateCcw, Timer, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { MathText } from '@/components/MathText'
 import { Badge, Button, Card, cx, EmptyState, ErrorBox, ProgressBar, Spinner } from '@/components/ui'
 import { jobProgress, useJobs } from '@/context/jobs'
 import { estimateSeconds } from '@/lib/ai'
@@ -133,7 +134,7 @@ function Results({ session, questions }: { session: ExamSession; questions: Map<
                           {blank ? '–' : ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}
                         </span>
                         <p className="min-w-0 flex-1 whitespace-pre-wrap font-medium">
-                          {i + 1}. {q!.question}
+                          {i + 1}. <MathText text={q!.question} />
                         </p>
                       </div>
                       {q!.passage && (
@@ -155,11 +156,13 @@ function Results({ session, questions }: { session: ExamSession; questions: Map<
                               j === a && j !== c?.correct_index && 'bg-danger-soft text-danger line-through',
                             )}
                           >
-                            {LETTERS[j]}. {ch}
+                            {LETTERS[j]}. <MathText text={ch} />
                           </li>
                         ))}
                       </ul>
-                      {c?.explanation && <p className="mt-2 text-sm text-muted">{c.explanation}</p>}
+                      {c?.explanation && <p className="mt-2 text-sm text-muted">
+                          <MathText text={c.explanation} />
+                        </p>}
                     </Card>
                   )
                 })}
@@ -395,7 +398,11 @@ export default function ExamRunPage() {
             <p className="mb-1 text-sm text-muted">
               Question {index + 1} / {ids.length}
             </p>
-            {!hidden && <p className="whitespace-pre-wrap text-lg font-medium">{q.question}</p>}
+            {!hidden && (
+              <p className="whitespace-pre-wrap text-lg font-medium">
+                <MathText text={q.question} />
+              </p>
+            )}
             {hidden && <p className="text-lg font-medium">Écoute la phrase et les trois réponses, puis choisis la bonne.</p>}
           </div>
           <div className="flex flex-col gap-2" role="radiogroup" aria-label="Réponses">
@@ -414,7 +421,7 @@ export default function ExamRunPage() {
                 <span className={cx('flex size-7 shrink-0 items-center justify-center rounded-full border text-sm font-bold', answers[qid] === j ? 'border-accent bg-accent text-white' : 'border-border')}>
                   {LETTERS[j]}
                 </span>
-                {!hidden && <span className="pt-0.5">{c}</span>}
+                {!hidden && <MathText text={c} className="min-w-0 break-words pt-0.5" />}
               </button>
             ))}
           </div>

@@ -118,6 +118,9 @@ const quizSchema: JsonSchema = {
   required: ['questions'],
 }
 
+// Marques de gras (**…**) du texte extrait : utiles à l'IA, pas à l'affichage
+export const stripBold = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*\*/g, '')
+
 const questionValidator = (qtype: QuizType) =>
   z
     .object({
@@ -130,8 +133,9 @@ const questionValidator = (qtype: QuizType) =>
         .string()
         .trim()
         .optional()
-        .transform((v) => (v ? v.slice(0, 400) : '')),
+        .transform((v) => (v ? stripBold(v).slice(0, 400) : '')),
     })
+    .transform((q) => ({ ...q, question: stripBold(q.question), choices: q.choices.map(stripBold), explanation: stripBold(q.explanation) }))
     .refine((q) => new Set(q.choices.map((c) => c.toLowerCase())).size === q.choices.length, {
       message: 'Choix en double',
     })
@@ -170,6 +174,9 @@ export async function generateQuiz(opts: {
     "L'explication dit pourquoi la bonne réponse est juste et pourquoi le piège principal est faux.",
     'Pour chaque question, recopie mot pour mot la phrase du cours qui justifie la bonne réponse (source_excerpt). Si aucune phrase ne la justifie, ne pose pas cette question.',
     'Varie la position de la bonne réponse et couvre tout le cours, pas seulement le début.',
+    "Ne pose que des questions sur le fond : notions, définitions, mécanismes, calculs, exemples, auteurs et théories. Aucune question sur l'organisation ou la forme du cours (nombre de séances, plan, déroulé, modalités d'évaluation, barème, dates, salle, enseignant, contacts, bibliographie, consignes, numéros de diapositive).",
+    "Dans le cours, les passages entre ** ** sont en gras dans le document d'origine : ce sont les termes que l'enseignant juge essentiels. Base en priorité les questions sur eux. N'écris pas les ** dans les questions, les choix ni source_excerpt.",
+    "Quand une question porte sur une formule ou un calcul, écris les formules en LaTeX entre $ … $ (par exemple $ROE = \\frac{Résultat\\ net}{Capitaux\\ propres}$), dans la question, les choix et l'explication. Un choix peut être une formule seule, ou une courte phrase suivie de la formule.",
   ].join('\n')
   const prompt = [
     `Génère exactement ${opts.count} questions.`,

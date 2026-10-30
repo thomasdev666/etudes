@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check, RotateCcw, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { MathText } from '@/components/MathText'
 import { ReportQuestion } from '@/components/ReportQuestion'
 import { Badge, Button, Card, cx, ErrorBox, IconButton, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
@@ -104,7 +105,7 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
               {c.is_correct ? <Check className="size-4" aria-label="Juste" /> : <X className="size-4" aria-label="Faux" />}
             </span>
             <p className="font-medium">
-              {i + 1}. {c.question}
+              {i + 1}. <MathText text={c.question} />
             </p>
           </div>
           <ul className="mt-3 flex flex-col gap-1.5">
@@ -117,16 +118,18 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
                 )}
               >
                 <span className="font-semibold">{c.choices.length > 2 ? LETTERS[j] + '. ' : ''}</span>
-                {ch}
+                <MathText text={ch} />
                 {j === c.chosen_index && <span className="ml-1 text-xs">(ta réponse)</span>}
               </li>
             ))}
             {c.chosen_index === null && <li className="text-sm text-muted">Pas de réponse</li>}
           </ul>
-          <p className="mt-3 text-sm leading-relaxed">{c.explanation}</p>
+          <p className="mt-3 text-sm leading-relaxed">
+            <MathText text={c.explanation} />
+          </p>
           {c.source_excerpt && (
             <blockquote className="mt-3 border-l-4 border-border pl-3 text-sm italic text-muted">
-              <span className="mb-0.5 block text-xs font-semibold not-italic">Dans ton cours</span>« {c.source_excerpt} »
+              <span className="mb-0.5 block text-xs font-semibold not-italic">Dans ton cours</span>« <MathText text={c.source_excerpt} /> »
             </blockquote>
           )}
           {c.notion && <p className="mt-2 text-xs text-muted">Notion : {c.notion}</p>}
@@ -298,7 +301,9 @@ export default function QuizSessionPage() {
             {remaining !== null && index === 0 && !current && (
               <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-muted">Mode examen : tu peux passer une question et y revenir. À la fin du temps, ta copie est rendue automatiquement.</p>
             )}
-            <h1 className="font-sans text-xl font-semibold leading-snug sm:text-2xl">{q.question}</h1>
+            <h1 className="font-sans text-xl font-semibold leading-snug sm:text-2xl">
+              <MathText text={q.question} />
+            </h1>
             <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Réponses">
               {q.choices.map((c, i) => {
                 const selected = current?.chosen_index === i
@@ -317,7 +322,7 @@ export default function QuizSessionPage() {
                     <span className={cx('flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold', selected ? 'bg-accent text-white' : 'bg-surface-2 text-muted')}>
                       {q.choices.length > 2 ? LETTERS[i] : i === 0 ? 'V' : 'F'}
                     </span>
-                    <span>{c}</span>
+                    <MathText text={c} className="min-w-0 break-words" />
                   </button>
                 )
               })}

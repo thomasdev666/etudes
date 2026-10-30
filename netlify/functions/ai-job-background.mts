@@ -3,6 +3,7 @@
 // puis suit le statut de la tâche dans la base.
 import { describeImages, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
 import { customToDoc, sheetToDoc } from '../shared/sheetDoc'
+import { noteToText } from '../shared/noteText'
 import { userClient } from '../shared/supabase'
 import { prepareExam } from '../shared/examPrep'
 import { runTranscription, type TranscriptionState } from '../shared/transcription'
@@ -105,9 +106,9 @@ async function loadSource(db: SupabaseClient, p: { course_ids?: string[]; note_i
     for (const c of data) parts.push(`## ${c.title}\n${c.content}`)
   }
   if (p.note_ids?.length) {
-    const { data, error } = await db.from('notes').select('title, content_text').in('id', p.note_ids)
+    const { data, error } = await db.from('notes').select('title, content, content_text').in('id', p.note_ids)
     if (error) throw error
-    for (const n of data) parts.push(`## ${n.title}\n${n.content_text}`)
+    for (const n of data) parts.push(`## ${n.title}\n${noteToText(n.content) || n.content_text}`)
   }
   if (p.text) parts.push(p.text)
   const source = parts.join('\n\n').trim()
