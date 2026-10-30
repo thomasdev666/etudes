@@ -69,7 +69,7 @@ export default function ReviewPage() {
 
       <Card className="mb-5 flex flex-wrap items-center gap-4 bg-accent-soft">
         <Brain className="size-9 text-accent-ink" aria-hidden />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,14rem)] flex-1">
           <p className="font-display text-xl font-bold">
             {due.length} carte{due.length > 1 ? 's' : ''} à réviser aujourd’hui
           </p>
@@ -87,7 +87,7 @@ export default function ReviewPage() {
       {errorsView && (
         <Card className="mb-5 flex flex-wrap items-center gap-4 bg-warning-soft">
           <AlertTriangle className="size-9 text-warning" aria-hidden />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-[min(100%,14rem)] flex-1">
             <p className="font-display text-xl font-bold">
               {openErrors.length} erreur{openErrors.length > 1 ? 's' : ''} à retravailler
             </p>

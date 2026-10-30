@@ -38,7 +38,7 @@ export default function SubscriptionPage() {
 
       <Card className="flex flex-wrap items-center gap-3">
         {details?.source === 'trial' ? <Gift className="size-6 text-accent-ink" aria-hidden /> : <Sparkles className="size-6 text-accent-ink" aria-hidden />}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,14rem)] flex-1">
           <p className="font-semibold">Ton offre actuelle</p>
           <p className="text-sm text-muted">
             {isPremium ? `Premium ${SOURCE_LABEL[details?.source ?? 'none']}` : 'Gratuit'}

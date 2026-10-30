@@ -52,7 +52,7 @@ export default function CoursePage() {
     <>
       {tour}
       <div className="mb-4 flex flex-wrap items-start gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,14rem)] flex-1">
           {subject && (
             <Link to={`/matieres/${subject.id}`}>
               <SubjectChip name={subject.name} color={subject.color} />

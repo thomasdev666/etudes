@@ -22,7 +22,7 @@ function TaskRow({ t, onToggle, onEstimate }: { t: PlanTask; onToggle: () => voi
   return (
     <li className={cx('flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3 py-2', t.included ? 'border-border bg-surface' : 'border-dashed border-border opacity-60')}>
       <input type="checkbox" checked={t.included} onChange={onToggle} aria-label={`Planifier ${t.title}`} className="size-5 shrink-0 accent-[var(--accent)]" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[min(100%,14rem)] flex-1">
         <p className="flex items-center gap-2 font-medium">
           {s && <SubjectDot color={s.color} />}
           <span className="truncate">{t.title}</span>

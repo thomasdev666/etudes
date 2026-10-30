@@ -357,7 +357,7 @@ export default function ExamRunPage() {
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 py-4">
       {/* Barre de l'épreuve */}
       <header className="sticky top-0 z-10 -mx-4 mb-4 flex flex-wrap items-center gap-3 border-b border-border bg-bg/95 px-4 py-3 backdrop-blur">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,14rem)] flex-1">
           <p className="truncate text-xs text-muted">
             {exam.short}
             {session.sections.length > 1 && ` · section ${secIndex + 1} / ${session.sections.length}`}

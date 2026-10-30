@@ -91,7 +91,7 @@ function QuizList({ subjectId }: { subjectId: string }) {
           const open = sessions.find((s) => s.quiz_id === q.id && !s.finished_at)
           return (
             <Card key={q.id} className="flex flex-wrap items-center gap-3">
-              <div className="min-w-0 flex-1">
+              <div className="min-w-[min(100%,14rem)] flex-1">
                 <p className="font-semibold">{q.title}</p>
                 <p className="text-sm text-muted">
                   {q.question_count} questions · {q.qtype === 'mcq' ? 'QCM' : 'Vrai / faux'} · {DIFF[q.difficulty]} · {fmt(q.created_at, 'd MMM')}
@@ -144,7 +144,7 @@ function ErrorsPanel({ subjectId }: { subjectId: string }) {
     <Card>
       <div className="flex flex-wrap items-center gap-4">
         <AlertTriangle className="size-8 text-warning" aria-hidden />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,14rem)] flex-1">
           <p className="font-display text-2xl font-bold">{open.length}</p>
           <p className="text-sm text-muted">
             question{open.length > 1 ? 's' : ''} ratée{open.length > 1 ? 's' : ''} à retravailler · {resolved} corrigée{resolved > 1 ? 's' : ''}
@@ -215,7 +215,7 @@ export default function SubjectPage() {
     <>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <span className="h-12 w-2 rounded-full" style={{ background: subject.color }} aria-hidden />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,14rem)] flex-1">
           <Link to="/matieres" className="text-sm text-muted hover:underline">
             Matières
           </Link>
