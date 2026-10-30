@@ -34,6 +34,7 @@ const TrashPage = lazy(() => import('./pages/Trash'))
 const MindmapPage = lazy(() => import('./pages/Mindmap'))
 const QuizStart = lazy(() => import('./pages/QuizStart'))
 const GuidePage = lazy(() => import('./pages/Guide'))
+const LandingPage = lazy(() => import('./pages/Landing'))
 
 export default function App() {
   const { session, loading, recovery } = useAuth()
@@ -58,7 +59,17 @@ export default function App() {
   }
   if (loading) return <Spinner />
   if (recovery) return <UpdatePasswordPage />
-  if (!session) return <AuthPage />
+  if (!session) {
+    // Lancée depuis l'écran d'accueil du téléphone : directement la connexion
+    const installed = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone
+    if (pathname === '/' && !installed)
+      return (
+        <Suspense fallback={<Spinner />}>
+          <LandingPage />
+        </Suspense>
+      )
+    return <AuthPage />
+  }
 
   return (
     <SpaceProvider>

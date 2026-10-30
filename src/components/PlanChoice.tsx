@@ -30,7 +30,7 @@ function Items({ items }: { items: string[] }) {
   )
 }
 
-export function PlanChoice({ freeAction, onPremium }: { freeAction?: ReactNode; onPremium?: () => void }) {
+export function PlanChoice({ freeAction, onPremium, publicMode, onSignup }: { freeAction?: ReactNode; onPremium?: () => void; publicMode?: boolean; onSignup?: () => void }) {
   const { data: details } = usePlanDetails()
   const startTrial = useStartTrial()
   const [billing, setBilling] = useState<Billing>('semester')
@@ -114,6 +114,11 @@ export function PlanChoice({ freeAction, onPremium }: { freeAction?: ReactNode; 
           </div>
           <Items items={PREMIUM_ITEMS} />
           <div className="mt-auto flex flex-col gap-2 pt-2">
+            {publicMode && (
+              <Button className="w-full" icon={<Gift className="size-4" />} onClick={onSignup}>
+                Essayer gratuitement {ESSAI_JOURS} jours
+              </Button>
+            )}
             {details?.trial_available && (
               <Button className="w-full" icon={<Gift className="size-4" />} loading={busy === 'trial'} onClick={() => run('trial')}>
                 Essayer gratuitement {ESSAI_JOURS} jours
@@ -129,7 +134,7 @@ export function PlanChoice({ freeAction, onPremium }: { freeAction?: ReactNode; 
                 {details.source === 'trial' ? 'Essai' : 'Premium'} actif jusqu’au {fmt(details.period_end, 'd MMMM yyyy')}
               </p>
             )}
-            {details?.trial_available && <p className="text-center text-xs text-muted">Sans carte bancaire. À la fin de l’essai, tu repasses en gratuit automatiquement.</p>}
+            {(publicMode || details?.trial_available) && <p className="text-center text-xs text-muted">Sans carte bancaire. À la fin de l’essai, tu repasses en gratuit automatiquement.</p>}
             <ErrorBox error={error} />
           </div>
         </article>

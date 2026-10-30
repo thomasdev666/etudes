@@ -58,13 +58,18 @@ function Shell({ children }: { children: React.ReactNode }) {
           <p className="mt-1 text-muted">Organise tes cours, révise mieux, réussis tes examens.</p>
         </div>
         <Card className="p-5">{children}</Card>
+        <p className="mt-5 text-center text-sm">
+          <Link to="/" className="text-muted hover:underline">
+            ← Découvrir Regulya
+          </Link>
+        </p>
       </div>
     </div>
   )
 }
 
 export function AuthPage() {
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'login'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
