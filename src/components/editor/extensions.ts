@@ -9,6 +9,7 @@ import { ReactNodeViewRenderer, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { STORAGE_PREFIX } from '@/lib/storage'
 import { ImageView } from './ImageView'
+import { Callout, Diagram } from './visuals'
 
 const StorageImage = Image.extend({
   addNodeView() {
@@ -41,6 +42,8 @@ export function buildExtensions(getEditor: () => Editor | null) {
     TaskItem.configure({ nested: true }),
     TableKit.configure({ table: { resizable: false } }),
     StorageImage.configure({ allowBase64: false }),
+    Diagram,
+    Callout,
     Mathematics.configure({
       inlineOptions: { onClick: editMath('inline') },
       blockOptions: { onClick: editMath('block') },

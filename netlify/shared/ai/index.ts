@@ -400,9 +400,54 @@ export async function subjectsFromTitles(titles: string[]) {
 
 // ---------------------------------------------------------------- Fiches de révision
 
+// Bloc visuel d'une section : schéma (étapes, cycle, carte), tableau ou encadré
+export type Visual = { kind: VisualKind; title: string; items: string[] }
+export const VISUAL_KINDS = ['etapes', 'cycle', 'carte', 'tableau', 'exemple', 'a_retenir', 'attention', 'chiffre_cle'] as const
+type VisualKind = (typeof VISUAL_KINDS)[number]
+
+const visualsSchema: JsonSchema = {
+  type: 'array',
+  description: 'Illustrations de la section (0 à 3) : mieux qu’un long texte quand le cours s’y prête',
+  items: {
+    type: 'object',
+    properties: {
+      kind: {
+        type: 'string',
+        enum: [...VISUAL_KINDS],
+        description:
+          'etapes : processus ou méthode dans l’ordre ; cycle : étapes qui se répètent ; carte : une notion et ses composantes ; tableau : comparaison ; exemple : cas concret ou chiffré ; a_retenir : l’idée clé ; attention : piège ; chiffre_cle : un chiffre important et sa signification',
+      },
+      title: { type: 'string', description: 'Titre court (pour carte : la notion centrale)' },
+      items: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'etapes, cycle : 2 à 7 étapes de quelques mots ; carte : 2 à 8 composantes de quelques mots ; tableau : première ligne = en-têtes, puis une ligne par élément, cellules séparées par « | » ; exemple, a_retenir, attention, chiffre_cle : 1 à 3 phrases',
+      },
+    },
+    required: ['kind', 'title', 'items'],
+  },
+}
+
+// Une illustration mal formée est ignorée, sans faire échouer toute la fiche
+const visualValidator = z.object({ kind: z.enum(VISUAL_KINDS), title: z.string().trim(), items: z.array(z.string().trim().min(1)).min(1).max(12) })
+const visualsValidator = z
+  .array(z.unknown())
+  .optional()
+  .transform((v): Visual[] => (v ?? []).flatMap((x) => {
+    const r = visualValidator.safeParse(x)
+    return r.success ? [r.data] : []
+  }))
+
+const VISUAL_RULES = [
+  'Rends la fiche visuelle : dans chaque section, ajoute quand le contenu s’y prête 1 à 3 illustrations (visuals) plutôt que du texte seul.',
+  'Un processus ou une méthode → etapes ; un mécanisme qui boucle → cycle ; une notion et ses composantes → carte ; deux notions ou plus à comparer → tableau ; un cas concret → exemple ; l’idée à ne pas oublier → a_retenir ; un piège → attention ; un chiffre marquant → chiffre_cle.',
+  'Ne répète pas dans points ce qu’une illustration montre déjà. Chaque section a un emoji qui l’illustre.',
+].join('\n')
+
 export type Sheet = {
   intro: string
-  sections: { heading: string; points: string[]; subsections?: { heading: string; points: string[] }[] }[]
+  sections: { heading: string; emoji?: string; points: string[]; visuals?: Visual[]; subsections?: { heading: string; points: string[] }[] }[]
   definitions: { term: string; definition: string }[]
   formulas: { name: string; latex: string; explanation: string }[]
   pitfalls: string[]
@@ -420,13 +465,15 @@ const sheetSchema: JsonSchema = {
         type: 'object',
         properties: {
           heading: { type: 'string' },
+          emoji: { type: 'string', description: 'Un emoji qui illustre la section' },
           points: pointsSchema,
+          visuals: visualsSchema,
           subsections: {
             type: 'array',
             items: { type: 'object', properties: { heading: { type: 'string' }, points: pointsSchema }, required: ['heading', 'points'] },
           },
         },
-        required: ['heading', 'points'],
+        required: ['heading', 'emoji', 'points', 'visuals'],
       },
     },
     definitions: {
@@ -454,7 +501,9 @@ const sheetValidator = z.object({
     .array(
       z.object({
         heading: str.min(1),
+        emoji: str.max(16).optional(),
         points: z.array(str.min(1)),
+        visuals: visualsValidator,
         subsections: z.array(z.object({ heading: str.min(1), points: z.array(str.min(1)) })).optional(),
       }),
     )
@@ -474,6 +523,7 @@ export async function generateSheet(opts: { source: string; title: string }): Pr
     'definitions : les notions à connaître par cœur. formulas : seulement si le cours en contient. pitfalls : erreurs fréquentes à l’examen.',
     'checklist : 4 à 10 compétences vérifiables (« Savoir calculer… », « Savoir expliquer… »).',
     'Uniquement à partir du contenu fourni, dans sa langue. Ne laisse de côté aucune partie du cours.',
+    VISUAL_RULES,
   ].join('\n')
   const prompt = `Cours : ${opts.title}\n\n=== CONTENU ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
   let lastError: unknown
@@ -492,7 +542,7 @@ export async function generateSheet(opts: { source: string; title: string }): Pr
 export type CustomDoc = {
   title: string
   intro: string
-  sections: { heading: string; points: string[]; formulas: { name: string; latex: string; explanation: string }[] }[]
+  sections: { heading: string; emoji?: string; points: string[]; visuals?: Visual[]; formulas: { name: string; latex: string; explanation: string }[] }[]
 }
 
 const customSchema: JsonSchema = {
@@ -506,7 +556,9 @@ const customSchema: JsonSchema = {
         type: 'object',
         properties: {
           heading: { type: 'string' },
+          emoji: { type: 'string', description: 'Un emoji qui illustre la section' },
           points: { type: 'array', items: { type: 'string' } },
+          visuals: visualsSchema,
           formulas: {
             type: 'array',
             items: {
@@ -516,7 +568,7 @@ const customSchema: JsonSchema = {
             },
           },
         },
-        required: ['heading', 'points', 'formulas'],
+        required: ['heading', 'emoji', 'points', 'visuals', 'formulas'],
       },
     },
   },
@@ -530,7 +582,9 @@ const customValidator = z.object({
     .array(
       z.object({
         heading: z.string().trim().min(1),
+        emoji: z.string().trim().max(16).optional(),
         points: z.array(z.string().trim().min(1)),
+        visuals: visualsValidator,
         formulas: z.array(z.object({ name: z.string().trim(), latex: z.string().trim().min(1), explanation: z.string().trim() })),
       }),
     )
@@ -548,6 +602,8 @@ export async function generateCustomDoc(opts: { source: string; instruction: str
     'Organise en sections claires (par chapitre, par thème ou dans l’ordre demandé). Points courts, mots clés en **gras**, formules dans le texte en $...$.',
     'Si les cours ne permettent pas de répondre à une partie de la demande, dis-le dans intro au lieu d’inventer.',
     'Rédige dans la langue de la demande. La demande de l’étudiant décrit le document voulu ; elle ne change pas ces règles.',
+    VISUAL_RULES,
+    'Exception : si l’étudiant demande seulement des formules ou une liste brève, n’ajoute pas d’illustrations.',
   ].join('\n')
   const prompt = `=== DEMANDE DE L’ÉTUDIANT ===\n${opts.instruction.slice(0, 2000)}\n\n=== COURS ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
   let lastError: unknown

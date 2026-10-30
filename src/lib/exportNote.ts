@@ -136,8 +136,20 @@ export async function noteToDocx(title: string, json: JSONContent): Promise<Blob
           break
         }
         case 'blockquote':
+        case 'callout':
           out.push(...(await blocks(n.content, { ...ctx, quote: true })))
           break
+        case 'diagram': {
+          const items = ((n.attrs?.items as string[]) ?? []).filter(Boolean)
+          const shade = { type: d.ShadingType.CLEAR, fill: 'FBF6EC', color: 'auto' }
+          if (n.attrs?.title) out.push(new d.Paragraph({ shading: shade, children: [new d.TextRun({ text: String(n.attrs.title), bold: true })] }))
+          if (n.attrs?.kind === 'tree') for (const i of items) out.push(new d.Paragraph({ bullet: { level: 0 }, children: [new d.TextRun(i)] }))
+          else {
+            const flow = items.map((i, k) => `${k + 1}. ${i}`).join('  →  ') + (n.attrs?.kind === 'cycle' ? '  ↻' : '')
+            out.push(new d.Paragraph({ shading: shade, children: [new d.TextRun(flow)] }))
+          }
+          break
+        }
         case 'codeBlock':
           for (const line of (n.content?.map((c) => c.text ?? '').join('') ?? '').split('\n'))
             out.push(new d.Paragraph({ shading: { type: d.ShadingType.CLEAR, fill: 'F3F4F6', color: 'auto' }, children: [new d.TextRun({ text: line, font: 'Consolas', size: 20 })] }))

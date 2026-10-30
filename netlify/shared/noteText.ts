@@ -18,7 +18,10 @@ export function noteToText(doc: unknown): string {
   const walk = (n: Node) => {
     if (n.type === 'heading') lines.push(`${'#'.repeat(Number(n.attrs?.level ?? 2))} ${inline(n).replace(/\*\*/g, '')}`)
     else if (n.type === 'paragraph') lines.push(inline(n))
-    else if (n.type === 'blockMath') lines.push(`$$${String(n.attrs?.latex ?? '')}$$`)
+    else if (n.type === 'diagram') {
+      const items = (n.attrs?.items as string[] | undefined) ?? []
+      lines.push([n.attrs?.title, items.join(n.attrs?.kind === 'tree' ? ', ' : ' → ')].filter(Boolean).join(' : '))
+    } else if (n.type === 'blockMath') lines.push(`$$${String(n.attrs?.latex ?? '')}$$`)
     else if (n.type === 'tableRow') lines.push((n.content ?? []).map((c) => inline(c).trim()).join(' | '))
     else if (n.type === 'listItem') {
       const [first, ...rest] = n.content ?? []

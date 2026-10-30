@@ -1,5 +1,5 @@
 // Convertit une fiche générée en document de l'éditeur de notes (TipTap), pour qu'elle soit éditable et exportable
-import type { CustomDoc, Sheet } from './ai'
+import type { CustomDoc, Sheet, Visual } from './ai'
 
 type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string; marks?: { type: string }[] }
 
@@ -19,6 +19,53 @@ const p = (s: string): Node => ({ type: 'paragraph', content: inline(s) })
 const h = (level: number, s: string): Node => ({ type: 'heading', attrs: { level }, content: inline(s) })
 const list = (items: string[]): Node => ({ type: 'bulletList', content: items.map((i) => ({ type: 'listItem', content: [p(i)] })) })
 
+const plain = (s: string) => s.replace(/\*\*/g, '').replace(/\$/g, '')
+const cell = (type: 'tableHeader' | 'tableCell', s: string): Node => ({ type, content: [p(s)] })
+
+const CALLOUT: Partial<Record<Visual['kind'], { tone: string; label: string }>> = {
+  exemple: { tone: 'example', label: 'Exemple' },
+  a_retenir: { tone: 'key', label: 'À retenir' },
+  attention: { tone: 'warning', label: 'Attention' },
+  chiffre_cle: { tone: 'figure', label: 'Chiffre clé' },
+}
+const DIAGRAM: Partial<Record<Visual['kind'], string>> = { etapes: 'flow', cycle: 'cycle', carte: 'tree' }
+
+// Illustration → bloc de l'éditeur (schéma, tableau ou encadré), et son texte pour la recherche
+export function visualToNodes(v: Visual): { nodes: Node[]; text: string[] } {
+  const diagram = DIAGRAM[v.kind]
+  if (diagram) return { nodes: [{ type: 'diagram', attrs: { kind: diagram, title: plain(v.title), items: v.items.map(plain) } }], text: [v.title, ...v.items] }
+  const callout = CALLOUT[v.kind]
+  if (callout) {
+    const label = v.title && v.title.toLowerCase() !== callout.label.toLowerCase() ? `${callout.label} : ${v.title}` : callout.label
+    return {
+      nodes: [{ type: 'callout', attrs: { tone: callout.tone }, content: [{ type: 'paragraph', content: [{ type: 'text', text: label, marks: [{ type: 'bold' }] }] }, ...v.items.map(p)] }],
+      text: [label, ...v.items],
+    }
+  }
+  // Tableau : première ligne = en-têtes ; toutes les lignes ont le même nombre de colonnes
+  const rows = v.items.map((r) => r.split('|').map((c) => c.trim()))
+  const width = Math.max(...rows.map((r) => r.length))
+  if (width < 2) return { nodes: [list(v.items)], text: v.items }
+  const pad = (r: string[]) => [...r, ...Array(width - r.length).fill('')].slice(0, width)
+  const nodes: Node[] = []
+  if (v.title) nodes.push({ type: 'paragraph', content: [{ type: 'text', text: plain(v.title), marks: [{ type: 'bold' }] }] })
+  nodes.push({
+    type: 'table',
+    content: rows.map((r, i) => ({ type: 'tableRow', content: pad(r).map((c) => cell(i === 0 ? 'tableHeader' : 'tableCell', c)) })),
+  })
+  return { nodes, text: [v.title, ...v.items.map((r) => r.replace(/\|/g, ' '))] }
+}
+
+function pushVisuals(c: Node[], text: string[], visuals: Visual[] = []) {
+  for (const v of visuals) {
+    const r = visualToNodes(v)
+    c.push(...r.nodes)
+    text.push(...r.text)
+  }
+}
+
+const withEmoji = (s: { heading: string; emoji?: string }) => (s.emoji ? `${s.emoji} ${s.heading}` : s.heading)
+
 export function sheetToDoc(sheet: Sheet): { doc: Node; text: string } {
   const c: Node[] = []
   const text: string[] = []
@@ -27,9 +74,10 @@ export function sheetToDoc(sheet: Sheet): { doc: Node; text: string } {
     text.push(sheet.intro)
   }
   for (const s of sheet.sections) {
-    c.push(h(2, s.heading))
+    c.push(h(2, withEmoji(s)))
     text.push(s.heading, ...s.points)
     if (s.points.length) c.push(list(s.points))
+    pushVisuals(c, text, s.visuals)
     for (const sub of s.subsections ?? []) {
       c.push(h(3, sub.heading))
       text.push(sub.heading, ...sub.points)
@@ -37,12 +85,12 @@ export function sheetToDoc(sheet: Sheet): { doc: Node; text: string } {
     }
   }
   if (sheet.definitions.length) {
-    c.push(h(2, 'Définitions à connaître'))
+    c.push(h(2, '📖 Définitions à connaître'))
     c.push(list(sheet.definitions.map((d) => `**${d.term}** : ${d.definition}`)))
     text.push(...sheet.definitions.map((d) => `${d.term} : ${d.definition}`))
   }
   if (sheet.formulas.length) {
-    c.push(h(2, 'Formules'))
+    c.push(h(2, '🧮 Formules'))
     for (const f of sheet.formulas) {
       if (f.name) c.push({ type: 'paragraph', content: [{ type: 'text', text: f.name, marks: [{ type: 'bold' }] }] })
       c.push({ type: 'blockMath', attrs: { latex: f.latex.replace(/^\$+|\$+$/g, '') } })
@@ -51,12 +99,12 @@ export function sheetToDoc(sheet: Sheet): { doc: Node; text: string } {
     }
   }
   if (sheet.pitfalls.length) {
-    c.push(h(2, 'Pièges à éviter'))
+    c.push(h(2, '⚠️ Pièges à éviter'))
     c.push(list(sheet.pitfalls))
     text.push(...sheet.pitfalls)
   }
   if (sheet.checklist.length) {
-    c.push(h(2, 'Le jour de l’examen, je sais…'))
+    c.push(h(2, '✅ Le jour de l’examen, je sais…'))
     c.push({ type: 'taskList', content: sheet.checklist.map((i) => ({ type: 'taskItem', attrs: { checked: false }, content: [p(i)] })) })
     text.push(...sheet.checklist)
   }
@@ -72,9 +120,10 @@ export function customToDoc(d: CustomDoc): { doc: Node; text: string } {
     text.push(d.intro)
   }
   for (const s of d.sections) {
-    c.push(h(2, s.heading))
+    c.push(h(2, withEmoji(s)))
     text.push(s.heading, ...s.points)
     if (s.points.length) c.push(list(s.points))
+    pushVisuals(c, text, s.visuals)
     for (const f of s.formulas) {
       if (f.name) c.push({ type: 'paragraph', content: [{ type: 'text', text: f.name, marks: [{ type: 'bold' }] }] })
       c.push({ type: 'blockMath', attrs: { latex: f.latex.replace(/^\$+|\$+$/g, '') } })

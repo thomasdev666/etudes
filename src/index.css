@@ -235,6 +235,55 @@ h3,
 .prose-note .tiptap-mathematics-render:hover { background: var(--accent-soft); }
 .prose-note [data-type='block-math'] { text-align: center; margin: 1em 0; }
 
+/* Schémas des fiches : étapes, cycle, carte autour d'une notion */
+.prose-note .diagram { margin: 1.1em 0; padding: 0.9em; border-radius: 18px; background: var(--surface-2); }
+.prose-note .diagram.ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.prose-note .diagram-title { margin: 0 0 0.6em; font-weight: 700; text-align: center; }
+.prose-note .diagram ol { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5em 0; counter-reset: step; }
+.prose-note .diagram li { margin: 0; }
+.prose-note .diagram-flow li,
+.prose-note .diagram-cycle li { display: flex; align-items: center; counter-increment: step; font-size: 0.92em; line-height: 1.35; }
+.prose-note .diagram-flow li > span,
+.prose-note .diagram-cycle li > span {
+  display: flex; align-items: center; gap: 0.45em; max-width: 14em; padding: 0.45em 0.75em;
+  border-radius: 12px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-card);
+}
+.prose-note .diagram-flow li > span::before,
+.prose-note .diagram-cycle li > span::before {
+  content: counter(step); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 1.5em; height: 1.5em; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.75em; font-weight: 700;
+}
+.prose-note .diagram-flow li::after,
+.prose-note .diagram-cycle li::after { content: '→'; margin: 0 0.4em; color: var(--accent); font-weight: 700; font-size: 1.2em; }
+.prose-note .diagram-flow li:last-child::after { content: none; }
+.prose-note .diagram-cycle li:last-child::after { content: '↻'; }
+/* Sur téléphone, les étapes se lisent de haut en bas */
+@media (max-width: 640px) {
+  .prose-note .diagram-flow ol { flex-direction: column; flex-wrap: nowrap; }
+  .prose-note .diagram-flow li { flex-direction: column; }
+  .prose-note .diagram-flow li::after { content: '↓'; margin: 0.15em 0; }
+}
+.prose-note .diagram-tree .diagram-title {
+  display: table; margin: 0 auto 0.9em; padding: 0.35em 1em; border-radius: 999px; background: var(--accent); color: #fff;
+}
+.prose-note .diagram-tree ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5em; border-top: 2px solid var(--accent); padding-top: 0.7em; }
+.prose-note .diagram-tree li {
+  position: relative; padding: 0.5em 0.7em; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); font-size: 0.92em; line-height: 1.35; text-align: center;
+}
+.prose-note .diagram-tree li::before { content: ''; position: absolute; left: 50%; top: calc(-0.7em - 1px); height: 0.7em; border-left: 2px solid var(--accent); }
+
+/* Encadrés : exemple, à retenir, attention, chiffre clé */
+.prose-note .callout { position: relative; margin: 1em 0; padding: 0.7em 1em 0.7em 2.8em; border-radius: 16px; background: var(--accent-soft); }
+.prose-note .callout > * + * { margin-top: 0.4em; }
+.prose-note .callout::before { position: absolute; left: 0.85em; top: 0.65em; font-size: 1.15em; }
+.prose-note .callout[data-tone='key']::before { content: '⭐'; }
+.prose-note .callout[data-tone='example'] { background: color-mix(in srgb, #4F9BD9 14%, var(--surface)); }
+.prose-note .callout[data-tone='example']::before { content: '💡'; }
+.prose-note .callout[data-tone='warning'] { background: var(--warning-soft); }
+.prose-note .callout[data-tone='warning']::before { content: '⚠️'; }
+.prose-note .callout[data-tone='figure'] { background: var(--success-soft); }
+.prose-note .callout[data-tone='figure']::before { content: '📊'; }
+
 /* ---------------------------------------------------------- Cartes mentales */
 .mm-row { display: flex; align-items: center; }
 .mm-children { position: relative; display: flex; flex-direction: column; gap: 6px; padding-left: 36px; }

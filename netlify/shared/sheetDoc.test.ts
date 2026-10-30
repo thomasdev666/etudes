@@ -43,3 +43,34 @@ describe('document de l’assistant', () => {
     expect(text).not.toContain('**')
   })
 })
+
+describe('illustrations des fiches', () => {
+  it('schéma en étapes, encadré et tableau', async () => {
+    const { visualToNodes } = await import('./sheetDoc')
+    expect(visualToNodes({ kind: 'etapes', title: 'Calcul du BFR', items: ['Stocks', '**+ Créances**', '− Dettes'] }).nodes[0]).toEqual({
+      type: 'diagram',
+      attrs: { kind: 'flow', title: 'Calcul du BFR', items: ['Stocks', '+ Créances', '− Dettes'] },
+    })
+    const callout = visualToNodes({ kind: 'exemple', title: 'Carrefour', items: ['Le BFR est négatif.'] }).nodes[0]
+    expect(callout.type).toBe('callout')
+    expect(callout.attrs?.tone).toBe('example')
+    expect(callout.content?.[0].content?.[0].text).toBe('Exemple : Carrefour')
+    const { nodes } = visualToNodes({ kind: 'tableau', title: 'Comparaison', items: ['Notion | Définition', 'BFR | Besoin', 'FR'] })
+    const table = nodes.find((n) => n.type === 'table')!
+    expect(table.content).toHaveLength(3)
+    expect(table.content![0].content![0].type).toBe('tableHeader')
+    expect(table.content![2].content).toHaveLength(2)
+  })
+  it('ajoute les illustrations et l’emoji dans la fiche', () => {
+    const { doc } = sheetToDoc({
+      intro: '',
+      sections: [{ heading: 'Cycle', emoji: '🔄', points: [], visuals: [{ kind: 'cycle', title: 'Exploitation', items: ['Achat', 'Production', 'Vente'] }] }],
+      definitions: [],
+      formulas: [],
+      pitfalls: [],
+      checklist: [],
+    })
+    expect(doc.content![0].content![0].text).toBe('🔄 Cycle')
+    expect(doc.content![1].type).toBe('diagram')
+  })
+})
