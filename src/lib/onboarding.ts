@@ -7,7 +7,7 @@ import { supabase } from './supabase'
 // Configuration de départ (assistant), puis présentations en bulles au fil de l'appli
 // Les dates d'examen se règlent plus tard, dans chaque matière
 export type SetupStep = 'agenda' | 'matieres'
-export type TourId = 'main' | 'news' | 'subject' | 'quizzes' | 'course' | 'resources' | 'mindmap' | 'note' | 'planner' | 'exams' | 'stats' | 'search'
+export type TourId = 'main' | 'news' | 'maj-2026-11' | 'subject' | 'quizzes' | 'course' | 'resources' | 'mindmap' | 'note' | 'planner' | 'exams' | 'stats' | 'search'
 
 type Progress = {
   confirmed?: Partial<Record<string, boolean>>

@@ -3,6 +3,8 @@ import { Tour, type TourStep } from '@/components/Tour'
 import { useOnboarding, type TourId } from './onboarding'
 
 export const TOURS: Record<TourId, TourStep[]> = {
+  // Pas de visite : la fenêtre « Quoi de neuf » (components/WhatsNew) s'en charge
+  'maj-2026-11': [],
   main: [
     {
       title: 'Bienvenue dans Regulya ✨',

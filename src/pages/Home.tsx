@@ -1,8 +1,9 @@
 import { isSameDay } from 'date-fns'
 import { AlertTriangle, ArrowRight, Brain, Upload, CalendarClock, CheckCircle2, Play, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { AssignmentForm } from '@/components/AssignmentForm'
+import { WhatsNew } from '@/components/WhatsNew'
 import { planProgress } from '@/components/Plans'
 import { Badge, Button, Card, Checkbox, EmptyState, ProgressBar, SubjectChip, SubjectDot } from '@/components/ui'
 import { capitalize, countdown, fmt, minutesLabel } from '@/lib/dates'
@@ -48,9 +49,17 @@ export function HomePage() {
   // Nouveau compte : la présentation complète (qui inclut les nouveautés).
   // Compte existant qui l'a déjà vue : seulement les nouveautés.
   const ready = !onboarding.loading && onboarding.setupDone
-  const mainTour = useFirstTimeTour('main', ready, ['news'])
+  // Nouveaux comptes : la présentation complète couvre déjà les nouveautés
+  const mainTour = useFirstTimeTour('main', ready, ['news', 'maj-2026-11'])
   const newsTour = useFirstTimeTour('news', ready && onboarding.tourSeen('main'))
   const tour = mainTour ?? newsTour
+  // Comptes existants : fenêtre « Quoi de neuf » une fois, ou à la demande (?nouveautes=1)
+  const [params, setParams] = useSearchParams()
+  const showNews = (ready && onboarding.tourSeen('main') && onboarding.tourSeen('news') && !onboarding.tourSeen('maj-2026-11')) || params.has('nouveautes')
+  const closeNews = () => {
+    onboarding.markTour('maj-2026-11')
+    if (params.has('nouveautes')) setParams({}, { replace: true })
+  }
 
   const now = new Date()
   const pending = assignments.filter((a) => a.status !== 'done')
@@ -81,6 +90,7 @@ export function HomePage() {
   return (
     <>
       {tour}
+      <WhatsNew open={!tour && showNews} onClose={closeNews} />
       <div className="mb-5">
         <p className="text-muted">{capitalize(fmt(now, 'EEEE d MMMM'))}</p>
         <h1 className="text-2xl font-bold sm:text-3xl">{greeting()} 👋</h1>

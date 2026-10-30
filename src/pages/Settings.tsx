@@ -351,6 +351,9 @@ export default function SettingsPage() {
         >
           Revoir la présentation
         </Button>
+        <Button variant="ghost" onClick={() => navigate('/?nouveautes=1')}>
+          Voir les nouveautés
+        </Button>
       </Section>
 
       <Section title="Langue" description="Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.">
