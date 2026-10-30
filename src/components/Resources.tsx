@@ -143,7 +143,7 @@ function ResourceItem({ r, query }: { r: Resource; query: string }) {
           <img src={`https://i.ytimg.com/vi/${yt}/mqdefault.jpg`} alt="" loading="lazy" className="h-12 w-20 object-cover sm:h-16 sm:w-28" />
         </button>
       ) : (
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-ink">
+        <span className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-ink min-[400px]:flex">
           <Icon className="size-5" aria-hidden />
         </span>
       )}
@@ -158,7 +158,7 @@ function ResourceItem({ r, query }: { r: Resource; query: string }) {
           {r.size ? ` · ${(r.size / 1024 / 1024).toFixed(1).replace('.', ',')} Mo` : ''} · ajouté le {fmt(r.created_at, 'd MMM yyyy')}
         </p>
       </div>
-      <IconButton label={`Supprimer ${r.title}`} onClick={() => trash.mutate(r.id)}>
+      <IconButton label={`Supprimer ${r.title}`} onClick={() => trash.mutate(r.id)} className="-mr-2 -mt-2 shrink-0">
         <Trash2 className="size-4" />
       </IconButton>
     </Card>

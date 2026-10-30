@@ -175,7 +175,9 @@ export default function SubjectPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const tab = (params.get('onglet') as Tab) || 'cours'
+  const TABS: Tab[] = ['cours', 'notes', 'qcm', 'cartes', 'mentales', 'ressources', 'plans', 'erreurs']
+  // Onglet inconnu (ancien lien) : on revient aux cours plutôt que d'afficher une page vide
+  const tab: Tab = TABS.includes(params.get('onglet') as Tab) ? (params.get('onglet') as Tab) : 'cours'
   const { spaceId } = useSpace()
   const { data: subjects, isLoading } = useSubjects()
   const { data: courses = [] } = useCourses()

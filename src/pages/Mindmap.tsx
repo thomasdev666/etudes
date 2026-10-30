@@ -296,7 +296,7 @@ function MindmapEditor({ id }: { id: string }) {
       {sourcesChanged && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-warning-soft px-3 py-2 text-sm text-warning">
           <RefreshCw className="size-4" aria-hidden />
-          <span className="flex-1">La note ou le cours d’origine a été modifié depuis la création de cette carte.</span>
+          <span className="min-w-[min(100%,14rem)] flex-1">La note ou le cours d’origine a été modifié depuis la création de cette carte.</span>
           <Button size="sm" variant="secondary" onClick={() => setRegen(true)}>
             Générer une nouvelle version
           </Button>

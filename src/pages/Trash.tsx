@@ -38,7 +38,7 @@ export default function TrashPage() {
         const rows = must(res) as unknown as Record<string, string>[]
         out.push(...rows.map((r) => ({ table: k.table, label: k.label, id: r.id, title: r[k.title], deleted_at: r.deleted_at })))
       }
-      return out.sort((a, b) => b.deleted_at.localeCompare(a.deleted_at))
+      return out.sort((a, b) => (b.deleted_at ?? '').localeCompare(a.deleted_at ?? ''))
     },
   })
 
@@ -75,19 +75,21 @@ export default function TrashPage() {
             {items.map((t) => {
               const left = Math.max(0, Math.ceil((new Date(t.deleted_at).getTime() + RETENTION_MS - Date.now()) / 86_400_000))
               return (
-                <li key={t.table + t.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
+                <li key={t.table + t.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+                  <div className="min-w-[min(100%,12rem)] flex-1">
                     <p className="truncate font-medium">{t.title}</p>
                     <p className="text-xs text-muted">
                       {t.label} · supprimé le {fmt(t.deleted_at, 'd MMM')} · encore {left} jour{left > 1 ? 's' : ''}
                     </p>
                   </div>
-                  <Button size="sm" variant="secondary" icon={<RotateCcw className="size-4" />} onClick={() => restore(t)}>
-                    Restaurer
-                  </Button>
-                  <IconButton label="Supprimer définitivement" onClick={() => destroy(t)}>
-                    <Trash2 className="size-4" />
-                  </IconButton>
+                  <div className="ml-auto flex shrink-0 items-center gap-1">
+                    <Button size="sm" variant="secondary" icon={<RotateCcw className="size-4" />} onClick={() => restore(t)}>
+                      Restaurer
+                    </Button>
+                    <IconButton label="Supprimer définitivement" onClick={() => destroy(t)}>
+                      <Trash2 className="size-4" />
+                    </IconButton>
+                  </div>
                 </li>
               )
             })}

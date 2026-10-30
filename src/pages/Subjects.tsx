@@ -12,6 +12,7 @@ export default function SubjectsPage() {
   const { data: cards = [] } = useFlashcards()
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useNotesList()
+  const noteCount = (id: string) => notes.filter((n) => n.subject_id === id).length
   const { data: errors = [] } = useErrorItems()
   const [open, setOpen] = useState(false)
 
@@ -52,8 +53,8 @@ export default function SubjectsPage() {
                     <div className="min-w-0 flex-1">
                       <h2 className="truncate text-lg font-semibold">{s.name}</h2>
                       <p className="text-sm text-muted">
-                        {courses.filter((c) => c.subject_id === s.id).length} cours · {notes.filter((n) => n.subject_id === s.id).length} notes ·{' '}
-                        {sc.length} cartes
+                        {courses.filter((c) => c.subject_id === s.id).length} cours · {noteCount(s.id)} {noteCount(s.id) > 1 ? 'notes' : 'note'} ·{' '}
+                        {sc.length} {sc.length > 1 ? 'cartes' : 'carte'}
                       </p>
                     </div>
                     {exam && <Badge tone={exam.tone === 'muted' ? 'accent' : exam.tone}>Examen {exam.label}</Badge>}
@@ -68,8 +69,8 @@ export default function SubjectsPage() {
                     </div>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {due > 0 && <Badge tone="accent">{due} cartes à revoir</Badge>}
-                    {errs > 0 && <Badge tone="danger">{errs} erreurs à retravailler</Badge>}
+                    {due > 0 && <Badge tone="accent">{due} {due > 1 ? 'cartes à revoir' : 'carte à revoir'}</Badge>}
+                    {errs > 0 && <Badge tone="danger">{errs} {errs > 1 ? 'erreurs à retravailler' : 'erreur à retravailler'}</Badge>}
                   </div>
                 </Card>
               </Link>

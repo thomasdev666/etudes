@@ -301,6 +301,8 @@ export const EN4: Record<string, string> = {
   'Cartes maîtrisées': 'Cards mastered',
   'Maîtrise {0}': 'Mastery {0}',
   'cartes à revoir': 'cards due',
+  'carte à revoir': 'card due',
+  'erreur à retravailler': 'mistake to work on',
   'erreurs à retravailler': 'mistakes to work on',
   'avec un code d’accès': 'with an access code',
   'abonnement payé': 'paid subscription',
@@ -499,7 +501,7 @@ export const EN4: Record<string, string> = {
   'Les textes ne sont plus écrasés à côté des boutons, sur toutes les pages.': 'Text is no longer squeezed next to buttons, on every page.',
   // QCM : questions ouvertes (bientôt)
   'Questions ouvertes': 'Open questions',
-  ' : tu rédiges ta réponse avec tes mots, l’IA la corrige et te dit ce qui manque.': ': you write your answer in your own words, the AI marks it and tells you what’s missing.',
+  'Tu rédiges ta réponse avec tes mots, l’IA la corrige et te dit ce qui manque.': 'You write your answer in your own words, the AI marks it and tells you what’s missing.',
   'Bientôt': 'Soon',
   // Refaire une ancienne fiche
   'Ta nouvelle fiche est en préparation ✨': 'Your new sheet is being prepared ✨',
@@ -517,7 +519,7 @@ export const EN4: Record<string, string> = {
   'Annulé': 'Cancelled',
   '{0} : annulé': '{0}: cancelled',
   'Afficher GIRAFA en bas de l’écran': 'Show GIRAFA at the bottom of the screen',
-  'Si elle te gêne, cache-la : tu la retrouves à tout moment dans le menu (icône ✨ sur téléphone, « GIRAFA » sur ordinateur).': 'If it gets in the way, hide it: you can always find it in the menu (✨ icon on phone, “GIRAFA” on computer).',
+  'Si elle te gêne, cache-la : tu la retrouves à tout moment dans le menu (icône ✨ en haut sur téléphone, « GIRAFA » sur ordinateur).': 'If it gets in the way, hide it: you can always find it in the menu (✨ icon at the top on phone, “GIRAFA” on computer).',
   'Site réalisé par': 'Website by',
   // Langue
   Langue: 'Language',

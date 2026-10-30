@@ -335,7 +335,7 @@ function GirafaSetting() {
       <input type="checkbox" checked={!hidden} onChange={(e) => setGirafaHidden(!e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]" />
       <span className="min-w-0">
         <span className="block font-medium">Afficher GIRAFA en bas de l’écran</span>
-        <span className="block text-sm text-muted">Si elle te gêne, cache-la : tu la retrouves à tout moment dans le menu (icône ✨ sur téléphone, « GIRAFA » sur ordinateur).</span>
+        <span className="block text-sm text-muted">Si elle te gêne, cache-la : tu la retrouves à tout moment dans le menu (icône ✨ en haut sur téléphone, « GIRAFA » sur ordinateur).</span>
       </span>
     </label>
   )

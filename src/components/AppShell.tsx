@@ -4,6 +4,7 @@ import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, H
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useSpace } from '@/context/space'
+import { useGirafaHidden } from '@/lib/assistantPref'
 import { cx, Spinner } from './ui'
 
 const NAV = [
@@ -108,6 +109,7 @@ function useSearchShortcut() {
 
 export function AppShell() {
   useSearchShortcut()
+  const girafaHidden = useGirafaHidden()
   return (
     <div className="min-h-dvh lg:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-surface focus:p-2">
@@ -173,9 +175,11 @@ export function AppShell() {
           <div className="min-w-0 flex-1">
             <SpaceSwitcher />
           </div>
-          <NavLink to="/assistant" aria-label="GIRAFA" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
-            <Sparkles className="size-5" aria-hidden />
-          </NavLink>
+          {girafaHidden && (
+            <NavLink to="/assistant" aria-label="GIRAFA" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+              <Sparkles className="size-5" aria-hidden />
+            </NavLink>
+          )}
           <NavLink to="/recherche" aria-label="Rechercher" data-tour="nav-search" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Search className="size-5" aria-hidden />
           </NavLink>

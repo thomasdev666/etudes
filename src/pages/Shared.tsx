@@ -122,7 +122,8 @@ export default function SharedPage() {
           <>
             <p className="text-sm text-muted">
               {KIND_LABEL[data.kind]}
-              {data.subject ? ` · ${data.subject}` : ''} · mis à jour le {fmt(data.updated_at, 'd MMMM yyyy')}
+              {data.subject ? ` · ${data.subject}` : ''}
+              {data.updated_at && <> · mis à jour le {fmt(data.updated_at, 'd MMMM yyyy')}</>}
             </p>
             {data.kind !== 'mindmap' && <h1 className="mb-6 mt-1 font-display text-3xl font-bold">{data.title}</h1>}
             {data.kind === 'note' && <NoteView doc={data.content as JSONContent} />}

@@ -96,10 +96,12 @@ export default function QuizNewPage() {
           />
           <div className="mt-1 flex items-start gap-2.5 rounded-2xl border border-dashed border-border px-3 py-2.5 text-sm">
             <PenLine className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
-            <p className="min-w-0 flex-1 text-muted">
-              <span className="font-medium text-text">Questions ouvertes</span> : tu rédiges ta réponse avec tes mots, l’IA la corrige et te dit ce qui manque.
-            </p>
-            <Badge tone="muted">Bientôt</Badge>
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-2 font-medium">
+                Questions ouvertes <Badge tone="muted">Bientôt</Badge>
+              </p>
+              <p className="mt-0.5 text-muted">Tu rédiges ta réponse avec tes mots, l’IA la corrige et te dit ce qui manque.</p>
+            </div>
           </div>
         </div>
         <Field label="Titre (optionnel)" id="qtitle">

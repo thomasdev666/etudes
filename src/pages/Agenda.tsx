@@ -411,18 +411,20 @@ function ListView({ assignments, byDay, onOpen }: { assignments: Assignment[]; b
   return (
     <div className="flex flex-col gap-4">
       <label className="flex items-center gap-2 text-sm text-muted">
-        <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} className="accent-[var(--accent)]" /> Afficher les devoirs faits
+        <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} className="size-4 accent-[var(--accent)]" /> Afficher les devoirs faits
       </label>
       {late.length > 0 && (
         <section>
           <h3 className="mb-2 text-sm font-semibold text-danger">En retard</h3>
           <div className="flex flex-col gap-1.5">
             {late.map((a) => (
-              <div key={a.id} className="flex items-center gap-2">
-                <div className="flex-1">
+              <div key={a.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="min-w-[min(100%,14rem)] flex-1">
                   <ItemRow it={{ kind: 'assignment', at: new Date(a.due_at), a }} onOpen={onOpen} />
                 </div>
-                <Badge tone="danger">{countdown(a.due_at).label}</Badge>
+                <span className="shrink-0 whitespace-nowrap">
+                  <Badge tone="danger">{countdown(a.due_at).label}</Badge>
+                </span>
               </div>
             ))}
           </div>
