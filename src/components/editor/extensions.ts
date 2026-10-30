@@ -1,6 +1,6 @@
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
-import Mathematics from '@tiptap/extension-mathematics'
+import { BlockMath, InlineMath } from '@tiptap/extension-mathematics'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
 import TaskItem from '@tiptap/extension-task-item'
@@ -44,11 +44,9 @@ export function buildExtensions(getEditor: () => Editor | null) {
     StorageImage.configure({ allowBase64: false }),
     Diagram,
     Callout,
-    Mathematics.configure({
-      inlineOptions: { onClick: editMath('inline') },
-      blockOptions: { onClick: editMath('block') },
-      katexOptions: { throwOnError: false },
-    }),
+    // Formules en bloc en mode « affichage » : grandes fractions, bornes des sommes au-dessus et en dessous
+    BlockMath.configure({ onClick: editMath('block'), katexOptions: { throwOnError: false, displayMode: true } }),
+    InlineMath.configure({ onClick: editMath('inline'), katexOptions: { throwOnError: false } }),
     Placeholder.configure({ placeholder: 'Commence à écrire… (tape « # » pour un titre, « - » pour une liste)' }),
   ]
 }

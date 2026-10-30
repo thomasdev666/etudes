@@ -55,13 +55,16 @@
 .force-light {
   --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --border: #dfe3ea;
-  --text: #111827;
-  --muted: #4b5563;
-  --accent: #4f46e5;
-  --accent-ink: #4338ca;
-  --accent-soft: #eceefe;
+  --surface-2: #f7f1e6;
+  --border: #e6dac4;
+  --text: #2b2118;
+  --muted: #5e4f3b;
+  --accent: #d2553a;
+  --accent-ink: #9c3a22;
+  --accent-soft: #fbe6dd;
+  --success-soft: #e3eedb;
+  --warning-soft: #f8ead0;
+  --shadow-card: none;
 }
 
 .dark {
@@ -253,15 +256,17 @@ h3,
   content: counter(step); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   width: 1.5em; height: 1.5em; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.75em; font-weight: 700;
 }
-.prose-note .diagram-flow li::after,
-.prose-note .diagram-cycle li::after { content: '→'; margin: 0 0.4em; color: var(--accent); font-weight: 700; font-size: 1.2em; }
-.prose-note .diagram-flow li:last-child::after { content: none; }
-.prose-note .diagram-cycle li:last-child::after { content: '↻'; }
+/* Flèche avant chaque étape sauf la première (::before : rendu identique à l'écran et dans l'export PDF) ;
+   le cycle commence par ↻ pour montrer qu'il recommence */
+.prose-note .diagram-flow li + li::before,
+.prose-note .diagram-cycle li + li::before,
+.prose-note .diagram-cycle li:first-child::before { content: '→'; margin: 0 0.4em; color: var(--accent); font-weight: 700; font-size: 1.2em; }
+.prose-note .diagram-cycle li:first-child::before { content: '↻'; margin-left: 0; }
 /* Sur téléphone, les étapes se lisent de haut en bas */
 @media (max-width: 640px) {
   .prose-note .diagram-flow ol { flex-direction: column; flex-wrap: nowrap; }
   .prose-note .diagram-flow li { flex-direction: column; }
-  .prose-note .diagram-flow li::after { content: '↓'; margin: 0.15em 0; }
+  .prose-note .diagram-flow li + li::before { content: '↓'; margin: 0.15em 0; }
 }
 .prose-note .diagram-tree .diagram-title {
   display: table; margin: 0 auto 0.9em; padding: 0.35em 1em; border-radius: 999px; background: var(--accent); color: #fff;
