@@ -6,7 +6,7 @@ import { estimateSeconds } from './ai'
 import { useInvalidate } from './data'
 import { must, supabase } from './supabase'
 
-export type AssistantRequest = { subjectId: string | null; courseIds: string[]; noteIds: string[]; instruction: string }
+export type AssistantRequest = { subjectId: string | null; courseIds: string[]; noteIds: string[]; instruction: string; title?: string }
 
 export function useCreateAssistantDoc() {
   const { spaceId } = useSpace()
@@ -14,14 +14,14 @@ export function useCreateAssistantDoc() {
   const invalidate = useInvalidate()
   return async (r: AssistantRequest) => {
     const ask = r.instruction.trim()
-    const short = ask.length > 60 ? ask.slice(0, 57) + '…' : ask
+    const short = r.title ?? (ask.length > 60 ? ask.slice(0, 57) + '…' : ask)
     const note = must(
       await supabase
         .from('notes')
         .insert({
           space_id: spaceId,
           subject_id: r.subjectId,
-          title: `Assistant — ${short}`,
+          title: r.title ?? `Assistant — ${short}`,
           content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'L’assistant prépare ce document…' }] }] },
         })
         .select('id')
@@ -30,7 +30,7 @@ export function useCreateAssistantDoc() {
     const jobId = await start(
       'assistant',
       { note_id: note.id, course_ids: r.courseIds, note_ids: r.noteIds, instruction: ask },
-      { label: `Assistant : « ${short} »`, estimateSec: estimateSeconds('assistant', r.courseIds.length + r.noteIds.length), link: `/notes/${note.id}`, linkLabel: 'Ouvrir' },
+      { label: r.title ?? `Assistant : « ${short} »`, estimateSec: estimateSeconds('assistant', r.courseIds.length + r.noteIds.length), link: `/notes/${note.id}`, linkLabel: 'Ouvrir' },
     )
     await invalidate('notes')
     return { noteId: note.id, jobId }

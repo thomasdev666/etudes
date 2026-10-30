@@ -473,6 +473,14 @@ export const EN4: Record<string, string> = {
   'Ouvrir l’assistant': 'Open the assistant',
   'Fermer l’assistant': 'Close the assistant',
   'Je travaille uniquement à partir de tes cours': 'I only work from your courses',
+  // Fiche sur les erreurs d'un QCM
+  'Ta fiche est en préparation ✨': 'Your sheet is being prepared ✨',
+  'Elle arrive dans tes notes d’ici une minute. Tu peux continuer pendant ce temps.': 'It will appear in your notes within a minute. You can keep going meanwhile.',
+  'Ouvrir la fiche →': 'Open the sheet →',
+  'Une fiche rien que pour tes erreurs': 'A sheet just for your mistakes',
+  'Ce que tu maîtrises en un coup d’œil, et les notions ratées réexpliquées avec schémas, exemples et pièges à éviter.': 'What you’ve mastered at a glance, and the missed topics re-explained with diagrams, examples and traps to avoid.',
+  'Créer ma fiche d’erreurs': 'Create my mistakes sheet',
+  'Plus de fiches disponibles cette semaine.': 'No more sheets available this week.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

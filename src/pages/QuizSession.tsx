@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, RotateCcw, Timer, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, RotateCcw, Sparkles, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MathText } from '@/components/MathText'
@@ -7,13 +7,83 @@ import { ReportQuestion } from '@/components/ReportQuestion'
 import { Badge, Button, Card, cx, ErrorBox, IconButton, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { celebrate } from '@/lib/confetti'
-import { useInvalidate, useSubjectMap } from '@/lib/data'
+import { useCreateAssistantDoc } from '@/lib/assistant'
+import { useCourses, useInvalidate, useNotesList, useQuizzes, useSubjectMap } from '@/lib/data'
+import { mistakesInstruction } from '@/lib/mistakesSheet'
+import { useUsage } from '@/lib/plans'
 import { startErrorSession, startQuizSession } from '@/lib/quiz'
 import { timerLabel, useStudyTimer } from '@/lib/studyTimer'
 import { must, supabase } from '@/lib/supabase'
 import { QUESTION_PUBLIC_COLUMNS, type Correction, type QuizQuestionPublic, type QuizSession } from '@/lib/types'
 
 const LETTERS = ['A', 'B', 'C', 'D']
+
+// Fiche ciblée sur les questions ratées, préparée par l'assistant à partir des cours du QCM
+function MistakesSheet({ session, corrections }: { session: QuizSession; corrections: Correction[] }) {
+  const create = useCreateAssistantDoc()
+  const { data: quizzes = [] } = useQuizzes()
+  const { data: courses = [] } = useCourses()
+  const { data: notes = [] } = useNotesList()
+  const { data: usage = [] } = useUsage()
+  const [busy, setBusy] = useState(false)
+  const [noteId, setNoteId] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const quiz = quizzes.find((q) => q.id === session.quiz_id)
+  let courseIds = quiz?.source_course_ids ?? []
+  let noteIds = quiz?.source_note_ids ?? []
+  if (!courseIds.length && !noteIds.length) {
+    courseIds = courses.filter((c) => c.subject_id === session.subject_id && c.content.length).map((c) => c.id)
+    noteIds = notes.filter((n) => n.subject_id === session.subject_id && n.content_text.length).map((n) => n.id)
+  }
+  const quota = usage.find((u) => u.kind === 'sheet')
+  const left = quota ? Math.max(0, quota.max - quota.used) : null
+  if (!corrections.some((c) => !c.is_correct) || (!courseIds.length && !noteIds.length)) return null
+
+  if (noteId)
+    return (
+      <div className="mt-4 rounded-2xl bg-accent-soft px-4 py-3 text-left text-sm">
+        <p className="font-semibold text-accent-ink">Ta fiche est en préparation ✨</p>
+        <p className="mt-0.5 text-muted">Elle arrive dans tes notes d’ici une minute. Tu peux continuer pendant ce temps.</p>
+        <Link to={`/notes/${noteId}`} className="mt-1 inline-block font-medium text-accent-ink hover:underline">
+          Ouvrir la fiche →
+        </Link>
+      </div>
+    )
+
+  const title = `Fiche erreurs — ${quiz?.title ?? 'Révision des erreurs'}`
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-accent/50 px-4 py-3 text-left">
+      <p className="flex items-center gap-1.5 font-semibold">
+        <Sparkles className="size-4 text-accent-ink" aria-hidden /> Une fiche rien que pour tes erreurs
+      </p>
+      <p className="mt-0.5 text-sm text-muted">Ce que tu maîtrises en un coup d’œil, et les notions ratées réexpliquées avec schémas, exemples et pièges à éviter.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Button
+          size="sm"
+          icon={<Sparkles className="size-4" />}
+          loading={busy}
+          disabled={left === 0}
+          onClick={async () => {
+            setBusy(true)
+            setError(null)
+            try {
+              const r = await create({ subjectId: session.subject_id, courseIds, noteIds, instruction: mistakesInstruction(quiz?.title ?? 'Révision des erreurs', corrections), title })
+              setNoteId(r.noteId)
+            } catch (e) {
+              setError(e)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Créer ma fiche d’erreurs
+        </Button>
+        {left === 0 && <span className="text-xs text-muted">Plus de fiches disponibles cette semaine.</span>}
+      </div>
+      <ErrorBox error={error} />
+    </div>
+  )
+}
 
 function Results({ session, corrections }: { session: QuizSession; corrections: Correction[] }) {
   const { spaceId } = useSpace()
@@ -84,6 +154,7 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
             <p className="mt-2 text-sm text-muted">Les questions ratées ont été ajoutées à ta session « Erreurs ».</p>
           </div>
         )}
+        <MistakesSheet session={session} corrections={corrections} />
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Button variant="secondary" icon={<RotateCcw className="size-4" />} onClick={again}>
             {session.kind === 'errors' ? 'Revoir les erreurs restantes' : 'Refaire ce QCM'}

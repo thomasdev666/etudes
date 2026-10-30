@@ -605,7 +605,7 @@ export async function generateCustomDoc(opts: { source: string; instruction: str
     VISUAL_RULES,
     'Exception : si l’étudiant demande seulement des formules ou une liste brève, n’ajoute pas d’illustrations.',
   ].join('\n')
-  const prompt = `=== DEMANDE DE L’ÉTUDIANT ===\n${opts.instruction.slice(0, 2000)}\n\n=== COURS ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
+  const prompt = `=== DEMANDE DE L’ÉTUDIANT ===\n${opts.instruction.slice(0, 8000)}\n\n=== COURS ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
