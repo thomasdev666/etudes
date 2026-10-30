@@ -1,8 +1,8 @@
 // Fonction d'arrière-plan Netlify (jusqu'à 15 min) : traite une tâche ai_jobs.
 // Le client crée la tâche, appelle cette fonction (réponse 202 immédiate),
 // puis suit le statut de la tâche dans la base.
-import { describeImages, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
-import { sheetToDoc } from '../shared/sheetDoc'
+import { describeImages, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
+import { customToDoc, sheetToDoc } from '../shared/sheetDoc'
 import { userClient } from '../shared/supabase'
 import { prepareExam } from '../shared/examPrep'
 import { runTranscription, type TranscriptionState } from '../shared/transcription'
@@ -26,6 +26,7 @@ type CardsParams = {
 
 type ImagesParams = { course_id: string; images: { path: string; label: string; marker: string }[] }
 type SheetParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
+type AssistantParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; instruction: string }
 type MindmapParams = { output_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 
 const IMAGE_BATCH = 10
@@ -167,6 +168,7 @@ export default async (req: Request) => {
       case 'mindmap':
         return { kind: 'mindmap', amount: 1 }
       case 'sheet':
+      case 'assistant':
         return { kind: 'sheet', amount: 1 }
       case 'course_images':
         return { kind: 'images', amount: 1 }
@@ -285,6 +287,19 @@ export default async (req: Request) => {
         await db.from('courses').update({ status: 'error' }).eq('id', p.course_id)
         throw e
       }
+    } else if (job.kind === 'assistant') {
+      const p = job.params as AssistantParams
+      try {
+        const source = await prepare(p)
+        const result = await generateCustomDoc({ source, instruction: p.instruction })
+        const { doc, text } = customToDoc(result)
+        const { error } = await db.from('notes').update({ title: result.title, content: doc, content_text: text }).eq('id', p.note_id)
+        if (error) throw error
+        await db.from('ai_jobs').update({ status: 'done', result: { count: 1 } }).eq('id', job_id)
+      } catch (e) {
+        await db.from('notes').delete().eq('id', p.note_id)
+        throw e
+      }
     } else if (job.kind === 'sheet') {
       const p = job.params as SheetParams
       try {
@@ -333,7 +348,7 @@ export default async (req: Request) => {
     const message = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String(e.message) : String(e)
     if (p.output_id) await db.from('note_outputs').update({ status: 'error', error: message }).eq('id', p.output_id).eq('status', 'generating')
     if (p.quiz_id) await db.from('quizzes').update({ status: 'error', error: message }).eq('id', p.quiz_id).neq('status', 'ready')
-    if (p.note_id && job.kind === 'sheet') await db.from('notes').delete().eq('id', p.note_id)
+    if (p.note_id && (job.kind === 'sheet' || job.kind === 'assistant')) await db.from('notes').delete().eq('id', p.note_id)
     const sid = (job.params as { session_id?: string }).session_id
     if (sid && job.kind === 'exam') await db.from('exam_sessions').update({ status: 'error', error: message }).eq('id', sid).eq('status', 'preparing')
     const rid = (job.params as { recording_id?: string }).recording_id

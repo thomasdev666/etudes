@@ -35,6 +35,7 @@ const MindmapPage = lazy(() => import('./pages/Mindmap'))
 const QuizStart = lazy(() => import('./pages/QuizStart'))
 const GuidePage = lazy(() => import('./pages/Guide'))
 const LandingPage = lazy(() => import('./pages/Landing'))
+const AssistantPage = lazy(() => import('./pages/Assistant'))
 const SharedPage = lazy(() => import('./pages/Shared'))
 
 export default function App() {
@@ -119,6 +120,7 @@ function SpaceGate() {
           <Route path="/entrainements" element={<ExamsPage />} />
           <Route path="/planification" element={<PlannerPage />} />
           <Route path="/abonnement" element={<SubscriptionPage />} />
+          <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/cartes-mentales/:id" element={<MindmapPage />} />
           <Route path="/qcm/demarrer/:id" element={<QuizStart />} />
           <Route path="/bienvenue" element={<GuidePage />} />

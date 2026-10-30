@@ -1,5 +1,5 @@
 // Convertit une fiche générée en document de l'éditeur de notes (TipTap), pour qu'elle soit éditable et exportable
-import type { Sheet } from './ai'
+import type { CustomDoc, Sheet } from './ai'
 
 type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string; marks?: { type: string }[] }
 
@@ -59,6 +59,28 @@ export function sheetToDoc(sheet: Sheet): { doc: Node; text: string } {
     c.push(h(2, 'Le jour de l’examen, je sais…'))
     c.push({ type: 'taskList', content: sheet.checklist.map((i) => ({ type: 'taskItem', attrs: { checked: false }, content: [p(i)] })) })
     text.push(...sheet.checklist)
+  }
+  return { doc: { type: 'doc', content: c }, text: text.join('\n').replace(/\*\*/g, '') }
+}
+
+// Document de l'assistant : sections avec points et formules
+export function customToDoc(d: CustomDoc): { doc: Node; text: string } {
+  const c: Node[] = []
+  const text: string[] = []
+  if (d.intro) {
+    c.push({ type: 'paragraph', content: inline(d.intro).map((n) => (n.type === 'text' ? { ...n, marks: [...(n.marks ?? []), { type: 'italic' }] } : n)) })
+    text.push(d.intro)
+  }
+  for (const s of d.sections) {
+    c.push(h(2, s.heading))
+    text.push(s.heading, ...s.points)
+    if (s.points.length) c.push(list(s.points))
+    for (const f of s.formulas) {
+      if (f.name) c.push({ type: 'paragraph', content: [{ type: 'text', text: f.name, marks: [{ type: 'bold' }] }] })
+      c.push({ type: 'blockMath', attrs: { latex: f.latex.replace(/^\$+|\$+$/g, '') } })
+      if (f.explanation) c.push(p(f.explanation))
+      text.push(`${f.name} : ${f.latex} ${f.explanation}`)
+    }
   }
   return { doc: { type: 'doc', content: c }, text: text.join('\n').replace(/\*\*/g, '') }
 }

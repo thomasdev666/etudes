@@ -21,6 +21,9 @@ export function estimateSeconds(kind: AiJob['kind'], count = 0) {
       return 75
     case 'sheet':
       return 60
+    case 'assistant':
+      // count = nombre de cours et notes utilisés
+      return 45 + count * 4
     case 'exam':
       // count = nombre de questions
       return 30 + count * 2

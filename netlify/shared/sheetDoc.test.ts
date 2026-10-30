@@ -27,3 +27,19 @@ describe('fiche de révision → note', () => {
     expect(text).toContain('BFR : Besoin en fonds de roulement')
   })
 })
+
+describe('document de l’assistant', () => {
+  it('convertit sections, points et formules en note éditable', async () => {
+    const { customToDoc } = await import('./sheetDoc')
+    const { doc, text } = customToDoc({
+      title: 'Formules d’analyse financière',
+      intro: 'Toutes les formules des chapitres 1 à 3.',
+      sections: [{ heading: 'Rentabilité', points: ['Le **ROE** mesure la rentabilité des capitaux propres'], formulas: [{ name: 'ROE', latex: '$\\frac{RN}{CP}$', explanation: 'RN : résultat net, CP : capitaux propres' }] }],
+    })
+    const types = (doc.content ?? []).map((n) => n.type)
+    expect(types).toEqual(['paragraph', 'heading', 'bulletList', 'paragraph', 'blockMath', 'paragraph'])
+    expect((doc.content ?? [])[4].attrs?.latex).toBe('\\frac{RN}{CP}')
+    expect(text).toContain('Le ROE mesure')
+    expect(text).not.toContain('**')
+  })
+})

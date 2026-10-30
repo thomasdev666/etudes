@@ -1,5 +1,5 @@
 import { Logo } from '@/components/Logo'
-import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Trash2 } from 'lucide-react'
+import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Sparkles, Trash2 } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useSpace } from '@/context/space'
@@ -148,6 +148,9 @@ export function AppShell() {
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-1">
+          <NavLink to="/assistant" data-tour="nav-assistant" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
+            <Sparkles className="size-4" aria-hidden /> Assistant
+          </NavLink>
           <NavLink to="/entrainements" data-tour="nav-exams" className={({ isActive }) => cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2')}>
             <GraduationCap className="size-4" aria-hidden /> TAGE MAGE · TOEIC
           </NavLink>
@@ -169,6 +172,9 @@ export function AppShell() {
           <div className="min-w-0 flex-1">
             <SpaceSwitcher />
           </div>
+          <NavLink to="/assistant" aria-label="Assistant" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
+            <Sparkles className="size-5" aria-hidden />
+          </NavLink>
           <NavLink to="/recherche" aria-label="Rechercher" data-tour="nav-search" className="flex size-10 items-center justify-center rounded-xl text-muted hover:bg-surface-2">
             <Search className="size-5" aria-hidden />
           </NavLink>

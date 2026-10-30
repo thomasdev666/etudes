@@ -181,7 +181,7 @@ export type NoteOutput = Base & {
 }
 
 export type AiJob = Base & {
-  kind: 'quiz' | 'flashcards' | 'course_images' | 'mindmap' | 'sheet' | 'transcription' | 'exam'
+  kind: 'quiz' | 'flashcards' | 'course_images' | 'mindmap' | 'sheet' | 'transcription' | 'exam' | 'assistant'
   params: Record<string, unknown>
   status: 'pending' | 'running' | 'done' | 'error'
   error: string | null
