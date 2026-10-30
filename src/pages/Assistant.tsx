@@ -2,12 +2,9 @@ import { BookOpen, NotebookPen, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, cx, ErrorBox, PageHeader, Select, Textarea } from '@/components/ui'
-import { useJobs } from '@/context/jobs'
-import { useSpace } from '@/context/space'
-import { estimateSeconds } from '@/lib/ai'
-import { useCourses, useInvalidate, useNotesList, useSubjectMap, useSubjects } from '@/lib/data'
+import { useCreateAssistantDoc } from '@/lib/assistant'
+import { useCourses, useNotesList, useSubjectMap, useSubjects } from '@/lib/data'
 import { useUsage } from '@/lib/plans'
-import { must, supabase } from '@/lib/supabase'
 
 // Assistant : une demande libre (« une fiche avec seulement les formules »…), traitée à partir
 // des cours et notes choisis. Le résultat est une nouvelle note : les sources ne sont jamais modifiées.
@@ -27,10 +24,8 @@ const MAX_CHARS = 300_000
 type Source = { id: string; kind: 'course' | 'note'; title: string; subjectId: string | null; chars: number }
 
 export default function AssistantPage() {
-  const { spaceId } = useSpace()
   const navigate = useNavigate()
-  const { start } = useJobs()
-  const invalidate = useInvalidate()
+  const create = useCreateAssistantDoc()
   const { data: subjects = [] } = useSubjects()
   const subjectMap = useSubjectMap()
   const { data: courses = [] } = useCourses()
@@ -59,26 +54,12 @@ export default function AssistantPage() {
     setBusy(true)
     setError(null)
     try {
-      const ask = instruction.trim()
-      const short = ask.length > 60 ? ask.slice(0, 57) + '…' : ask
-      const note = must(
-        await supabase
-          .from('notes')
-          .insert({
-            space_id: spaceId,
-            subject_id: subject || null,
-            title: `Assistant — ${short}`,
-            content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'L’assistant prépare ce document…' }] }] },
-          })
-          .select('id')
-          .single(),
-      ) as { id: string }
-      await start(
-        'assistant',
-        { note_id: note.id, course_ids: chosen.filter((s) => s.kind === 'course').map((s) => s.id), note_ids: chosen.filter((s) => s.kind === 'note').map((s) => s.id), instruction: ask },
-        { label: `Assistant : « ${short} »`, estimateSec: estimateSeconds('assistant', chosen.length), link: `/notes/${note.id}`, linkLabel: 'Ouvrir' },
-      )
-      await invalidate('notes')
+      await create({
+        subjectId: subject || null,
+        courseIds: chosen.filter((s) => s.kind === 'course').map((s) => s.id),
+        noteIds: chosen.filter((s) => s.kind === 'note').map((s) => s.id),
+        instruction,
+      })
       setInstruction('')
     } catch (e) {
       setError(e)

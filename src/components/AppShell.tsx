@@ -1,3 +1,4 @@
+import { AssistantWidget } from '@/components/AssistantWidget'
 import { Logo } from '@/components/Logo'
 import { BarChart3, BookOpen, GraduationCap, Brain, CalendarDays, ChevronDown, Home, NotebookPen, Search, Settings, Sparkles, Trash2 } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState } from 'react'
@@ -186,12 +187,14 @@ export function AppShell() {
           </NavLink>
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-5xl px-4 pb-28 pt-5 sm:px-6 lg:pb-12 lg:pt-8">
+        <main id="main" className="mx-auto w-full max-w-5xl px-4 pb-44 pt-5 sm:px-6 lg:pb-24 lg:pt-8">
           <Suspense fallback={<Spinner />}>
             <Outlet />
           </Suspense>
         </main>
       </div>
+
+      <AssistantWidget />
 
       {/* Barre inférieure (mobile), utilisable au pouce */}
       <nav aria-label="Navigation principale" className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface/95 backdrop-blur lg:hidden">

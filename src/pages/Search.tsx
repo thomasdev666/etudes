@@ -78,7 +78,9 @@ export default function SearchPage() {
   const [kind, setKind] = useState<Kind | ''>('')
   const input = useRef<HTMLInputElement>(null)
 
-  useEffect(() => input.current?.focus(), [])
+  useEffect(() => {
+    input.current?.focus()
+  }, [])
   const tour = useFirstTimeTour('search')
   // On attend une courte pause dans la frappe avant de chercher
   useEffect(() => {

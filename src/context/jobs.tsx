@@ -279,7 +279,7 @@ function JobsPanel({ jobs, dismiss, navigate }: { jobs: TrackedJob[]; dismiss: (
     <div
       aria-live="polite"
       className="fixed right-3 z-40 w-[min(22rem,calc(100vw-1.5rem))] lg:right-5"
-      style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset))' }}
+      style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset) + 4.25rem)' }}
     >
       <div className="anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg">
         {jobs.length === 1 ? (
