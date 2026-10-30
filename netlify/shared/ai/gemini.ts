@@ -137,3 +137,51 @@ export async function uploadGeminiFile(apiKey: string, bytes: Uint8Array<ArrayBu
 export async function deleteGeminiFile(apiKey: string, name: string) {
   await fetch(`https://generativelanguage.googleapis.com/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': apiKey } }).catch(() => {})
 }
+
+// Réponse en continu (mot à mot) : texte au fil de l'eau, puis les sources Internet éventuelles
+export type StreamChunk = { text?: string; sources?: { title: string; uri: string }[] }
+export type StreamRequest = {
+  system: string
+  contents: { role: 'user' | 'model'; text: string }[]
+  webSearch?: boolean
+  temperature?: number
+  signal?: AbortSignal
+}
+
+export async function* streamGemini(apiKey: string, model: string, req: StreamRequest): AsyncGenerator<StreamChunk> {
+  const lite = model.includes('lite')
+  const res = await fetch(`${ENDPOINT}/${model}:streamGenerateContent?alt=sse`, {
+    method: 'POST',
+    signal: req.signal,
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: req.system }] },
+      contents: req.contents.map((c) => ({ role: c.role, parts: [{ text: c.text }] })),
+      ...(req.webSearch && { tools: [{ google_search: {} }] }),
+      // Pas de « réflexion » préalable : la réponse doit commencer tout de suite
+      generationConfig: { temperature: req.temperature ?? 0.3, maxOutputTokens: 1200, ...(!lite && { thinkingConfig: { thinkingBudget: 0 } }) },
+    }),
+  })
+  if (res.status === 429) throw new QuotaAiError(`Quota atteint pour ${model}`, /per ?day|PerDay/i.test(await res.text()))
+  if (res.status === 404 || res.status === 400) throw new ModelUnavailableError(`Modèle indisponible : ${model} (${(await res.text()).slice(0, 200)})`)
+  if (!res.ok || !res.body) throw new RetryableAiError(`Service IA indisponible (${res.status})`, 0)
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    let nl: number
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim()
+      buffer = buffer.slice(nl + 1)
+      if (!line.startsWith('data:')) continue
+      const data = JSON.parse(line.slice(5))
+      const cand = data?.candidates?.[0]
+      const text = (cand?.content?.parts ?? []).map((p: { text?: string; thought?: boolean }) => (p.thought ? '' : (p.text ?? ''))).join('')
+      if (text) yield { text }
+      const chunks: { web?: { uri?: string; title?: string } }[] = cand?.groundingMetadata?.groundingChunks ?? []
+      if (chunks.length) yield { sources: chunks.flatMap((c) => (c.web?.uri ? [{ title: c.web.title ?? c.web.uri, uri: c.web.uri }] : [])) }
+    }
+  }
+}

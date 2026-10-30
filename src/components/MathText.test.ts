@@ -15,3 +15,10 @@ describe('MathText', () => {
     expect(html('From $5 to $10')).not.toContain('katex')
   })
 })
+
+describe('ponctuation après une formule', () => {
+  it('reste collée à la formule', () => {
+    const out = html('soit $a^2$. Puis')
+    expect(out).toMatch(/white-space:nowrap">.*katex.*<\/span>\.<\/span> Puis/)
+  })
+})

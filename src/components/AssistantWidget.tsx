@@ -5,7 +5,7 @@ import { useJobs } from '@/context/jobs'
 import { MathText } from '@/components/MathText'
 import { useSpace } from '@/context/space'
 import { useCreateAssistantDoc } from '@/lib/assistant'
-import { askGirafa, type ChatTurn } from '@/lib/girafaChat'
+import { streamGirafa, type ChatTurn, type LiveAnswer } from '@/lib/girafaChat'
 import { rankSubjects, type Doc } from '@/lib/relevance'
 import { useGirafaHidden } from '@/lib/assistantPref'
 import { useCourses, useNotesList, useSubjects } from '@/lib/data'
@@ -144,6 +144,35 @@ function RichText({ text }: { text: string }) {
   return <>{blocks}</>
 }
 
+// Réponse de GIRAFA avec sa provenance : cours (📚) ou Internet (🌐, liens)
+function Answer({ a, onSheet }: { a: LiveAnswer; onSheet?: () => void }) {
+  return (
+    <>
+      <RichText text={a.text} />
+      {a.from === 'courses' && a.sources.length > 0 && <span className="mt-1.5 block text-xs text-muted">📚 D’après tes cours : {a.sources.join(', ')}</span>}
+      {a.from === 'web' && (
+        <span className="mt-1.5 block text-xs text-muted">
+          🌐 Pas dans tes cours : réponse trouvée sur Internet, à vérifier avec ton cours.
+          {a.web.length > 0 && (
+            <span className="mt-0.5 flex flex-wrap gap-x-2">
+              {a.web.map((w) => (
+                <a key={w.uri} href={w.uri} target="_blank" rel="noopener noreferrer" className="underline" translate="no">
+                  {w.title}
+                </a>
+              ))}
+            </span>
+          )}
+        </span>
+      )}
+      {onSheet && (
+        <button type="button" onClick={onSheet} className="mt-2 block rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent-ink hover:bg-accent-soft">
+          📄 Me faire une fiche là-dessus
+        </button>
+      )}
+    </>
+  )
+}
+
 function Typing() {
   return (
     <span className="inline-flex gap-1 py-1" aria-label="GIRAFA écrit…">
@@ -193,7 +222,8 @@ function Conversation({ onClose }: { onClose: () => void }) {
   // Conversation en texte, envoyée au serveur pour les questions de suivi
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [thinking, setThinking] = useState(false)
-  const [phase, setPhase] = useState('')
+  // Réponse en train d'arriver, affichée mot à mot
+  const [live, setLive] = useState<LiveAnswer | null>(null)
   const [showKinds, setShowKinds] = useState(true)
   // Matières proposées pour un document (les plus pertinentes), et toutes à la demande
   const [relevant, setRelevant] = useState<string[]>([])
@@ -209,7 +239,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' })
-  }, [msgs, step, showSources, thinking, allSubjects])
+  }, [msgs, step, showSources, thinking, allSubjects, live])
 
   const docs = useMemo<Doc[]>(
     () => [
@@ -261,55 +291,26 @@ function Conversation({ onClose }: { onClose: () => void }) {
 
   const chooseKind = (instruction: string, label: string) => startDocument(instruction, undefined, label)
 
-  // Question libre : GIRAFA répond (cours d'abord, sinon Internet), ou lance un document si c'en est un
+  // Question libre : GIRAFA répond en direct (cours d'abord, sinon Internet), ou lance un document
   async function askQuestion(question: string) {
     setText('')
     setShowKinds(false)
     say({ from: 'me', text: question })
     setStep('kind')
     setThinking(true)
-    setPhase('')
+    setLive(null)
     try {
-      const reply = await askGirafa(spaceId, question, turns, setPhase)
-      setTurns((cur) => [...cur, { from: 'me' as const, text: question }, { from: 'bot' as const, text: reply.answer }].slice(-12))
-      if (reply.intent === 'document') {
-        if (reply.answer) say({ from: 'bot', text: <RichText text={reply.answer} /> })
-        startDocument(reply.document_instruction || question, reply.subject_ids)
+      const r = await streamGirafa(spaceId, question, turns, setLive)
+      if (r.kind === 'doc') {
+        setTurns((cur) => [...cur, { from: 'me' as const, text: question }].slice(-12))
+        say({ from: 'bot', text: 'Je m’en occupe !' })
+        startDocument(r.instruction, r.subject_ids)
         return
       }
+      setTurns((cur) => [...cur, { from: 'me' as const, text: question }, { from: 'bot' as const, text: r.answer.text }].slice(-12))
       say({
         from: 'bot',
-        text: (
-          <>
-            <RichText text={reply.answer} />
-            {reply.from === 'courses' && reply.sources.length > 0 && (
-              <span className="mt-1.5 block text-xs text-muted">📚 D’après tes cours : {reply.sources.join(', ')}</span>
-            )}
-            {reply.from === 'web' && (
-              <span className="mt-1.5 block text-xs text-muted">
-                🌐 Pas dans tes cours : réponse trouvée sur Internet, à vérifier avec ton cours.
-                {reply.web_sources.length > 0 && (
-                  <span className="mt-0.5 flex flex-wrap gap-x-2">
-                    {reply.web_sources.map((w) => (
-                      <a key={w.uri} href={w.uri} target="_blank" rel="noopener noreferrer" className="underline" translate="no">
-                        {w.title}
-                      </a>
-                    ))}
-                  </span>
-                )}
-              </span>
-            )}
-            {reply.suggest_document && (
-              <button
-                type="button"
-                onClick={() => startDocument(reply.document_instruction || `Une fiche de révision sur : ${question}`, reply.subject_ids, 'Oui, fais-moi une fiche')}
-                className="mt-2 block rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent-ink hover:bg-accent-soft"
-              >
-                📄 Me faire une fiche là-dessus
-              </button>
-            )}
-          </>
-        ),
+        text: <Answer a={r.answer} onSheet={() => startDocument(`Une fiche de révision sur : ${question}`, undefined, 'Oui, fais-moi une fiche')} />,
       })
     } catch (e) {
       say({
@@ -329,6 +330,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
       })
     } finally {
       setThinking(false)
+      setLive(null)
     }
   }
 
@@ -412,10 +414,12 @@ function Conversation({ onClose }: { onClose: () => void }) {
           <Bubble
             m={{
               from: 'bot',
-              text: (
+              text: live?.text ? (
+                <Answer a={live} />
+              ) : (
                 <>
                   <Typing />
-                  <span className="block text-xs text-muted">{phase || 'Je réfléchis…'}</span>
+                  <span className="block text-xs text-muted">{live?.from === 'web' ? 'Pas dans tes cours, je cherche sur Internet…' : 'Je cherche dans tes cours…'}</span>
                 </>
               ),
             }}

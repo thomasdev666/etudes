@@ -1,46 +1,54 @@
-// Conversation avec GIRAFA : chaque question devient une tâche « chat » traitée par le serveur
-// (réponse tirée des cours, sinon d'Internet). La fenêtre attend la réponse sans passer par le panneau des tâches.
-import { createAiJob } from './ai'
-import { supabase } from './supabase'
-import type { AiJob } from './types'
+// Conversation avec GIRAFA en direct : la réponse arrive mot à mot depuis la fonction serveur
+// (la clé de l'IA ne quitte jamais le serveur). Cours d'abord, Internet sinon.
+import { authHeader } from './supabase'
 
 export type ChatTurn = { from: 'me' | 'bot'; text: string }
-export type ChatReply = {
-  intent: 'answer' | 'document'
-  answer: string
-  from: 'courses' | 'web' | 'none'
-  sources: string[]
-  web_sources: { title: string; uri: string }[]
-  suggest_document: boolean
-  document_instruction: string
-  subject_ids: string[]
-}
+export type LiveAnswer = { text: string; from: 'courses' | 'web' | null; sources: string[]; web: { title: string; uri: string }[] }
+export type GirafaResult = { kind: 'answer'; answer: LiveAnswer } | { kind: 'doc'; instruction: string; subject_ids: string[] }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+type Event =
+  | { t: 'meta'; from: 'courses' | 'web'; sources: string[] }
+  | { t: 'delta'; text: string }
+  | { t: 'web'; sources: { title: string; uri: string }[] }
+  | { t: 'doc'; instruction: string; subject_ids: string[] }
+  | { t: 'error'; message: string }
+  | { t: 'done' }
 
-// Sans prise en charge par le serveur après ce délai, inutile d'attendre davantage
-const START_TIMEOUT_MS = 25_000
-const ANSWER_TIMEOUT_MS = 90_000
-
-export async function askGirafa(spaceId: string, question: string, history: ChatTurn[], onPhase?: (phase: string) => void): Promise<ChatReply> {
-  const job = await createAiJob(spaceId, 'chat', { question, history: history.slice(-8) }, { label: 'GIRAFA', estimateSec: 15 })
-  const started = Date.now()
-  for (let wait = 1000; ; wait = Math.min(wait + 250, 2000)) {
-    await sleep(wait)
-    const { data } = await supabase.from('ai_jobs').select('status, error, result').eq('id', job.id).maybeSingle()
-    const row = data as Pick<AiJob, 'status' | 'error' | 'result'> | null
-    if (row?.status === 'done') return (row.result as unknown as { reply: ChatReply }).reply
-    if (row?.status === 'error') throw new Error(row.error ?? 'GIRAFA n’a pas pu répondre.')
-    if (row?.result?.phase) onPhase?.(row.result.phase)
-    const elapsed = Date.now() - started
-    const stuck = (row?.status ?? 'pending') === 'pending' ? elapsed > START_TIMEOUT_MS : elapsed > ANSWER_TIMEOUT_MS
-    if (stuck) {
-      const message =
-        (row?.status ?? 'pending') === 'pending'
-          ? 'Le service de GIRAFA n’a pas démarré. Réessaie dans un instant ; si ça continue, préviens-nous.'
-          : 'GIRAFA met trop de temps à répondre (service IA saturé). Réessaie dans un instant.'
-      await supabase.from('ai_jobs').update({ status: 'error', error: message }).eq('id', job.id).in('status', ['pending', 'running'])
-      throw new Error(message)
+export async function streamGirafa(spaceId: string, question: string, history: ChatTurn[], onUpdate: (live: LiveAnswer) => void): Promise<GirafaResult> {
+  const res = await fetch('/.netlify/functions/girafa-chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ space_id: spaceId, question, history: history.slice(-8) }),
+  })
+  const type = res.headers.get('content-type') ?? ''
+  if (!res.ok || !res.body || !type.includes('ndjson')) {
+    const err = type.includes('json') ? ((await res.json().catch(() => null)) as { error?: string } | null)?.error : null
+    throw new Error(err ?? (type.includes('html') ? 'GIRAFA n’est pas encore disponible sur ce site (fonction serveur non déployée).' : `GIRAFA est indisponible (${res.status}).`))
+  }
+  const live: LiveAnswer = { text: '', from: null, sources: [], web: [] }
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  let finished = false
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    let nl: number
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim()
+      buffer = buffer.slice(nl + 1)
+      if (!line) continue
+      const ev = JSON.parse(line) as Event
+      if (ev.t === 'doc') return { kind: 'doc', instruction: ev.instruction, subject_ids: ev.subject_ids }
+      if (ev.t === 'error') throw new Error(ev.message)
+      if (ev.t === 'done') finished = true
+      if (ev.t === 'meta') Object.assign(live, { from: ev.from, sources: ev.sources })
+      if (ev.t === 'delta') live.text += ev.text
+      if (ev.t === 'web') live.web = ev.sources
+      onUpdate({ ...live })
     }
   }
+  // Réponse coupée en route (connexion, délai du serveur) : on garde ce qui est arrivé
+  if (!finished && !live.text) throw new Error('La réponse a été interrompue. Réessaie dans un instant.')
+  return { kind: 'answer', answer: live }
 }

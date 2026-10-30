@@ -1,8 +1,8 @@
 // Couche IA unique. Pour changer de fournisseur, ajouter un fichier à côté de gemini.ts
 // et l'ajouter dans getAi() : le reste du code n'appelle que getAi() et les générateurs.
 import { z } from 'zod'
-import { createGeminiProvider, deleteGeminiFile, listGeminiModels, uploadGeminiFile } from './gemini'
-import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema, type WebAnswer } from './types'
+import { createGeminiProvider, deleteGeminiFile, listGeminiModels, streamGemini, uploadGeminiFile, type StreamChunk, type StreamRequest } from './gemini'
+import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -626,107 +626,126 @@ export async function generateCustomDoc(opts: { source: string; instruction: str
   throw lastError instanceof Error ? lastError : new Error('Génération impossible')
 }
 
-// ---------------------------------------------------------------- GIRAFA : conversation
+// ---------------------------------------------------------------- GIRAFA : conversation en direct
 
 export type ChatTurn = { from: 'me' | 'bot'; text: string }
-export type ChatReply = {
-  intent: 'answer' | 'document'
-  answer: string
-  from: 'courses' | 'web' | 'none'
-  sources: string[]
-  web_sources: { title: string; uri: string }[]
-  suggest_document: boolean
-  document_instruction: string
-  subject_ids: string[]
-}
-
-const chatSchema: JsonSchema = {
-  type: 'object',
-  properties: {
-    intent: { type: 'string', enum: ['answer', 'document'] },
-    found_in_courses: { type: 'boolean' },
-    answer: { type: 'string' },
-    sources: { type: 'array', items: { type: 'string' }, description: 'Titres des cours utilisés pour répondre' },
-    suggest_document: { type: 'boolean' },
-    document_instruction: { type: 'string' },
-    subject_ids: { type: 'array', items: { type: 'string' } },
-  },
-  required: ['intent', 'found_in_courses', 'answer', 'sources', 'suggest_document', 'document_instruction', 'subject_ids'],
-  propertyOrdering: ['intent', 'found_in_courses', 'answer', 'sources', 'suggest_document', 'document_instruction', 'subject_ids'],
-}
-
-const chatValidator = z.object({
-  intent: z.enum(['answer', 'document']).catch('answer'),
-  found_in_courses: z.boolean().catch(false),
-  answer: z.string().catch(''),
-  sources: z.array(z.string()).catch([]),
-  suggest_document: z.boolean().catch(false),
-  document_instruction: z.string().catch(''),
-  subject_ids: z.array(z.string()).catch([]),
-})
+export type GirafaEvent =
+  | { t: 'meta'; from: 'courses' | 'web'; sources: string[] }
+  | { t: 'delta'; text: string }
+  | { t: 'web'; sources: { title: string; uri: string }[] }
+  | { t: 'doc'; instruction: string }
 
 const GIRAFA = "Tu es GIRAFA, la petite girafe de Regulya qui aide un étudiant d'école de commerce à réviser. Tu le tutoies, tu es chaleureuse, claire et précise, sans blabla."
 const STYLE = 'Réponse courte et claire : 2 à 8 phrases ou une courte liste à puces (« - »), mots clés en **gras**, formules en LaTeX entre $...$. Réponds dans la langue de la question.'
 
-// Une question de l'étudiant : réponse tirée de ses cours, sinon d'Internet ; ou demande de document
-export async function chatReply(opts: {
-  question: string
-  history: ChatTurn[]
-  passages: string
-  subjects: { id: string; name: string }[]
-  onPhase?: (phase: string) => Promise<void>
-}): Promise<ChatReply> {
-  // Conversation : une réponse en quelques secondes, sans longues attentes entre deux essais
-  const ai = getAi({ quick: true, budgetMs: 40_000 })
-  const history = opts.history
-    .slice(-8)
-    .map((t) => `${t.from === 'me' ? 'Étudiant' : 'GIRAFA'} : ${t.text.slice(0, 1500)}`)
-    .join('\n')
-  const system = [
-    GIRAFA,
-    "Si l'étudiant demande de PRODUIRE un document (fiche, liste complète, résumé, questions d'examen, tableau récapitulatif, plan de révision…) : intent = document, document_instruction = sa demande reformulée précisément, subject_ids = les identifiants des matières concernées (vide si elles le sont toutes), answer = une phrase qui annonce que tu vas t'en occuper.",
-    "Sinon : intent = answer. Réponds directement à la question en t'appuyant sur les EXTRAITS DE SES COURS. " + STYLE,
-    "sources = titres des cours réellement utilisés. Si les extraits ne permettent pas de répondre correctement : found_in_courses = false et answer vide (n'invente rien).",
-    'suggest_document = true seulement si une fiche aiderait vraiment (notion vaste, ou plusieurs questions sur le même thème) ; document_instruction décrit alors cette fiche.',
-    'Tiens compte de la conversation précédente (questions de suivi, « et pour… », « explique plus simplement »).',
-  ].join('\n')
-  const prompt = [
-    `=== MATIÈRES ===\n${opts.subjects.map((s) => `${s.id} : ${s.name}`).join('\n') || '(aucune)'}`,
-    history ? `=== CONVERSATION ===\n${history}` : '',
-    `=== EXTRAITS DE SES COURS ===\n${opts.passages || '(aucun extrait ne correspond)'}`,
-    `=== QUESTION ===\n${opts.question.slice(0, 2000)}`,
-  ]
-    .filter(Boolean)
-    .join('\n\n')
-  const r = chatValidator.parse(await ai.generateJson({ system, prompt, schema: chatSchema, temperature: 0.3, timeoutMs: 30_000 }))
-  const known = new Set(opts.subjects.map((s) => s.id))
-  const base: ChatReply = {
-    intent: r.intent,
-    answer: r.answer.trim(),
-    from: 'courses',
-    sources: r.sources,
-    web_sources: [],
-    suggest_document: r.suggest_document,
-    document_instruction: r.document_instruction.trim(),
-    subject_ids: r.subject_ids.filter((id) => known.has(id)),
-  }
-  if (r.intent === 'document' || (r.found_in_courses && base.answer)) return base
+// Demande de document (fiche, liste, résumé…) : reconnue sans attendre l'IA
+const DOC_REQUEST =
+  /\b(fais|fait|refais|g[ée]n[èe]re|cr[ée]e|pr[ée]pare|[ée]cris|r[ée]dige|donne|veux|voudrais|aimerais|faudrait)\b[^?]{0,80}\b(fiche|liste|r[ée]sum[ée]|tableau|plan de r[ée]vision|questions d.examen|qcm|document|synth[èe]se|r[ée]capitulatif)/i
+export const isDocumentRequest = (q: string) => DOC_REQUEST.test(q)
 
-  // Pas dans ses cours : recherche sur Internet, en le disant clairement
-  await opts.onPhase?.('Pas dans tes cours, je cherche sur Internet…')
-  try {
-    const web = (await ai.generateJson({
-      system: [GIRAFA, "La réponse n'est pas dans les cours de l'étudiant : appuie-toi sur une recherche Internet fiable. " + STYLE, 'Ne mentionne pas que tu as fait une recherche, l’application le signale déjà.'].join('\n'),
-      prompt: [history ? `Conversation :\n${history}\n` : '', `Question : ${opts.question.slice(0, 2000)}`].join('\n'),
-      schema: chatSchema,
-      webSearch: true,
-      temperature: 0.3,
-      timeoutMs: 30_000,
-    })) as WebAnswer
-    return { ...base, answer: web.text, from: 'web', sources: [], web_sources: web.sources.slice(0, 4) }
-  } catch {
-    return { ...base, from: 'none', answer: base.answer || 'Je n’ai trouvé la réponse ni dans tes cours ni sur Internet pour le moment. Tu peux reformuler ta question ?' }
+// Les plus rapides d'abord : la réponse doit commencer en une seconde
+const FAST = ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash']
+
+// Ouvre une réponse en continu sur le premier modèle disponible (bascule tant que rien n'a été envoyé)
+async function* streamFast(req: StreamRequest): AsyncGenerator<StreamChunk> {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
+  let last: unknown
+  for (const model of FAST.filter((m) => (benched.get(m) ?? 0) < Date.now())) {
+    let started = false
+    try {
+      for await (const chunk of streamGemini(key, model, req)) {
+        started = true
+        yield chunk
+      }
+      if (started) return
+    } catch (e) {
+      if (started) throw e
+      last = e
+      if (e instanceof QuotaAiError && e.daily) benched.set(model, Date.now() + 60 * 60_000)
+      if (e instanceof ModelUnavailableError) benched.set(model, Date.now() + 24 * 60 * 60_000)
+      if (e instanceof Error && e.name === 'AbortError') throw e
+    }
   }
+  throw last instanceof QuotaAiError ? new Error('Le service IA de Google est saturé en ce moment. Réessaie dans quelques instants.') : (last ?? new Error('GIRAFA n’a pas pu répondre.'))
+}
+
+const toContents = (history: ChatTurn[], last: string) => [
+  ...history.slice(-8).map((t) => ({ role: (t.from === 'me' ? 'user' : 'model') as 'user' | 'model', text: t.text.slice(0, 1500) })),
+  { role: 'user' as const, text: last },
+]
+
+// Réponse de GIRAFA : d'après les cours si possible, sinon d'après Internet ; ou bascule vers un document
+export async function* girafaAnswer(opts: { question: string; history: ChatTurn[]; passages: string; titles: string[]; signal?: AbortSignal }): AsyncGenerator<GirafaEvent> {
+  const question = opts.question.slice(0, 2000)
+  if (isDocumentRequest(question)) {
+    yield { t: 'doc', instruction: question }
+    return
+  }
+
+  if (opts.passages) {
+    const system = [
+      GIRAFA,
+      "Réponds à la question en t'appuyant sur les EXTRAITS DE SES COURS fournis. " + STYLE,
+      "Si l'étudiant te demande de PRODUIRE un document (fiche, liste complète, résumé, questions d'examen, tableau…), réponds uniquement : [DOC] suivi de sa demande reformulée.",
+      'Si les extraits ne permettent pas de répondre correctement, réponds uniquement : [WEB]. N’invente rien.',
+      'Tiens compte de la conversation (questions de suivi).',
+    ].join('\n')
+    const ctrl = new AbortController()
+    opts.signal?.addEventListener('abort', () => ctrl.abort())
+    let head = ''
+    let decided: 'answer' | 'web' | 'doc' | null = null
+    let doc = ''
+    for await (const c of streamFast({ system, contents: toContents(opts.history, `=== EXTRAITS DE MES COURS ===\n${opts.passages}\n\n=== MA QUESTION ===\n${question}`), signal: ctrl.signal })) {
+      if (!c.text) continue
+      if (decided === 'answer') {
+        yield { t: 'delta', text: c.text }
+        continue
+      }
+      if (decided === 'doc') {
+        doc += c.text
+        continue
+      }
+      // Les premiers caractères disent s'il s'agit d'une réponse, d'un renvoi vers Internet ou d'un document
+      head += c.text
+      const h = head.trimStart()
+      // Un « [ » en tête : on attend de savoir si c'est [WEB] ou [DOC]
+      if (!h || (h.startsWith('[') && h.length < 5)) continue
+      if (h.toUpperCase().startsWith('[WEB')) {
+        decided = 'web'
+        ctrl.abort()
+        break
+      }
+      if (h.toUpperCase().startsWith('[DOC')) {
+        decided = 'doc'
+        doc = h.replace(/^\[DOC\]?/i, '')
+        continue
+      }
+      decided = 'answer'
+      yield { t: 'meta', from: 'courses', sources: opts.titles.slice(0, 3) }
+      yield { t: 'delta', text: h }
+    }
+    if (decided === 'doc') {
+      yield { t: 'doc', instruction: doc.trim() || question }
+      return
+    }
+    if (decided === 'answer') return
+    if (decided === null && head.trim()) {
+      yield { t: 'meta', from: 'courses', sources: opts.titles.slice(0, 3) }
+      yield { t: 'delta', text: head.trim() }
+      return
+    }
+  }
+
+  // Pas dans ses cours : recherche sur Internet, signalée à l'étudiant
+  yield { t: 'meta', from: 'web', sources: [] }
+  const web = [GIRAFA, "La réponse n'est pas dans les cours de l'étudiant : appuie-toi sur une recherche Internet fiable. " + STYLE, 'Ne dis pas que tu as fait une recherche : l’application le signale déjà.'].join('\n')
+  const seen = new Map<string, { title: string; uri: string }>()
+  for await (const c of streamFast({ system: web, contents: toContents(opts.history, question), webSearch: true, signal: opts.signal })) {
+    if (c.text) yield { t: 'delta', text: c.text }
+    for (const src of c.sources ?? []) seen.set(src.uri, src)
+  }
+  if (seen.size) yield { t: 'web', sources: [...seen.values()].slice(0, 4) }
 }
 
 // ---------------------------------------------------------------- Transcription audio

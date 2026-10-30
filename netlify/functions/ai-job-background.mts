@@ -1,13 +1,12 @@
 // Fonction d'arrière-plan Netlify (jusqu'à 15 min) : traite une tâche ai_jobs.
 // Le client crée la tâche, appelle cette fonction (réponse 202 immédiate),
 // puis suit le statut de la tâche dans la base.
-import { chatReply, describeImages, generateCustomDoc, type ChatTurn, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Density, type Difficulty, type QuizType } from '../shared/ai'
+import { describeImages, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Density, type Difficulty, type QuizType } from '../shared/ai'
 import { customToDoc, sheetToDoc } from '../shared/sheetDoc'
 import { noteToText } from '../shared/noteText'
 import { userClient } from '../shared/supabase'
 import { prepareExam } from '../shared/examPrep'
 import { runTranscription, type TranscriptionState } from '../shared/transcription'
-import { pickPassages, rankSubjects, type Doc } from '../../src/lib/relevance'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type QuizParams = {
@@ -29,7 +28,6 @@ type CardsParams = {
 type ImagesParams = { course_id: string; images: { path: string; label: string; marker: string }[] }
 type SheetParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; title: string; density?: Density }
 type AssistantParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; instruction: string }
-type ChatParams = { question: string; history?: ChatTurn[] }
 type MindmapParams = { output_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 
 const IMAGE_BATCH = 10
@@ -181,8 +179,6 @@ export default async (req: Request) => {
       case 'sheet':
       case 'assistant':
         return { kind: 'sheet', amount: 1 }
-      case 'chat':
-        return { kind: 'chat', amount: 1 }
       case 'course_images':
         return { kind: 'images', amount: 1 }
       case 'transcription': {
@@ -210,27 +206,7 @@ export default async (req: Request) => {
         if (qe) throw new Error(qe.message)
       }
     }
-    if (job.kind === 'chat') {
-      const p = job.params as ChatParams
-      await progress(0.2, 'Je cherche dans tes cours…')
-      // Cours et notes de l'espace (lecture limitée à l'étudiant par la sécurité de la base)
-      const [{ data: subjects }, { data: courses }, { data: notes }] = await Promise.all([
-        db.from('subjects').select('id, name').eq('space_id', job.space_id).is('deleted_at', null),
-        db.from('courses').select('id, title, subject_id, content').eq('space_id', job.space_id).is('deleted_at', null),
-        db.from('notes').select('id, title, subject_id, content_text').eq('space_id', job.space_id).is('deleted_at', null),
-      ])
-      const docs: Doc[] = [
-        ...(courses ?? []).map((c) => ({ id: c.id, title: c.title, subject_id: c.subject_id, text: c.content ?? '' })),
-        ...(notes ?? []).map((n) => ({ id: n.id, title: n.title, subject_id: n.subject_id, text: n.content_text ?? '' })),
-      ]
-      // La question précédente aide pour les questions de suivi (« et pour le BFR ? »)
-      const lastAsk = [...(p.history ?? [])].reverse().find((t) => t.from === 'me')?.text ?? ''
-      const { text } = pickPassages(`${p.question} ${p.question} ${lastAsk}`, docs)
-      const reply = await chatReply({ question: p.question, history: p.history ?? [], passages: text, subjects: subjects ?? [], onPhase: (phase) => progress(0.6, phase) })
-      // Matières proposées pour un document : celles choisies par l'IA, sinon par mots-clés
-      if (reply.intent === 'document' && !reply.subject_ids.length) reply.subject_ids = rankSubjects(reply.document_instruction || p.question, subjects ?? [], docs)
-      await db.from('ai_jobs').update({ status: 'done', result: { reply } }).eq('id', job_id)
-    } else if (job.kind === 'exam') {
+    if (job.kind === 'exam') {
       const sessionId = (job.params as { session_id: string }).session_id
       try {
         await prepareExam(db, sessionId, progress)
