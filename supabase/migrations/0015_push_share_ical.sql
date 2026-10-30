@@ -92,3 +92,8 @@ begin
 end $$;
 revoke execute on function public.get_share(text) from public;
 grant execute on function public.get_share(text) to anon, authenticated;
+
+-- Agendas reliés par lien iCal : les événements importés gardent la trace de leur lien
+alter table public.imported_events add column if not exists link_id uuid references public.calendar_links(id) on delete cascade;
+create index if not exists imported_events_link_idx on public.imported_events (link_id);
+alter table public.calendar_links add column if not exists last_error text;

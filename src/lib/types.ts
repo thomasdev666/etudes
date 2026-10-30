@@ -164,7 +164,7 @@ export type NoteVersion = Base & { note_id: string; title: string; content: unkn
 
 export type FileRow = Base & { path: string; name: string; mime: string; size: number; note_id: string | null; course_id: string | null }
 
-export type CalendarLink = Base & { label: string; url: string; last_synced_at: string | null }
+export type CalendarLink = Base & { label: string; url: string; last_synced_at: string | null; last_error?: string | null }
 
 export type MindNode = { id?: string; title: string; detail?: string; children?: MindNode[]; collapsed?: boolean }
 

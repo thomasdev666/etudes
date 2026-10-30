@@ -6,6 +6,7 @@ import { AvailabilityEditor } from '@/components/AvailabilityEditor'
 import { PushSettings } from '@/components/PushSettings'
 import { signOutEverywhere } from '@/lib/session'
 import { useAvailability } from '@/lib/planning'
+import { CalendarLinks } from '@/components/CalendarLinks'
 import { TimetableImport } from '@/components/TimetableImport'
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Tabs } from '@/components/ui'
 import { useAuth, useUserId } from '@/context/auth'
@@ -378,7 +379,8 @@ export default function SettingsPage() {
         <Spaces />
       </Section>
 
-      <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda à partir du PDF du planning de l’école.">
+      <Section id="calendrier" title="Emploi du temps" description="Affiche tes cours dans l’agenda : relie ton agenda (Google, Hyperplanning, Outlook…) ou importe le PDF du planning.">
+        <CalendarLinks />
         <TimetableImport />
       </Section>
 

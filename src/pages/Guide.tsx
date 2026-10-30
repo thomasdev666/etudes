@@ -2,6 +2,7 @@ import { CalendarCheck, Check, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Swatches } from '@/components/Swatches'
+import { CalendarLinks } from '@/components/CalendarLinks'
 import { TimetableImport } from '@/components/TimetableImport'
 import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
@@ -231,6 +232,8 @@ export default function GuidePage() {
 
         {step === 'agenda' && (
           <div className="flex flex-col gap-4">
+            <CalendarLinks />
+            <p className="text-center text-xs text-muted">ou</p>
             <TimetableImport />
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => next('skip')}>
