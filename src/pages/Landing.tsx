@@ -220,7 +220,31 @@ export default function LandingPage() {
         </Section>
 
         <Section id="comparaison" eyebrow="Pourquoi Regulya" title="ChatGPT fait des QCM. Il ne te fait pas réviser." intro="Une IA généraliste répond quand tu lui demandes. Regulya organise ton travail jusqu’à l’examen, et ne te lâche pas entre-temps.">
-          <div className="overflow-x-auto rounded-3xl border border-border bg-surface">
+          {/* Téléphone : une carte par fonction, les trois réponses côte à côte */}
+          <ul className="flex flex-col gap-3 sm:hidden">
+            {COMPARE.map((c) => (
+              <li key={c.row} className="rounded-2xl border border-border bg-surface p-4">
+                <p className="font-medium">{c.row}</p>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                  {(
+                    [
+                      ['Regulya', c.us, true],
+                      ['ChatGPT, NotebookLM', c.ai, false],
+                      ['Anki, Quizlet', c.cards, false],
+                    ] as const
+                  ).map(([name, v, ours]) => (
+                    <div key={name} className={cx('flex flex-col items-center gap-1.5 rounded-xl px-1 py-2', ours ? 'bg-accent-soft' : 'bg-surface-2')}>
+                      <dt className={cx('flex min-h-[2.5em] items-center leading-tight', ours ? 'font-display font-bold text-accent-ink' : 'text-muted')}>{name}</dt>
+                      <dd className="flex h-5 items-center">
+                        <Mark v={v} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-3xl border border-border bg-surface sm:block">
             <table className="w-full min-w-[560px] text-left">
               <thead>
                 <tr className="border-b border-border text-sm">
