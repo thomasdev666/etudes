@@ -32,3 +32,29 @@ export function tint(hex: string, alpha = 0.14) {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
   return `rgb(${r} ${g} ${b} / ${alpha})`
 }
+
+const rgbOf = (hex: string) => {
+  const h = hex.replace('#', '')
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+}
+
+// Mélange de deux couleurs (t = part de la seconde)
+export function mix(hex: string, other: string, t: number) {
+  const a = rgbOf(hex)
+  const b = rgbOf(other)
+  return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('')
+}
+
+// Couleurs d'une fiche de révision, dérivées de la couleur de la matière (variables CSS)
+export function sheetTheme(hex = '#D2553A'): Record<string, string> {
+  const [r, g, b] = rgbOf(/^#[0-9a-f]{6}$/i.test(hex) ? hex : '#D2553A')
+  const base = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+  return {
+    '--sheet': base,
+    '--sheet-soft': `rgba(${r}, ${g}, ${b}, 0.13)`,
+    '--sheet-line': `rgba(${r}, ${g}, ${b}, 0.35)`,
+    '--sheet-ink-light': mix(base, '#2B2118', 0.45),
+    '--sheet-ink-dark': mix(base, '#ffffff', 0.35),
+    '--sheet-on': readableOn(base),
+  }
+}

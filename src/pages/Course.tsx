@@ -11,6 +11,7 @@ import { useCourses, useRecordings, useSubjectMap, useTrash } from '@/lib/data'
 import { RecordingAudio } from '@/components/Recording'
 import { BUCKET, supabase } from '@/lib/supabase'
 import { useFirstTimeTour } from '@/lib/tours'
+import { useDensityChoice } from '@/components/SheetDensity'
 import { useStudyTimer } from '@/lib/studyTimer'
 
 // Le gras du document d'origine est conservé entre ** ** dans le texte extrait
@@ -33,6 +34,7 @@ export default function CoursePage() {
   const [mind, setMind] = useState(false)
   const { find } = useJobs()
   const sheet = useGenerateSheet()
+  const densityChoice = useDensityChoice()
   const toast = useToast()
   const [sheetBusy, setSheetBusy] = useState(false)
 
@@ -110,9 +112,11 @@ export default function CoursePage() {
           loading={sheetBusy}
           disabled={sheet.running({ courseIds: [course.id] })}
           onClick={async () => {
+            const density = await densityChoice.ask()
+            if (!density) return
             setSheetBusy(true)
             try {
-              await sheet.generate({ subjectId: course.subject_id, title: course.title, courseIds: [course.id] })
+              await sheet.generate({ subjectId: course.subject_id, title: course.title, courseIds: [course.id], density })
             } catch (e) {
               toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
             } finally {
@@ -144,6 +148,7 @@ export default function CoursePage() {
       <Card>
         <div className="whitespace-pre-wrap break-words leading-relaxed">{course.content ? <WithBold text={course.content.replace(/\[\[image:\d+\]\]/g, '⏳ [image en cours de lecture]')} /> : <span className="text-muted">Aucun texte.</span>}</div>
       </Card>
+      {densityChoice.modal}
       <GenerateMindmapModal open={mind} onClose={() => setMind(false)} subjectId={course.subject_id} initialCourseIds={[course.id]} />
       <GenerateCardsModal open={gen} onClose={() => setGen(false)} subjectId={course.subject_id} initialCourseIds={[course.id]} />
     </>

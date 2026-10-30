@@ -1,7 +1,7 @@
 // Fonction d'arrière-plan Netlify (jusqu'à 15 min) : traite une tâche ai_jobs.
 // Le client crée la tâche, appelle cette fonction (réponse 202 immédiate),
 // puis suit le statut de la tâche dans la base.
-import { describeImages, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Difficulty, type QuizType } from '../shared/ai'
+import { describeImages, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Density, type Difficulty, type QuizType } from '../shared/ai'
 import { customToDoc, sheetToDoc } from '../shared/sheetDoc'
 import { noteToText } from '../shared/noteText'
 import { userClient } from '../shared/supabase'
@@ -26,7 +26,7 @@ type CardsParams = {
 }
 
 type ImagesParams = { course_id: string; images: { path: string; label: string; marker: string }[] }
-type SheetParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
+type SheetParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; title: string; density?: Density }
 type AssistantParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; instruction: string }
 type MindmapParams = { output_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 
@@ -321,7 +321,7 @@ export default async (req: Request) => {
       const p = job.params as SheetParams
       try {
         const source = await prepare(p)
-        const { doc, text } = sheetToDoc(await generateSheet({ source, title: p.title }))
+        const { doc, text } = sheetToDoc(await generateSheet({ source, title: p.title, density: p.density === 'compact' ? 'compact' : 'aere' }))
         await ensureWanted()
         const { error } = await db.from('notes').update({ content: doc, content_text: text }).eq('id', p.note_id)
         if (error) throw error

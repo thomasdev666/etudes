@@ -90,8 +90,13 @@ export function pageCuts(safe: number[], total: number, pagePx: number) {
   return cuts
 }
 
-export async function notePages(title: string, renderedHtml: string): Promise<{ pages: HTMLCanvasElement[]; heights: number[] }> {
+export async function notePages(title: string, renderedHtml: string, theme?: Record<string, string>): Promise<{ pages: HTMLCanvasElement[]; heights: number[] }> {
   const box = offscreen(CONTENT_PX)
+  // Fiche de révision : couleurs de la matière
+  if (theme) {
+    box.classList.add('sheet-theme')
+    for (const [k, v] of Object.entries(theme)) box.style.setProperty(k, v)
+  }
   try {
     const h1 = document.createElement('h1')
     h1.className = 'font-display'
@@ -152,8 +157,8 @@ export async function notePages(title: string, renderedHtml: string): Promise<{ 
   }
 }
 
-export async function noteToPdf(title: string, renderedHtml: string): Promise<Blob> {
-  const { pages, heights } = await notePages(title, renderedHtml)
+export async function noteToPdf(title: string, renderedHtml: string, theme?: Record<string, string>): Promise<Blob> {
+  const { pages, heights } = await notePages(title, renderedHtml, theme)
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
   pages.forEach((page, i) => {

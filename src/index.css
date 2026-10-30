@@ -292,6 +292,36 @@ h3,
 .prose-note .callout[data-tone='figure'] { background: var(--success-soft); }
 .prose-note .callout[data-tone='figure']::before { content: '📊'; }
 
+/* Fiches de révision : couleurs de la matière (variables posées par l'éditeur et l'export PDF) */
+.sheet-theme { --sheet-ink: var(--sheet-ink-light); }
+.dark .sheet-theme:not(.force-light) { --sheet-ink: var(--sheet-ink-dark); }
+.sheet-theme .prose-note h2 {
+  background: var(--sheet-soft); border-left: 5px solid var(--sheet); border-radius: 12px; padding: 0.3em 0.7em;
+}
+.sheet-theme .prose-note h3 { color: var(--sheet-ink); }
+.sheet-theme .prose-note strong { color: var(--sheet-ink); }
+.sheet-theme .prose-note li::marker { color: var(--sheet); }
+.sheet-theme .prose-note [data-type='block-math'] {
+  background: var(--sheet-soft); border: 1px solid var(--sheet-line); border-radius: 14px; padding: 0.4em 0.8em;
+}
+.sheet-theme .prose-note th { background: var(--sheet-soft); }
+.sheet-theme .prose-note .diagram-tree .diagram-title,
+.sheet-theme .prose-note .diagram-flow li > span::before,
+.sheet-theme .prose-note .diagram-cycle li > span::before { background: var(--sheet); color: var(--sheet-on); }
+
+.sheet-theme .prose-note .diagram-flow li + li::before,
+.sheet-theme .prose-note .diagram-cycle li + li::before,
+.sheet-theme .prose-note .diagram-cycle li:first-child::before { color: var(--sheet); }
+.sheet-theme .prose-note .diagram-tree ol { border-top-color: var(--sheet); }
+.sheet-theme .prose-note .diagram-tree li::before { border-left-color: var(--sheet); }
+
+/* Définition : terme en évidence, encadré sobre */
+.prose-note .callout[data-tone='definition'] {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--sheet, var(--accent));
+}
+.prose-note .callout[data-tone='definition']::before { content: '📖'; }
+.prose-note .callout[data-tone='definition'] > p:first-child strong { color: var(--sheet-ink, var(--accent-ink)); font-size: 1.02em; }
+
 /* ---------------------------------------------------------- Cartes mentales */
 .mm-row { display: flex; align-items: center; }
 .mm-children { position: relative; display: flex; flex-direction: column; gap: 6px; padding-left: 36px; }

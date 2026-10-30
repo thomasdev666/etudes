@@ -17,10 +17,12 @@ import { noteToDocx, safeFilename, saveBlob } from '@/lib/exportNote'
 import { noteToPdf } from '@/lib/pdfExport'
 import { oldSheetSource } from '@/lib/sheetRefresh'
 import { frenchSpacingDoc } from '@/lib/frenchSpacing'
+import { sheetTheme } from '@/lib/colors'
 import { signedUrl, STORAGE_PREFIX, uploadNoteFile } from '@/lib/storage'
 import { must, supabase } from '@/lib/supabase'
 import { useStudyTimer } from '@/lib/studyTimer'
 import { useFirstTimeTour } from '@/lib/tours'
+import { useDensityChoice } from '@/components/SheetDensity'
 import type { Note, NoteVersion } from '@/lib/types'
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error'
@@ -77,6 +79,7 @@ function RefreshSheetBanner({ note }: { note: Note }) {
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useNotesList()
   const { generate } = useGenerateSheet()
+  const densityChoice = useDensityChoice()
   const [hidden, setHidden] = useState(() => readDismissed().includes(note.id))
   const [busy, setBusy] = useState(false)
   const [newId, setNewId] = useState<string | null>(null)
@@ -93,6 +96,7 @@ function RefreshSheetBanner({ note }: { note: Note }) {
   }
   return (
     <div className="mb-3 flex flex-wrap items-start gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3">
+      {densityChoice.modal}
       <Workflow className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />
       <div className="min-w-[min(100%,14rem)] flex-1 text-sm">
         {newId ? (
@@ -113,10 +117,12 @@ function RefreshSheetBanner({ note }: { note: Note }) {
                 icon={<Sparkles className="size-4" />}
                 loading={busy}
                 onClick={async () => {
+                  const density = await densityChoice.ask()
+                  if (!density) return
                   setBusy(true)
                   setError(null)
                   try {
-                    setNewId(await generate({ subjectId: note.subject_id, title: source.title, courseIds: source.courseIds, noteIds: source.noteIds }))
+                    setNewId(await generate({ subjectId: note.subject_id, title: source.title, courseIds: source.courseIds, noteIds: source.noteIds, density }))
                   } catch (e) {
                     setError(e)
                   } finally {
@@ -158,6 +164,7 @@ function NoteEditor({ id }: { id: string }) {
   const [gen, setGen] = useState(false)
   const [mind, setMind] = useState(false)
   const sheet = useGenerateSheet()
+  const densityChoice = useDensityChoice()
   // Temps passé à écrire ou relire la note
   useStudyTimer('note', subjectId || null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -291,7 +298,8 @@ function NoteEditor({ id }: { id: string }) {
     setMenu(false)
     setBusy('Création du PDF…')
     try {
-      saveBlob(await noteToPdf(title || 'Note', editor.view.dom.innerHTML), `${safeFilename(title)}.pdf`)
+      const theme = note?.kind === 'sheet' ? sheetTheme(subjects.find((x) => x.id === subjectId)?.color) : undefined
+      saveBlob(await noteToPdf(title || 'Note', editor.view.dom.innerHTML, theme), `${safeFilename(title)}.pdf`)
     } catch (e) {
       setError(e)
     } finally {
@@ -387,8 +395,10 @@ function NoteEditor({ id }: { id: string }) {
                 disabled={sheet.running({ noteIds: [id] })}
                 onClick={async () => {
                   setMenu(false)
+                  const density = await densityChoice.ask()
+                  if (!density) return
                   await save()
-                  await sheet.generate({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id] }).catch((e) => toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' }))
+                  await sheet.generate({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id], density }).catch((e) => toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' }))
                 }}
               >
                 {sheet.running({ noteIds: [id] }) ? 'Fiche en cours de rédaction…' : 'Générer une fiche de révision'}
@@ -436,6 +446,7 @@ function NoteEditor({ id }: { id: string }) {
       </div>
 
       {tour}
+      {densityChoice.modal}
       {note && <RefreshSheetBanner note={note} />}
       <div className="border-y border-border bg-surface sm:rounded-[var(--radius-card)] sm:border">
         <div data-tour="note-toolbar" className="sticky top-[57px] z-10 border-b border-border bg-surface/95 px-2 py-1 backdrop-blur sm:rounded-t-[var(--radius-card)] lg:top-0">
@@ -453,7 +464,9 @@ function NoteEditor({ id }: { id: string }) {
             placeholder="Titre"
             className="mb-4 w-full bg-transparent font-display text-3xl font-bold outline-none placeholder:text-muted/60"
           />
-          <EditorContent editor={editor} />
+          <div className={note?.kind === 'sheet' ? 'sheet-theme' : undefined} style={note?.kind === 'sheet' ? (sheetTheme(subjects.find((x) => x.id === subjectId)?.color) as React.CSSProperties) : undefined}>
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
       <div className="mt-3 px-4 sm:px-0">

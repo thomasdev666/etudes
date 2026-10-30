@@ -402,7 +402,7 @@ export async function subjectsFromTitles(titles: string[]) {
 
 // Bloc visuel d'une section : schéma (étapes, cycle, carte), tableau ou encadré
 export type Visual = { kind: VisualKind; title: string; items: string[] }
-export const VISUAL_KINDS = ['etapes', 'cycle', 'carte', 'tableau', 'exemple', 'a_retenir', 'attention', 'chiffre_cle'] as const
+export const VISUAL_KINDS = ['etapes', 'cycle', 'carte', 'tableau', 'exemple', 'a_retenir', 'attention', 'chiffre_cle', 'definition'] as const
 type VisualKind = (typeof VISUAL_KINDS)[number]
 
 const visualsSchema: JsonSchema = {
@@ -415,14 +415,14 @@ const visualsSchema: JsonSchema = {
         type: 'string',
         enum: [...VISUAL_KINDS],
         description:
-          'etapes : processus ou méthode dans l’ordre ; cycle : étapes qui se répètent ; carte : une notion et ses composantes ; tableau : comparaison ; exemple : cas concret ou chiffré ; a_retenir : l’idée clé ; attention : piège ; chiffre_cle : un chiffre important et sa signification',
+          'etapes : processus ou méthode dans l’ordre ; cycle : étapes qui se répètent ; carte : une notion et ses composantes ; tableau : comparaison ; exemple : cas concret ou chiffré ; a_retenir : l’idée clé ; attention : piège ; chiffre_cle : un chiffre important et sa signification ; definition : un terme à connaître (title = le terme)',
       },
       title: { type: 'string', description: 'Titre court (pour carte : la notion centrale)' },
       items: {
         type: 'array',
         items: { type: 'string' },
         description:
-          'etapes, cycle : 2 à 7 étapes de quelques mots ; carte : 2 à 8 composantes de quelques mots ; tableau : première ligne = en-têtes, puis une ligne par élément, cellules séparées par « | » ; exemple, a_retenir, attention, chiffre_cle : 1 à 3 phrases',
+          'etapes, cycle : 2 à 7 étapes de quelques mots ; carte : 2 à 8 composantes de quelques mots ; tableau : première ligne = en-têtes, puis une ligne par élément, cellules séparées par « | » ; exemple, a_retenir, attention, chiffre_cle, definition : 1 à 3 phrases',
       },
     },
     required: ['kind', 'title', 'items'],
@@ -514,7 +514,15 @@ const sheetValidator = z.object({
   checklist: z.array(str.min(1)),
 })
 
-export async function generateSheet(opts: { source: string; title: string }): Promise<Sheet> {
+export type Density = 'compact' | 'aere'
+
+const DENSITY_RULES: Record<Density, string> = {
+  compact:
+    'Format COMPACT : la fiche doit tenir sur 1 à 2 pages. 3 à 5 points par section au maximum, chacun en 12 mots au plus. Pas de sous-sections. Au plus 1 illustration par section, de préférence un tableau ou un schéma qui condense plusieurs idées. 8 définitions au plus, 4 pièges au plus, 4 à 6 éléments de checklist. Regroupe les petites parties du cours.',
+  aere: 'Format AÉRÉ : fiche détaillée et illustrée, sans limite de longueur, qui couvre tout le cours.',
+}
+
+export async function generateSheet(opts: { source: string; title: string; density?: Density }): Promise<Sheet> {
   const ai = getAi()
   const system = [
     "Tu rédiges des fiches de révision complètes et synthétiques pour des étudiants d'école de commerce.",
@@ -524,6 +532,7 @@ export async function generateSheet(opts: { source: string; title: string }): Pr
     'checklist : 4 à 10 compétences vérifiables (« Savoir calculer… », « Savoir expliquer… »).',
     'Uniquement à partir du contenu fourni, dans sa langue. Ne laisse de côté aucune partie du cours.',
     VISUAL_RULES,
+    DENSITY_RULES[opts.density ?? 'aere'],
   ].join('\n')
   const prompt = `Cours : ${opts.title}\n\n=== CONTENU ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
   let lastError: unknown

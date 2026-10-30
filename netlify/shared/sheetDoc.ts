@@ -30,6 +30,7 @@ const CALLOUT: Partial<Record<Visual['kind'], { tone: string; label: string }>> 
   a_retenir: { tone: 'key', label: 'À retenir' },
   attention: { tone: 'warning', label: 'Attention' },
   chiffre_cle: { tone: 'figure', label: 'Chiffre clé' },
+  definition: { tone: 'definition', label: '' },
 }
 const DIAGRAM: Partial<Record<Visual['kind'], string>> = { etapes: 'flow', cycle: 'cycle', carte: 'tree' }
 
@@ -39,7 +40,8 @@ export function visualToNodes(v: Visual): { nodes: Node[]; text: string[] } {
   if (diagram) return { nodes: [{ type: 'diagram', attrs: { kind: diagram, title: plain(v.title), items: v.items.map(plain) } }], text: [v.title, ...v.items] }
   const callout = CALLOUT[v.kind]
   if (callout) {
-    const label = v.title && v.title.toLowerCase() !== callout.label.toLowerCase() ? `${callout.label}\u00a0: ${plain(v.title)}` : callout.label
+    // Définition : le terme seul en titre ; sinon « Exemple : titre »
+    const label = !callout.label ? plain(v.title) : v.title && v.title.toLowerCase() !== callout.label.toLowerCase() ? `${callout.label}\u00a0: ${plain(v.title)}` : callout.label
     return {
       nodes: [{ type: 'callout', attrs: { tone: callout.tone }, content: [{ type: 'paragraph', content: [{ type: 'text', text: label, marks: [{ type: 'bold' }] }] }, ...v.items.map(p)] }],
       text: [label, ...v.items],
@@ -88,8 +90,9 @@ export function sheetToDoc(sheet: Sheet): { doc: Node; text: string } {
     }
   }
   if (sheet.definitions.length) {
+    // Chaque définition dans son encadré, le terme en évidence
     c.push(h(2, '📖 Définitions à connaître'))
-    c.push(list(sheet.definitions.map((d) => `**${d.term}** : ${d.definition}`)))
+    for (const d of sheet.definitions) c.push(...visualToNodes({ kind: 'definition', title: d.term, items: [d.definition] }).nodes)
     text.push(...sheet.definitions.map((d) => `${d.term} : ${d.definition}`))
   }
   if (sheet.formulas.length) {

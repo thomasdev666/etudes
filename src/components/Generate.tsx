@@ -6,6 +6,7 @@ import { estimateSeconds } from '@/lib/ai'
 import { insertSheetNote, useCourses, useInvalidate, useNotesList, useSubjects } from '@/lib/data'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
+import { readDensity, type Density } from './SheetDensity'
 import { Button, ErrorBox, Field, Input, Modal, Select } from './ui'
 
 export function SourcePicker({
@@ -307,7 +308,7 @@ export function useGenerateSheet() {
         [...((j.params.course_ids as string[]) ?? []), ...((j.params.note_ids as string[]) ?? [])].some((id) => ids.includes(id)),
     )
   }
-  const generate = async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[] }) => {
+  const generate = async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[]; density?: Density }) => {
     if (running(o)) throw new Error('Une fiche de révision est déjà en cours pour ce contenu. Attends qu’elle soit terminée.')
     const t = `Fiche — ${o.title}`
     const note = await insertSheetNote({
@@ -318,8 +319,8 @@ export function useGenerateSheet() {
     })
     await start(
       'sheet',
-      { note_id: note.id, course_ids: o.courseIds ?? [], note_ids: o.noteIds ?? [], title: o.title },
-      { label: `Fiche de révision « ${o.title} »`, estimateSec: estimateSeconds('sheet'), link: `/notes/${note.id}`, linkLabel: 'Ouvrir la fiche' },
+      { note_id: note.id, course_ids: o.courseIds ?? [], note_ids: o.noteIds ?? [], title: o.title, density: o.density ?? readDensity() },
+      { label: `Fiche ${(o.density ?? readDensity()) === 'compact' ? 'compacte' : 'de révision'} « ${o.title} »`, estimateSec: estimateSeconds('sheet'), link: `/notes/${note.id}`, linkLabel: 'Ouvrir la fiche' },
     )
     await invalidate('notes')
     return note.id

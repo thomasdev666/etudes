@@ -80,3 +80,12 @@ describe('illustrations des fiches', () => {
     expect(doc.content![1].type).toBe('diagram')
   })
 })
+
+describe('définitions mises en valeur', () => {
+  it('chaque définition devient un encadré avec le terme en titre', () => {
+    const { doc } = sheetToDoc({ intro: '', sections: [], definitions: [{ term: 'BFR', definition: 'Besoin de financement du cycle d’exploitation.' }], formulas: [], pitfalls: [], checklist: [] })
+    const box = doc.content!.find((n) => n.type === 'callout')!
+    expect(box.attrs?.tone).toBe('definition')
+    expect(box.content![0].content![0]).toEqual({ type: 'text', text: 'BFR', marks: [{ type: 'bold' }] })
+  })
+})

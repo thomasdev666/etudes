@@ -538,6 +538,13 @@ export const EN4: Record<string, string> = {
   'Ranger dans les fiches de révision': 'Move to revision sheets',
   'Rangée dans les fiches de révision': 'Moved to revision sheets',
   'Rangée dans les notes': 'Moved to notes',
+  // Format des fiches
+  'Quel format de fiche ?': 'Which sheet format?',
+  'Compacte': 'Compact',
+  'Aérée': 'Spacious',
+  'dernier choix': 'last choice',
+  'L’essentiel sur 1 à 2 pages : points courts, tableaux et schémas qui condensent.': 'The essentials on 1 to 2 pages: short points, tables and diagrams that sum things up.',
+  'Détaillée et illustrée : tout le cours, avec exemples, schémas et encadrés.': 'Detailed and illustrated: the whole course, with examples, diagrams and boxes.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',
