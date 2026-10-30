@@ -4,16 +4,20 @@ import { Link } from 'react-router-dom'
 import { useUserId } from '@/context/auth'
 import { usePlan } from '@/lib/plans'
 import { jobProgress, useJobs } from '@/context/jobs'
-import { useRecorder, useStartTranscription } from '@/context/recorder'
+import { PART_SEC, useRecorder, useStartTranscription } from '@/context/recorder'
 import { useSpace } from '@/context/space'
 import { fmt } from '@/lib/dates'
 import { useRecordings, useTrash } from '@/lib/data'
+import { splitToWavParts } from '@/lib/audioSplit'
 import { BUCKET, must, supabase } from '@/lib/supabase'
 import type { Recording } from '@/lib/types'
 import { Badge, Button, Card, cx, ErrorBox, Field, IconButton, Input, Modal, ProgressBar, Select } from './ui'
 
 // Limite d'un fichier sur l'offre gratuite de Supabase
+// Au-delà de 50 Mo (limite du stockage), le fichier est converti sur l'appareil en morceaux légers
 const MAX_FILE = 50 * 1024 * 1024
+const WARN_FILE = 500 * 1024 * 1024
+const MAX_CONVERT = 1024 * 1024 * 1024
 
 export function clockLabel(sec: number) {
   const h = Math.floor(sec / 3600)
@@ -100,6 +104,7 @@ export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClo
   const free = plan === 'free'
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('fr')
+  const [consent, setConsent] = useState(false)
   const busy = rec.status !== 'idle'
   const defaultTitle = `Cours du ${fmt(new Date(), 'd MMMM')}`
 
@@ -115,7 +120,7 @@ export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClo
           </Button>
           <Button
             icon={<Mic className="size-4" />}
-            disabled={busy || free}
+            disabled={busy || free || !consent}
             onClick={async () => {
               await rec.start({ subjectId, title: title.trim() || defaultTitle, language })
               setTitle('')
@@ -134,6 +139,12 @@ export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClo
           <Input id="rtitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={defaultTitle} />
         </Field>
         <LanguageField value={language} onChange={setLanguage} />
+        <label className="flex items-start gap-3 rounded-2xl border border-border p-3 text-sm">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]" />
+          <span>
+            J’ai l’accord de l’enseignant pour enregistrer ce cours, et je respecte le règlement de mon établissement. L’enregistrement reste privé et n’est jamais diffusé.
+          </span>
+        </label>
         <ul className="list-disc space-y-1 rounded-2xl bg-surface-2 py-3 pl-8 pr-3 text-sm text-muted">
           <li>Pose ton téléphone ou ton ordinateur près de l’enseignant. L’écran reste allumé pendant l’enregistrement.</li>
           <li>Tu peux continuer à utiliser l’appli : le voyant rouge reste visible en haut.</li>
@@ -174,7 +185,8 @@ export function AudioImportModal({ open, onClose, subjectId }: { open: boolean; 
   const [busy, setBusy] = useState('')
   const [error, setError] = useState<unknown>(null)
 
-  const tooBig = !!file && file.size > MAX_FILE
+  const tooBig = !!file && file.size > MAX_CONVERT
+  const convert = !!file && file.size > MAX_FILE && !tooBig
   const isVideo = !!file && (file.type.startsWith('video') || /\.(mp4|mov)$/i.test(file.name))
 
   async function send() {
@@ -191,15 +203,30 @@ export function AudioImportModal({ open, onClose, subjectId }: { open: boolean; 
           .select('id')
           .single(),
       ) as { id: string }
-      setBusy('Envoi du fichier…')
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'audio'
-      const path = `${userId}/${spaceId}/recordings/${rec.id}/part-0.${ext}`
-      must(await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || undefined }))
-      must(
-        await supabase
-          .from('files')
-          .insert({ space_id: spaceId, path, name: file.name, mime: file.type || 'application/octet-stream', size: file.size, recording_id: rec.id, part_index: 0, duration_sec: duration }),
-      )
+      if (convert) {
+        setBusy('Conversion sur ton appareil…')
+        const parts = await splitToWavParts(file, PART_SEC)
+        for (const [i, part] of parts.entries()) {
+          setBusy(`Envoi ${i + 1} / ${parts.length}…`)
+          const path = `${userId}/${spaceId}/recordings/${rec.id}/part-${i}.wav`
+          must(await supabase.storage.from(BUCKET).upload(path, part.blob, { contentType: 'audio/wav' }))
+          must(
+            await supabase
+              .from('files')
+              .insert({ space_id: spaceId, path, name: `${file.name} (${i + 1})`, mime: 'audio/wav', size: part.blob.size, recording_id: rec.id, part_index: i, duration_sec: part.duration }),
+          )
+        }
+      } else {
+        setBusy('Envoi du fichier…')
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'audio'
+        const path = `${userId}/${spaceId}/recordings/${rec.id}/part-0.${ext}`
+        must(await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || undefined }))
+        must(
+          await supabase
+            .from('files')
+            .insert({ space_id: spaceId, path, name: file.name, mime: file.type || 'application/octet-stream', size: file.size, recording_id: rec.id, part_index: 0, duration_sec: duration }),
+        )
+      }
       await startTranscription({ id: rec.id, subjectId, title: name, durationSec: duration })
       setFile(null)
       setTitle('')
@@ -231,7 +258,7 @@ export function AudioImportModal({ open, onClose, subjectId }: { open: boolean; 
         <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border px-4 py-6 text-center hover:border-accent">
           <FileAudio className="size-7 text-muted" aria-hidden />
           <span className="font-medium">{file ? file.name : 'Choisir un fichier'}</span>
-          <span className="text-sm text-muted">MP3, M4A (Dictaphone), WAV, MP4 ou MOV · 50 Mo au plus</span>
+          <span className="text-sm text-muted">MP3, M4A (Dictaphone), WAV, MP4 ou MOV</span>
           <input
             type="file"
             accept="audio/*,video/mp4,video/quicktime,.mp3,.m4a,.wav,.mp4,.mov"
@@ -245,11 +272,17 @@ export function AudioImportModal({ open, onClose, subjectId }: { open: boolean; 
         </label>
         {tooBig && (
           <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
-            Ce fichier fait {Math.round(file!.size / 1024 / 1024)} Mo : le stockage gratuit accepte 50 Mo par fichier. Enregistre plutôt le cours directement dans
-            l’appli (environ 15 Mo pour 1 h), ou exporte l’audio en qualité « compressée ».
+            Ce fichier fait {Math.round(file!.size / 1024 / 1024)} Mo, c’est trop pour être converti dans le navigateur. Exporte seulement l’audio (par exemple en M4A), ou
+            découpe la vidéo en plusieurs parties.
           </p>
         )}
-        {isVideo && !tooBig && (
+        {convert && (
+          <p className={`rounded-xl px-3 py-2 text-sm ${file!.size > WARN_FILE ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-muted'}`}>
+            Fichier de {Math.round(file!.size / 1024 / 1024)} Mo : seule la piste son est gardée, convertie sur ton appareil en morceaux légers avant l’envoi.
+            {file!.size > WARN_FILE ? ' C’est un très gros fichier : fais-le sur un ordinateur, garde la page ouverte, et compte quelques minutes.' : ' Garde la page ouverte pendant la conversion.'}
+          </p>
+        )}
+        {isVideo && !tooBig && !convert && (
           <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-muted">Pour une vidéo, seule la parole est transcrite. Une vidéo longue (plus de 30 min) peut dépasser le quota gratuit : préfère l’audio seul.</p>
         )}
         <Field label="Titre" id="atitle">
