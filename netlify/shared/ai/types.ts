@@ -55,3 +55,6 @@ export class QuotaAiError extends Error {
 
 // Modèle inconnu ou indisponible pour cette clé : on l'écarte
 export class ModelUnavailableError extends Error {}
+
+// Requête refusée par un modèle précis (fonction non prise en charge, image…) : on passe au suivant
+export class ModelRejectedError extends Error {}

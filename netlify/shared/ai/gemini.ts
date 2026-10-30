@@ -1,5 +1,5 @@
 // Fournisseur Google Gemini (offre gratuite). Seul fichier qui connaît l'API Gemini.
-import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
+import { ModelRejectedError, ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
 
 // Gemini attend les types OpenAPI en majuscules (OBJECT, STRING…)
 function toGeminiSchema(s: JsonSchema): Record<string, unknown> {
@@ -30,26 +30,44 @@ export function createGeminiProvider(apiKey: string, model: string): AiProvider 
   }
 }
 
+// Gemma (gratuit, gros quotas) : pas de consigne système, pas de JSON imposé ni de recherche Google
+export const isGemma = (model: string) => model.startsWith('gemma-')
+
+// JSON renvoyé en texte libre (Gemma) : on retire les balises ```json et le texte autour
+export function extractJson(text: string) {
+  const t = text.replace(/```(?:json)?/gi, '')
+  const start = t.search(/[{[]/)
+  const end = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'))
+  return JSON.parse(start >= 0 && end > start ? t.slice(start, end + 1) : t)
+}
+
 async function call(apiKey: string, model: string, { system, prompt, schema, images = [], temperature = 0.4, timeoutMs = 120_000, webSearch }: JsonRequest) {
+  const gemma = isGemma(model)
+  if (gemma && webSearch) throw new ModelUnavailableError(`${model} ne fait pas de recherche Internet`)
+  const userText = gemma
+    ? `${system}\n\n${prompt}\n\nRéponds uniquement avec un objet JSON valide (sans texte autour) conforme à ce schéma JSON :\n${JSON.stringify(schema)}`
+    : prompt
   const res = await fetch(`${ENDPOINT}/${model}:generateContent`, {
     signal: AbortSignal.timeout(timeoutMs),
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
+      ...(!gemma && { systemInstruction: { parts: [{ text: system }] } }),
       contents: [
         {
           role: 'user',
           parts: [
             ...images.map((i) => ('fileUri' in i ? { fileData: { mimeType: i.mime, fileUri: i.fileUri } } : { inlineData: { mimeType: i.mime, data: i.base64 } })),
-            { text: prompt },
+            { text: userText },
           ],
         },
       ],
       // La recherche Google ne se combine pas avec une réponse JSON imposée : texte libre dans ce cas
       ...(webSearch
         ? { tools: [{ google_search: {} }], generationConfig: { temperature } }
-        : { generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: toGeminiSchema(schema) } }),
+        : gemma
+          ? { generationConfig: { temperature } }
+          : { generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: toGeminiSchema(schema) } }),
     }),
   })
   if (res.status === 429) {
@@ -59,6 +77,7 @@ async function call(apiKey: string, model: string, { system, prompt, schema, ima
   if (res.status === 404 || (res.status === 400 && /not (found|supported)|unsupported|is not available/i.test(await res.clone().text()))) {
     throw new ModelUnavailableError(`Modèle indisponible : ${model}`)
   }
+  if (res.status === 400) throw new ModelRejectedError(`Requête refusée par ${model} : ${(await res.text()).slice(0, 300)}`)
   if (res.status === 503 || res.status === 500 || res.status === 504) {
     throw new RetryableAiError(`Service IA surchargé (${res.status})`, 4000)
   }
@@ -75,7 +94,7 @@ async function call(apiKey: string, model: string, { system, prompt, schema, ima
     return { text: text.trim(), sources }
   }
   try {
-    return JSON.parse(text)
+    return gemma ? extractJson(text) : JSON.parse(text)
   } catch {
     // Réponse coupée (trop longue) : un autre modèle fera mieux
     throw new RetryableAiError('Réponse incomplète du service IA', 0)
@@ -84,9 +103,12 @@ async function call(apiKey: string, model: string, { system, prompt, schema, ima
 
 type ListedModel = { name: string; supportedGenerationMethods?: string[] }
 
-// Modèles « Flash » texte disponibles pour cette clé (chacun a son propre quota gratuit)
+// Tous les modèles de texte disponibles pour cette clé (Gemini et Gemma) : chacun a son propre
+// quota gratuit, on les utilise tous à tour de rôle. Les modèles d'image, de voix, d'intégration… sont écartés.
+const NOT_TEXT = /image|tts|audio|live|embed|aqa|computer|robotics|native|learnlm|thinking|-exp|exp-|veo|imagen|nano|banana|vision|search|deep-research|guard/i
+
 export async function listGeminiModels(apiKey: string): Promise<string[]> {
-  const res = await fetch(`${ENDPOINT}?pageSize=200`, {
+  const res = await fetch(`${ENDPOINT}?pageSize=1000`, {
     headers: { 'x-goog-api-key': apiKey },
     signal: AbortSignal.timeout(5000),
   })
@@ -95,8 +117,7 @@ export async function listGeminiModels(apiKey: string): Promise<string[]> {
   return (data.models ?? [])
     .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
     .map((m) => m.name.replace(/^models\//, ''))
-    .filter((n) => /^gemini-(\d+(\.\d+)?-)?flash(-lite)?(-latest|-preview(-[\w-]+)?|-\d{3})?$/.test(n))
-    .filter((n) => !/image|tts|audio|live|thinking|exp/i.test(n))
+    .filter((n) => /^(gemini|gemma)-/.test(n) && !NOT_TEXT.test(n))
 }
 
 // Dépôt d'un fichier (audio long) chez Google : gardé 48 h, utilisable par tous les modèles du projet
@@ -149,13 +170,17 @@ export type StreamRequest = {
 }
 
 export async function* streamGemini(apiKey: string, model: string, req: StreamRequest): AsyncGenerator<StreamChunk> {
+  const gemma = isGemma(model)
+  if (gemma && req.webSearch) throw new ModelUnavailableError(`${model} ne fait pas de recherche Internet`)
+  // Gemma : la consigne système passe en tête du premier message
+  const contents = req.contents.map((c, i) => ({ role: c.role, parts: [{ text: gemma && i === 0 ? `${req.system}\n\n${c.text}` : c.text }] }))
   const res = await fetch(`${ENDPOINT}/${model}:streamGenerateContent?alt=sse`, {
     method: 'POST',
     signal: req.signal,
     headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: req.system }] },
-      contents: req.contents.map((c) => ({ role: c.role, parts: [{ text: c.text }] })),
+      ...(!gemma && { systemInstruction: { parts: [{ text: req.system }] } }),
+      contents,
       ...(req.webSearch && { tools: [{ google_search: {} }] }),
       generationConfig: { temperature: req.temperature ?? 0.3, maxOutputTokens: 1200 },
     }),
@@ -165,7 +190,7 @@ export async function* streamGemini(apiKey: string, model: string, req: StreamRe
   if (res.status === 400) {
     const body = (await res.text()).slice(0, 300)
     if (/not (found|supported)|unsupported|is not available/i.test(body)) throw new ModelUnavailableError(`Modèle indisponible : ${model}`)
-    throw new Error(`Requête refusée par Google (400, ${model}) : ${body}`)
+    throw new ModelRejectedError(`Requête refusée par Google (400, ${model}) : ${body}`)
   }
   if (res.status === 401 || res.status === 403) throw new Error(`La clé Gemini est refusée par Google (${res.status}) : vérifie GEMINI_API_KEY sur Netlify.`)
   if (!res.ok || !res.body) throw new RetryableAiError(`Service IA indisponible (${res.status})`, 0)

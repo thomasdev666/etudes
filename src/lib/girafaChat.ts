@@ -3,11 +3,11 @@
 import { authHeader } from './supabase'
 
 export type ChatTurn = { from: 'me' | 'bot'; text: string }
-export type LiveAnswer = { text: string; from: 'courses' | 'web' | null; sources: string[]; web: { title: string; uri: string }[] }
+export type LiveAnswer = { text: string; from: 'courses' | 'web' | 'general' | null; sources: string[]; web: { title: string; uri: string }[] }
 export type GirafaResult = { kind: 'answer'; answer: LiveAnswer } | { kind: 'doc'; instruction: string; subject_ids: string[] }
 
 type Event =
-  | { t: 'meta'; from: 'courses' | 'web'; sources: string[] }
+  | { t: 'meta'; from: 'courses' | 'web' | 'general'; sources: string[] }
   | { t: 'delta'; text: string }
   | { t: 'web'; sources: { title: string; uri: string }[] }
   | { t: 'doc'; instruction: string; subject_ids: string[] }

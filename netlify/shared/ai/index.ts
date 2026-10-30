@@ -2,35 +2,76 @@
 // et l'ajouter dans getAi() : le reste du code n'appelle que getAi() et les générateurs.
 import { z } from 'zod'
 import { createGeminiProvider, deleteGeminiFile, listGeminiModels, streamGemini, uploadGeminiFile, type StreamChunk, type StreamRequest } from './gemini'
-import { ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
+import { ModelRejectedError, ModelUnavailableError, QuotaAiError, RetryableAiError, type AiProvider, type JsonRequest, type JsonSchema } from './types'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// Ordre de préférence. Chaque modèle a son propre quota gratuit (par minute et par jour) :
-// quand l'un est épuisé, on passe au suivant au lieu d'échouer.
+// Chaque modèle a son propre quota gratuit (par minute et par jour) : on utilise tous ceux de la clé,
+// et quand l'un est épuisé on passe au suivant au lieu d'échouer.
 const QUALITY = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
 const BULK = ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash']
-const MAX_MODELS = 7
+// Modèles toujours essayés même si la liste de la clé n'a pas pu être lue
+const GEMMA = ['gemma-3-27b-it', 'gemma-3-12b-it']
+const MAX_MODELS = 40
 
-// Modèles écartés pour un moment (quota du jour épuisé, modèle inconnu), mémorisés tant que la fonction reste chaude
+// Modèles écartés pour un moment, mémorisés tant que la fonction reste chaude :
+// quota du jour épuisé (1 h), modèle inconnu (24 h)
 const benched = new Map<string, number>()
+// Limite par minute atteinte : essayé en dernier pendant une minute
+const cooling = new Map<string, number>()
 let discovered: Promise<string[]> | null = null
 
-const version = (m: string) => Number(m.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? 0)
+const version = (m: string) => Number(m.match(/(?:gemini|gemma)-(\d+(?:\.\d+)?)/)?.[1] ?? 0)
+const size = (m: string) => Number(m.match(/-(\d+)b-/)?.[1] ?? m.match(/-e(\d+)b-/)?.[1] ?? 0)
 
-async function modelChain(key: string, bulk: boolean): Promise<string[]> {
+export type ModelUse = 'quality' | 'bulk' | 'fast' | 'web'
+
+// Ordre des modèles selon l'usage : qualité (QCM, fiches), volume (images), rapidité (GIRAFA),
+// recherche Internet (Gemini seulement). Gemma, gratuit mais moins précis, passe en dernier recours.
+export function rankModels(names: string[], use: ModelUse): string[] {
+  const family = (m: string) => (m.startsWith('gemma-') ? 'gemma' : m.includes('lite') ? 'lite' : m.includes('pro') ? 'pro' : 'flash')
+  const order: Record<ModelUse, string[]> = {
+    quality: ['flash', 'pro', 'lite', 'gemma'],
+    bulk: ['lite', 'flash', 'gemma', 'pro'],
+    fast: ['lite', 'flash', 'gemma', 'pro'],
+    web: ['lite', 'flash', 'pro'],
+  }
+  const tiers = order[use]
+  const unstable = (m: string) => Number(/preview|-\d{3}$|\d{2}-\d{4}/.test(m))
+  return [...new Set(names)]
+    .filter((m) => tiers.includes(family(m)))
+    .sort(
+      (a, b) =>
+        tiers.indexOf(family(a)) - tiers.indexOf(family(b)) ||
+        Number(b.endsWith('-latest')) - Number(a.endsWith('-latest')) ||
+        unstable(a) - unstable(b) ||
+        version(b) - version(a) ||
+        size(b) - size(a),
+    )
+}
+
+export async function modelChain(key: string, use: ModelUse): Promise<string[]> {
   discovered ??= listGeminiModels(key).catch(() => [])
   const found = await discovered
-  const lite = (m: string) => m.includes('lite')
-  // Les plus récents d'abord ; « lite » en premier pour les gros volumes (lecture d'images)
-  const extra = found
-    .filter((m) => !m.includes('preview'))
-    .sort((a, b) => (bulk ? Number(lite(b)) - Number(lite(a)) : Number(lite(a)) - Number(lite(b))) || version(b) - version(a))
-  const base = bulk ? BULK : QUALITY
-  const preferred = process.env.GEMINI_MODEL && !bulk ? [process.env.GEMINI_MODEL] : []
-  const chain = [...new Set([...preferred, ...base.slice(0, 1), ...extra, ...base])]
+  const base = use === 'quality' ? QUALITY : BULK
+  const preferred = process.env.GEMINI_MODEL && use === 'quality' ? [process.env.GEMINI_MODEL] : []
+  const all = rankModels([...base, ...found, ...GEMMA], use)
+  const chain = [...new Set([...preferred, ...all])]
   const now = Date.now()
-  return chain.filter((m) => (benched.get(m) ?? 0) < now).slice(0, MAX_MODELS)
+  const usable = chain.filter((m) => (benched.get(m) ?? 0) < now)
+  // Ceux qui viennent d'atteindre leur limite par minute passent en dernier
+  const fresh = usable.filter((m) => (cooling.get(m) ?? 0) < now)
+  const tired = usable.filter((m) => (cooling.get(m) ?? 0) >= now)
+  return [...fresh, ...tired].slice(0, MAX_MODELS)
+}
+
+// Mémorise l'échec d'un modèle pour ne pas le réessayer tout de suite
+export function noteFailure(model: string, e: unknown) {
+  if (e instanceof QuotaAiError) {
+    if (e.daily) benched.set(model, Date.now() + 60 * 60_000)
+    else cooling.set(model, Date.now() + 60_000)
+  } else if (e instanceof ModelUnavailableError) benched.set(model, Date.now() + 24 * 60 * 60_000)
+  else if (e instanceof ModelRejectedError) benched.set(model, Date.now() + 10 * 60_000)
 }
 
 export function getAi(opts: { quick?: boolean; bulk?: boolean; budgetMs?: number } = {}): AiProvider {
@@ -47,7 +88,7 @@ export function getAi(opts: { quick?: boolean; bulk?: boolean; budgetMs?: number
       let dailyOnly = true
       const deadline = Date.now() + budgetMs
       for (let round = 0; round < rounds && Date.now() < deadline; round++) {
-        const models = await modelChain(key, !!opts.bulk)
+        const models = await modelChain(key, opts.bulk ? 'bulk' : 'quality')
         if (!models.length) break
         for (const m of models) {
           const left = deadline - Date.now()
@@ -56,14 +97,12 @@ export function getAi(opts: { quick?: boolean; bulk?: boolean; budgetMs?: number
             return await createGeminiProvider(key, m).generateJson({ ...req, timeoutMs: Math.min(req.timeoutMs ?? 120_000, left) })
           } catch (e) {
             last = e
+            noteFailure(m, e)
             if (e instanceof QuotaAiError) {
-              if (e.daily) benched.set(m, Date.now() + 60 * 60_000)
-              else dailyOnly = false
-            } else if (e instanceof ModelUnavailableError) {
-              benched.set(m, Date.now() + 24 * 60 * 60_000)
+              if (!e.daily) dailyOnly = false
             } else if (e instanceof RetryableAiError) {
               dailyOnly = false
-            } else throw e
+            } else if (!(e instanceof ModelUnavailableError) && !(e instanceof ModelRejectedError)) throw e
           }
         }
         // Tous les modèles sont saturés pour la minute : on attend un peu avant un nouveau tour
@@ -630,7 +669,7 @@ export async function generateCustomDoc(opts: { source: string; instruction: str
 
 export type ChatTurn = { from: 'me' | 'bot'; text: string }
 export type GirafaEvent =
-  | { t: 'meta'; from: 'courses' | 'web'; sources: string[] }
+  | { t: 'meta'; from: 'courses' | 'web' | 'general'; sources: string[] }
   | { t: 'delta'; text: string }
   | { t: 'web'; sources: { title: string; uri: string }[] }
   | { t: 'doc'; instruction: string }
@@ -643,15 +682,12 @@ const DOC_REQUEST =
   /\b(fais|fait|refais|g[ée]n[èe]re|cr[ée]e|pr[ée]pare|[ée]cris|r[ée]dige|donne|veux|voudrais|aimerais|faudrait)\b[^?]{0,80}\b(fiche|liste|r[ée]sum[ée]|tableau|plan de r[ée]vision|questions d.examen|qcm|document|synth[èe]se|r[ée]capitulatif)/i
 export const isDocumentRequest = (q: string) => DOC_REQUEST.test(q)
 
-// Les plus rapides d'abord : la réponse doit commencer en une seconde
-const FAST = ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash']
-
 // Ouvre une réponse en continu sur le premier modèle disponible (bascule tant que rien n'a été envoyé)
 async function* streamFast(req: StreamRequest): AsyncGenerator<StreamChunk> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error("GEMINI_API_KEY n'est pas configurée sur Netlify")
   let last: unknown
-  for (const model of FAST.filter((m) => (benched.get(m) ?? 0) < Date.now())) {
+  for (const model of await modelChain(key, req.webSearch ? 'web' : 'fast')) {
     let started = false
     try {
       for await (const chunk of streamGemini(key, model, req)) {
@@ -662,8 +698,7 @@ async function* streamFast(req: StreamRequest): AsyncGenerator<StreamChunk> {
     } catch (e) {
       if (started) throw e
       last = e
-      if (e instanceof QuotaAiError && e.daily) benched.set(model, Date.now() + 60 * 60_000)
-      if (e instanceof ModelUnavailableError) benched.set(model, Date.now() + 24 * 60 * 60_000)
+      noteFailure(model, e)
       if (e instanceof Error && e.name === 'AbortError') throw e
     }
   }
@@ -677,6 +712,25 @@ async function* streamFast(req: StreamRequest): AsyncGenerator<StreamChunk> {
   if (last instanceof ModelUnavailableError) throw new Error(`Aucun modèle Gemini disponible pour cette clé. ${last.message}`)
   if (last instanceof RetryableAiError) throw new Error(`Les serveurs de Google ne répondent pas en ce moment (${last.message}). Réessaie dans un instant.`)
   throw last instanceof Error ? last : new Error('GIRAFA n’a pas pu répondre.')
+}
+
+// Retire une balise [WEB] / [DOC] recopiée en tête de réponse (elle peut arriver en plusieurs morceaux)
+async function* withoutMarker(source: AsyncGenerator<StreamChunk>): AsyncGenerator<StreamChunk> {
+  let head = ''
+  let done = false
+  for await (const c of source) {
+    if (done || !c.text) {
+      yield c
+      continue
+    }
+    head += c.text
+    const h = head.trimStart()
+    if (h.startsWith('[') && h.length < 6) continue
+    done = true
+    const text = h.replace(/^\[(WEB|DOC)\]?\s*/i, '')
+    if (text) yield { ...c, text }
+  }
+  if (!done && head.trim() && !/^\s*\[(WEB|DOC)\]?\s*$/i.test(head)) yield { text: head.trim() }
 }
 
 // Historique pour Gemini : commence par l'étudiant et alterne étudiant / GIRAFA (deux messages
@@ -762,11 +816,29 @@ export async function* girafaAnswer(opts: { question: string; history: ChatTurn[
   yield { t: 'meta', from: 'web', sources: [] }
   const web = [GIRAFA, "La réponse n'est pas dans les cours de l'étudiant : appuie-toi sur une recherche Internet fiable. " + STYLE, 'Ne dis pas que tu as fait une recherche : l’application le signale déjà.'].join('\n')
   const seen = new Map<string, { title: string; uri: string }>()
-  for await (const c of streamFast({ system: web, contents: toContents(opts.history, question), webSearch: true, signal: opts.signal })) {
-    if (c.text) yield { t: 'delta', text: c.text }
-    for (const src of c.sources ?? []) seen.set(src.uri, src)
+  let started = false
+  try {
+    for await (const c of withoutMarker(streamFast({ system: web, contents: toContents(opts.history, question), webSearch: true, signal: opts.signal }))) {
+      if (c.text) {
+        started = true
+        yield { t: 'delta', text: c.text }
+      }
+      for (const src of c.sources ?? []) seen.set(src.uri, src)
+    }
+  } catch (e) {
+    if (started || (e instanceof Error && e.name === 'AbortError')) throw e
   }
-  if (seen.size) yield { t: 'web', sources: [...seen.values()].slice(0, 4) }
+  if (started) {
+    if (seen.size) yield { t: 'web', sources: [...seen.values()].slice(0, 4) }
+    return
+  }
+
+  // Recherche Internet indisponible (quotas épuisés) : réponse de culture générale, signalée comme telle
+  yield { t: 'meta', from: 'general', sources: [] }
+  const general = [GIRAFA, "La réponse n'est pas dans les cours de l'étudiant : réponds avec tes connaissances générales, en restant prudent sur les chiffres et les dates. " + STYLE].join('\n')
+  for await (const c of withoutMarker(streamFast({ system: general, contents: toContents(opts.history, question), signal: opts.signal }))) {
+    if (c.text) yield { t: 'delta', text: c.text }
+  }
 }
 
 // ---------------------------------------------------------------- Transcription audio

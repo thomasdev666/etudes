@@ -164,6 +164,7 @@ function Answer({ a, onSheet }: { a: LiveAnswer; onSheet?: () => void }) {
           )}
         </span>
       )}
+      {a.from === 'general' && <span className="mt-1.5 block text-xs text-muted">🧠 Pas dans tes cours : réponse de culture générale, à vérifier avec ton cours.</span>}
       {onSheet && (
         <button type="button" onClick={onSheet} className="mt-2 block rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent-ink hover:bg-accent-soft">
           📄 Me faire une fiche là-dessus
