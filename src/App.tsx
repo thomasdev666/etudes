@@ -35,6 +35,7 @@ const MindmapPage = lazy(() => import('./pages/Mindmap'))
 const QuizStart = lazy(() => import('./pages/QuizStart'))
 const GuidePage = lazy(() => import('./pages/Guide'))
 const LandingPage = lazy(() => import('./pages/Landing'))
+const SharedPage = lazy(() => import('./pages/Shared'))
 
 export default function App() {
   const { session, loading, recovery } = useAuth()
@@ -48,6 +49,15 @@ export default function App() {
     )
 
   if (pathname === '/compte-valide') return <ConfirmedPage />
+  // Contenu partagé par lien : lisible sans compte
+  if (pathname.startsWith('/partage/'))
+    return (
+      <Suspense fallback={<Spinner />}>
+        <Routes>
+          <Route path="/partage/:token" element={<SharedPage />} />
+        </Routes>
+      </Suspense>
+    )
 
   if (configMissing) {
     return (

@@ -7,6 +7,7 @@ import { MASTERED_DAYS } from '@/lib/sm2'
 import type { Flashcard, Subject } from '@/lib/types'
 import { GenerateCardsModal } from './Generate'
 import { ImportCardsModal } from './ImportCards'
+import { ShareButton } from './ShareButton'
 import { Badge, Button, Card, EmptyState, Field, IconButton, Modal, Textarea } from './ui'
 
 export function CardForm({ open, onClose, subjectId, card }: { open: boolean; onClose: () => void; subjectId: string; card?: Flashcard }) {
@@ -89,6 +90,7 @@ export function CardsPanel({ subject }: { subject: Subject }) {
         <Button variant="secondary" icon={<FileUp className="size-4" />} onClick={() => setImp(true)}>
           Importer
         </Button>
+        {cards.length > 0 && <ShareButton kind="deck" targetId={subject.id} size="md" />}
         {due > 0 && (
           <Link to={`/reviser/cartes?matiere=${subject.id}`}>
             <Button icon={<Brain className="size-4" />}>Réviser</Button>

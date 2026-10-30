@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import katex from 'katex'
 import {
   ArrowDown,
   ArrowLeft,
@@ -16,9 +15,11 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { GenerateMindmapModal } from '@/components/Generate'
+import { MathText } from '@/components/MathText'
+import { ShareButton } from '@/components/ShareButton'
 import { Button, cx, ErrorBox, Field, IconButton, Input, Spinner, Tabs, Textarea } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { SUBJECT_PALETTE, tint } from '@/lib/colors'
@@ -29,22 +30,6 @@ import { elementToPdf, elementToPng } from '@/lib/pdfExport'
 import { must, supabase } from '@/lib/supabase'
 import { useFirstTimeTour } from '@/lib/tours'
 import type { NoteOutput } from '@/lib/types'
-
-// Texte avec formules $...$ rendues par KaTeX
-function MathText({ text, className }: { text: string; className?: string }) {
-  const html = useMemo(() => {
-    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
-    return text
-      .split(/(\$[^$]+\$)/g)
-      .map((part) =>
-        part.startsWith('$') && part.endsWith('$') && part.length > 2
-          ? katex.renderToString(part.slice(1, -1), { throwOnError: false })
-          : esc(part),
-      )
-      .join('')
-  }, [text])
-  return <span className={className} dangerouslySetInnerHTML={{ __html: html }} />
-}
 
 type Ctx = {
   selected: string | null
@@ -356,6 +341,7 @@ function MindmapEditor({ id }: { id: string }) {
           <Button size="sm" variant="secondary" icon={<FileDown className="size-4" />} onClick={() => exportAs('pdf')} disabled={view !== 'map'}>
             PDF
           </Button>
+          <ShareButton kind="mindmap" targetId={id} />
         </div>
       </div>
 

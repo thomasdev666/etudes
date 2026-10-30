@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
 import { Toolbar } from '@/components/editor/Toolbar'
 import { GenerateCardsModal, GenerateMindmapModal, useGenerateSheet } from '@/components/Generate'
+import { ShareButton } from '@/components/ShareButton'
 import { Button, ErrorBox, IconButton, Modal, Select, Spinner } from '@/components/ui'
 import { useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
@@ -257,6 +258,7 @@ function NoteEditor({ id }: { id: string }) {
         <span className={`flex-1 text-right text-xs ${state === 'error' ? 'text-danger' : 'text-muted'}`} aria-live="polite">
           {busy ?? stateLabel}
         </span>
+        <ShareButton kind="note" targetId={id} />
         <div className="relative">
           <IconButton data-tour="note-menu" label="Plus d’actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
             <MoreHorizontal className="size-5" />
