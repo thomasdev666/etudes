@@ -47,7 +47,7 @@ function SpaceSwitcher() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted">Espace</span>
-          <span className="block truncate font-semibold">{space?.name}</span>
+          <span className="block truncate font-semibold" translate="no">{space?.name}</span>
         </span>
         <ChevronDown className="size-4 text-muted" aria-hidden />
       </button>

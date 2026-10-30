@@ -3,6 +3,7 @@ import { Archive, ArchiveRestore, Coffee, Download, LogOut, Monitor, Moon, Penci
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AvailabilityEditor } from '@/components/AvailabilityEditor'
+import { LanguageSwitch } from '@/components/LanguageSwitch'
 import { PushSettings } from '@/components/PushSettings'
 import { signOutEverywhere } from '@/lib/session'
 import { useAvailability } from '@/lib/planning'
@@ -350,6 +351,10 @@ export default function SettingsPage() {
         >
           Revoir la présentation
         </Button>
+      </Section>
+
+      <Section title="Langue" description="Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.">
+        <LanguageSwitch />
       </Section>
 
       <Section title="Apparence">

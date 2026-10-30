@@ -1,12 +1,18 @@
 import { differenceInCalendarDays, format, formatDistanceToNowStrict, isToday, isTomorrow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { enGB, fr } from 'date-fns/locale'
+import { isEn } from '@/i18n/lang'
 
-export const fmt = (d: Date | string, pattern: string) => format(new Date(d), pattern, { locale: fr })
+const EN = isEn()
+const locale = EN ? enGB : fr
+// Les formats écrits pour le français (« d MMMM 'à' HH'h'mm ») sont adaptés à l'anglais
+const adapt = (p: string) => (EN ? p.replace(/'à'/g, "'at'").replace(/HH'h'mm/g, 'HH:mm').replace(/'h'/g, ':') : p)
+
+export const fmt = (d: Date | string, pattern: string) => format(new Date(d), adapt(pattern), { locale })
 
 export function countdown(due: string | Date): { label: string; tone: 'danger' | 'warning' | 'muted' } {
   const d = new Date(due)
   const diff = d.getTime() - Date.now()
-  if (diff < 0) return { label: `en retard de ${formatDistanceToNowStrict(d, { locale: fr })}`, tone: 'danger' }
+  if (diff < 0) return { label: `en retard de ${formatDistanceToNowStrict(d, { locale })}`, tone: 'danger' }
   if (diff < 86_400_000) {
     const h = Math.floor(diff / 3_600_000)
     return { label: h >= 1 ? `dans ${h} h` : `dans ${Math.max(1, Math.round(diff / 60_000))} min`, tone: 'danger' }

@@ -1,11 +1,13 @@
 import { BarChart3, BellRing, BookOpen, CalendarDays, Check, ChevronDown, GraduationCap, Layers, Mic, NotebookPen, ShieldCheck, Upload, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { LanguageSwitch } from '@/components/LanguageSwitch'
 import { Logo } from '@/components/Logo'
 import { PlanChoice } from '@/components/PlanChoice'
 import { Button, cx } from '@/components/ui'
 import { ESSAI_JOURS } from '@/config/offers'
 import { SITE } from '@/config/site'
+import { isEn } from '@/i18n/lang'
 
 // Page de présentation publique : ce que fait l'appli, en quoi elle diffère des IA gratuites, les offres.
 
@@ -22,10 +24,11 @@ function Section({ id, eyebrow, title, intro, children }: { id?: string; eyebrow
 
 // Aperçu de l'écran d'accueil de l'appli, dessiné en HTML (aucune donnée réelle)
 function AppPreview() {
+  const en = isEn()
   const subjects = [
-    { name: 'Finance d’entreprise', color: '#F26B4F', pct: 72 },
+    { name: en ? 'Corporate finance' : 'Finance d’entreprise', color: '#F26B4F', pct: 72 },
     { name: 'Marketing', color: '#4F9BD9', pct: 45 },
-    { name: 'Droit des affaires', color: '#5CB58A', pct: 88 },
+    { name: en ? 'Business law' : 'Droit des affaires', color: '#5CB58A', pct: 88 },
   ]
   return (
     <div aria-hidden className="relative mx-auto mb-6 w-full max-w-md select-none">
@@ -151,7 +154,8 @@ export default function LandingPage() {
             <a href="#offres" className="hover:text-text">Offres</a>
             <a href="#questions" className="hover:text-text">Questions</a>
           </nav>
-          <Link to="/connexion" className="ml-auto rounded-xl px-3 py-2 text-sm font-medium hover:bg-surface-2 md:ml-2">
+          <LanguageSwitch className="ml-auto md:ml-2" />
+          <Link to="/connexion" className="rounded-xl px-3 py-2 text-sm font-medium hover:bg-surface-2">
             Se connecter
           </Link>
           <Button size="sm" onClick={signup} className="hidden sm:inline-flex">

@@ -10,7 +10,10 @@ export const OFFERS: Record<Billing, { price: number; months: number }> = {
 
 export const ESSAI_JOURS = 7
 
-export const euros = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+export const euros = (n: number) =>
+  typeof navigator !== 'undefined' && document.documentElement.lang === 'en'
+    ? '€' + n.toFixed(2)
+    : n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
 // Économie par rapport au mensuel, en pourcentage arrondi
 export const saving = (b: Billing) => Math.round((1 - OFFERS[b].price / (OFFERS.monthly.price * OFFERS[b].months)) * 100)

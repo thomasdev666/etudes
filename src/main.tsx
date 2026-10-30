@@ -10,6 +10,7 @@ import { ToastProvider } from './context/toast'
 import './index.css'
 import { clearOfflineCache, flushReviews, persistOptions } from './lib/offline'
 import { supabase } from './lib/supabase'
+import { initI18n } from './i18n'
 import { applyTheme } from './lib/theme'
 
 // Vérifie les nouvelles versions au retour dans l'appli et toutes les heures :
@@ -24,6 +25,7 @@ registerSW({
   },
 })
 applyTheme()
+initI18n()
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme())
 
 const queryClient = new QueryClient({

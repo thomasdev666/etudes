@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { SITE } from '@/config/site'
+import { isEn } from '@/i18n/lang'
 import { euros, ESSAI_JOURS, OFFERS } from '@/config/offers'
 
 // Les informations de l'éditeur se complètent dans src/config/site.ts
@@ -115,9 +116,18 @@ export default function LegalPage({ path }: { path: string }) {
       <Link to="/" className="text-sm text-accent-ink hover:underline">
         ← Retour à Regulya
       </Link>
-      <h1 className="mt-4 text-3xl font-bold">{doc.title}</h1>
-      <p className="mb-6 text-sm text-muted">Dernière mise à jour : {doc.updated}</p>
-      <div className="flex flex-col gap-5 leading-relaxed">
+      {isEn() && (
+        <p className="mt-4 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+          These legal documents are written in French, which is the binding version. Regulya is operated from France and governed by French law.
+        </p>
+      )}
+      <h1 className="mt-4 text-3xl font-bold" translate="no">
+        {doc.title}
+      </h1>
+      <p className="mb-6 text-sm text-muted" translate="no">
+        Dernière mise à jour : {doc.updated}
+      </p>
+      <div className="flex flex-col gap-5 leading-relaxed" translate="no">
         {doc.sections.map((s) => (
           <section key={s.h}>
             <h2 className="mb-1.5 text-lg font-semibold">{s.h}</h2>

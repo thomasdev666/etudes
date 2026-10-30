@@ -3,6 +3,7 @@ import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { useAuth } from '@/context/auth'
 import { supabase } from '@/lib/supabase'
 import { Link } from 'react-router-dom'
+import { LanguageSwitch } from '@/components/LanguageSwitch'
 import { Logo } from '@/components/Logo'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
 
@@ -58,11 +59,12 @@ function Shell({ children }: { children: React.ReactNode }) {
           <p className="mt-1 text-muted">Organise tes cours, révise mieux, réussis tes examens.</p>
         </div>
         <Card className="p-5">{children}</Card>
-        <p className="mt-5 text-center text-sm">
+        <div className="mt-5 flex items-center justify-between gap-3 text-sm">
           <Link to="/" className="text-muted hover:underline">
             ← Découvrir Regulya
           </Link>
-        </p>
+          <LanguageSwitch />
+        </div>
       </div>
     </div>
   )

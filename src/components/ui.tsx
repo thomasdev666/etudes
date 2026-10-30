@@ -223,7 +223,7 @@ export function SubjectChip({ name, color }: { name: string; color: string }) {
       style={{ background: tint(color, 0.16) }}
     >
       <SubjectDot color={color} />
-      <span className="truncate">{name}</span>
+      <span className="truncate" translate="no">{name}</span>
     </span>
   )
 }
