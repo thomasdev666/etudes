@@ -16,6 +16,7 @@ import { useCourses, useInvalidate, useNotesList, useSubjects, useTrash } from '
 import { noteToDocx, safeFilename, saveBlob } from '@/lib/exportNote'
 import { noteToPdf } from '@/lib/pdfExport'
 import { oldSheetSource } from '@/lib/sheetRefresh'
+import { frenchSpacingDoc } from '@/lib/frenchSpacing'
 import { signedUrl, STORAGE_PREFIX, uploadNoteFile } from '@/lib/storage'
 import { must, supabase } from '@/lib/supabase'
 import { useStudyTimer } from '@/lib/studyTimer'
@@ -205,7 +206,8 @@ function NoteEditor({ id }: { id: string }) {
     if (!note || !editor) return
     setTitle(note.title)
     setSubjectId(note.subject_id ?? '')
-    editor.commands.setContent(note.content as JSONContent, { emitUpdate: false })
+    // Affichage seulement : la ponctuation ne part plus seule à la ligne (enregistré au prochain changement)
+    editor.commands.setContent(frenchSpacingDoc(note.content as JSONContent), { emitUpdate: false })
     setReady(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note?.id, editor])

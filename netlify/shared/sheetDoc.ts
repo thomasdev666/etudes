@@ -3,14 +3,17 @@ import type { CustomDoc, Sheet, Visual } from './ai'
 
 type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string; marks?: { type: string }[] }
 
-// « **gras** » et « $x^2$ » dans le texte
+// Espace insécable avant « : ; ! ? » % » et après « : la ponctuation ne passe jamais seule à la ligne
+export const frenchSpacing = (t: string) => t.replace(/ ([:;!?»%])/g, '\u00a0$1').replace(/« /g, '«\u00a0')
+
+// « **gras** » et « $x^2$ » dans le texte (les formules ne sont pas retouchées)
 export function inline(s: string): Node[] {
   const out: Node[] = []
   for (const part of s.split(/(\$[^$]+\$|\*\*[^*]+\*\*)/)) {
     if (!part) continue
     if (part.startsWith('$') && part.endsWith('$') && part.length > 2) out.push({ type: 'inlineMath', attrs: { latex: part.slice(1, -1) } })
-    else if (part.startsWith('**') && part.endsWith('**') && part.length > 4) out.push({ type: 'text', text: part.slice(2, -2), marks: [{ type: 'bold' }] })
-    else out.push({ type: 'text', text: part })
+    else if (part.startsWith('**') && part.endsWith('**') && part.length > 4) out.push({ type: 'text', text: frenchSpacing(part.slice(2, -2)), marks: [{ type: 'bold' }] })
+    else out.push({ type: 'text', text: frenchSpacing(part) })
   }
   return out
 }
@@ -36,7 +39,7 @@ export function visualToNodes(v: Visual): { nodes: Node[]; text: string[] } {
   if (diagram) return { nodes: [{ type: 'diagram', attrs: { kind: diagram, title: plain(v.title), items: v.items.map(plain) } }], text: [v.title, ...v.items] }
   const callout = CALLOUT[v.kind]
   if (callout) {
-    const label = v.title && v.title.toLowerCase() !== callout.label.toLowerCase() ? `${callout.label} : ${v.title}` : callout.label
+    const label = v.title && v.title.toLowerCase() !== callout.label.toLowerCase() ? `${callout.label}\u00a0: ${plain(v.title)}` : callout.label
     return {
       nodes: [{ type: 'callout', attrs: { tone: callout.tone }, content: [{ type: 'paragraph', content: [{ type: 'text', text: label, marks: [{ type: 'bold' }] }] }, ...v.items.map(p)] }],
       text: [label, ...v.items],

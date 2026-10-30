@@ -12,13 +12,14 @@ import { fmt } from '@/lib/dates'
 import { fetchShare, type SharedContent } from '@/lib/share'
 import { sanitizeDoc } from '@/lib/shareSanitize'
 import type { MindNode } from '@/lib/types'
+import { frenchSpacingDoc } from '@/lib/frenchSpacing'
 import type { JSONContent } from '@tiptap/core'
 
 // Page publique d'un contenu partagé par lien, en lecture seule
 
 function NoteView({ doc }: { doc: JSONContent }) {
   const ref = useRef<HTMLDivElement>(null)
-  const html = useMemo(() => generateHTML(sanitizeDoc(doc) ?? { type: 'doc', content: [] }, buildExtensions(() => null)), [doc])
+  const html = useMemo(() => generateHTML(frenchSpacingDoc(sanitizeDoc(doc) ?? { type: 'doc', content: [] }), buildExtensions(() => null)), [doc])
   // Formules : rendu KaTeX après l'insertion du HTML
   useEffect(() => {
     ref.current?.querySelectorAll<HTMLElement>('[data-type="inline-math"], [data-type="block-math"]').forEach((el) => {

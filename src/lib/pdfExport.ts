@@ -1,3 +1,6 @@
+import { fitFormulas } from './fitFormulas'
+import { fixFrenchSpacing } from './frenchSpacing'
+
 // Export PDF direct (téléchargement d'un fichier, sans boîte d'impression).
 // Le rendu exact de l'écran (formules, tableaux, images) est capturé puis
 // découpé en pages A4 entre deux blocs, jamais au milieu d'une ligne.
@@ -48,6 +51,29 @@ function offscreen(width: number) {
 // Éléments entre lesquels on peut couper une page sans trancher une ligne de texte
 const CUTTABLE = 'h1, h2, h3, p, li, tr, blockquote, pre, hr, img, .diagram, .callout, [data-type="block-math"], .tableWrapper, table'
 
+function frenchSpacing(root: HTMLElement) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (n.parentElement?.closest('.katex')) continue
+    const fixed = fixFrenchSpacing(n.textContent ?? '')
+    if (fixed !== n.textContent) n.textContent = fixed
+  }
+}
+
+// Pas de coupe juste avant cet élément : il reste sur la même page que celui qui le précède
+// (titre puis contenu, nom d'une formule puis la formule, formule puis son explication)
+function keepsWithPrevious(el: Element) {
+  const prev = el.previousElementSibling
+  if (!prev) return false
+  if (/^H[1-3]$/.test(prev.tagName)) return true
+  const isBlock = (e: Element) => e.matches('[data-type="block-math"], .diagram, .callout, .tableWrapper, table')
+  // Paragraphe court (un nom de formule, « Exemple : ») suivi du bloc qu'il annonce
+  if (isBlock(el) && prev.tagName === 'P' && (prev.textContent ?? '').trim().length < 140) return true
+  // Courte explication juste sous une formule
+  if (prev.matches('[data-type="block-math"]') && el.tagName === 'P' && (el.textContent ?? '').trim().length < 300) return true
+  return false
+}
+
 // Choix des coupes : pour chaque page, la dernière frontière sûre qui tient dans la page.
 // Une frontière juste après un titre est évitée (le titre ne reste pas seul en bas de page).
 export function pageCuts(safe: number[], total: number, pagePx: number) {
@@ -76,9 +102,12 @@ export async function notePages(title: string, renderedHtml: string): Promise<{ 
     body.style.minHeight = '0'
     body.innerHTML = renderedHtml
     body.querySelectorAll('[contenteditable]').forEach((n) => n.removeAttribute('contenteditable'))
+    frenchSpacing(body)
     // Décorations de l'éditeur qui n'ont rien à faire dans un PDF
     body.querySelectorAll('.ProseMirror-gapcursor, .ProseMirror-separator, .ProseMirror-trailingBreak, .column-resize-handle').forEach((n) => n.remove())
     box.append(h1, body)
+    // Une formule trop large est réduite pour tenir dans la page (sinon elle serait coupée)
+    fitFormulas(body)
 
     // Les positions sont mesurées dans la copie capturée : c'est elle qui est dessinée,
     // et sa mise en page peut différer de quelques pixels de celle de la page
@@ -90,7 +119,7 @@ export async function notePages(title: string, renderedHtml: string): Promise<{ 
       safe = [...clone.querySelectorAll<HTMLElement>(CUTTABLE)]
         // Un schéma, un encadré ou une formule ne se coupe pas ; un titre ne reste pas seul en bas de page
         .filter((el) => !el.parentElement?.closest('.diagram, .callout, [data-type="block-math"]'))
-        .filter((el) => !/^H[1-3]$/.test(el.previousElementSibling?.tagName ?? ''))
+        .filter((el) => !keepsWithPrevious(el))
         .map((el) => el.getBoundingClientRect().top - top0 - 4)
     })
     const ratio = canvas.width / CONTENT_PX // pixels de canvas par pixel CSS

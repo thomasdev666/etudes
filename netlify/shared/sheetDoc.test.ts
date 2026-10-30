@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { inline, sheetToDoc } from './sheetDoc'
 
 describe('fiche de révision → note', () => {
+  it('garde la ponctuation sur la même ligne que le mot (espace insécable), sauf dans les formules', () => {
+    const out = inline('**BFR** : besoin ; voir $a : b$ !')
+    expect(out[1].text).toBe('\u00a0: besoin\u00a0; voir ')
+    expect(out[2]).toEqual({ type: 'inlineMath', attrs: { latex: 'a : b' } })
+    expect(out[3].text).toBe('\u00a0!')
+  })
   it('gère le gras et les formules dans le texte', () => {
     expect(inline('La **VAN** vaut $\\sum F_t$ ici')).toEqual([
       { type: 'text', text: 'La ' },
@@ -54,7 +60,7 @@ describe('illustrations des fiches', () => {
     const callout = visualToNodes({ kind: 'exemple', title: 'Carrefour', items: ['Le BFR est négatif.'] }).nodes[0]
     expect(callout.type).toBe('callout')
     expect(callout.attrs?.tone).toBe('example')
-    expect(callout.content?.[0].content?.[0].text).toBe('Exemple : Carrefour')
+    expect(callout.content?.[0].content?.[0].text).toBe('Exemple\u00a0: Carrefour')
     const { nodes } = visualToNodes({ kind: 'tableau', title: 'Comparaison', items: ['Notion | Définition', 'BFR | Besoin', 'FR'] })
     const table = nodes.find((n) => n.type === 'table')!
     expect(table.content).toHaveLength(3)
