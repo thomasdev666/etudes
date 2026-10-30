@@ -51,7 +51,7 @@ export async function fileToNote(file: File): Promise<{ title: string; content: 
   const first = content.content?.[0]
   let title = titleFromFile(file.name)
   if (first?.type === 'heading' && first.attrs?.level === 1) {
-    title = (first.content ?? []).map((c) => c.text ?? '').join('').trim().slice(0, 200) || title
+    title = (first.content ?? []).map((c: JSONContent) => c.text ?? '').join('').trim().slice(0, 200) || title
     content.content = content.content!.slice(1)
   }
   return { title, content, content_text: generateText(content, ext, { blockSeparator: '\n' }) }
