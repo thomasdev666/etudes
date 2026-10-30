@@ -16,7 +16,8 @@ export default async (req: Request) => {
       .slice(-8)
 
     const { error: quotaError } = await db.rpc('consume_quota', { p_kind: 'chat', p_amount: 1 })
-    if (quotaError) throw new HttpError(429, quotaError.message)
+    // Quota « chat » absent (mise à jour 18 de la base pas encore lancée) : on ne bloque pas GIRAFA
+    if (quotaError && !/pas reconnue/i.test(quotaError.message)) throw new HttpError(429, quotaError.message)
 
     // Cours et notes de l'espace (la sécurité de la base limite la lecture à l'étudiant)
     const [{ data: subjects }, { data: courses }, { data: notes }] = await Promise.all([
@@ -37,9 +38,17 @@ export default async (req: Request) => {
       async start(controller) {
         const send = (o: unknown) => controller.enqueue(encoder.encode(JSON.stringify(o) + '\n'))
         try {
-          for await (const ev of girafaAnswer({ question, history, passages, titles, signal: req.signal })) {
-            if (ev.t === 'doc') send({ ...ev, subject_ids: rankSubjects(ev.instruction, subjects ?? [], docs) })
-            else send(ev)
+          // Garde-fou : on s'arrête avant la limite de durée de la fonction
+          const ctrl = new AbortController()
+          const timer = setTimeout(() => ctrl.abort(), 24_000)
+          req.signal?.addEventListener('abort', () => ctrl.abort())
+          try {
+            for await (const ev of girafaAnswer({ question, history, passages, titles, signal: ctrl.signal })) {
+              if (ev.t === 'doc') send({ ...ev, subject_ids: rankSubjects(ev.instruction, subjects ?? [], docs) })
+              else send(ev)
+            }
+          } finally {
+            clearTimeout(timer)
           }
           send({ t: 'done' })
         } catch (e) {

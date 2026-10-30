@@ -50,5 +50,6 @@ export async function streamGirafa(spaceId: string, question: string, history: C
   }
   // Réponse coupée en route (connexion, délai du serveur) : on garde ce qui est arrivé
   if (!finished && !live.text) throw new Error('La réponse a été interrompue. Réessaie dans un instant.')
+  if (!finished) live.text += '\n\n… (réponse coupée en route : repose ta question pour la suite)'
   return { kind: 'answer', answer: live }
 }

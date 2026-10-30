@@ -62,3 +62,27 @@ describe('GIRAFA en direct', () => {
     expect(ev).toContainEqual({ t: 'delta', text: 'OK' })
   })
 })
+
+describe('historique envoyé à Gemini', () => {
+  it('commence par l’étudiant et alterne les rôles', async () => {
+    const { toContents } = await import('./index')
+    const c = toContents([{ from: 'bot', text: 'Salut' }, { from: 'me', text: 'fais une fiche' }, { from: 'me', text: 'BFR ?' }, { from: 'bot', text: 'Le BFR…' }], 'et le FR ?')
+    expect(c.map((x) => x.role)).toEqual(['user', 'model', 'user'])
+    expect(c[0].text).toBe('fais une fiche\n\nBFR ?')
+  })
+})
+
+describe('erreurs de Google', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test'
+  })
+  afterEach(() => vi.unstubAllGlobals())
+  it('quota par minute atteint partout : message clair', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Resource exhausted', { status: 429 })))
+    await expect(run({ question: 'BFR ?', history: [], passages: 'x', titles: [] })).rejects.toThrow(/limite par minute/)
+  })
+  it('clé refusée : message qui le dit', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('API key not valid', { status: 403 })))
+    await expect(run({ question: 'BFR ?', history: [], passages: 'x', titles: [] })).rejects.toThrow(/clé Gemini est refusée/)
+  })
+})

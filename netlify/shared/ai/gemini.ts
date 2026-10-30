@@ -149,7 +149,6 @@ export type StreamRequest = {
 }
 
 export async function* streamGemini(apiKey: string, model: string, req: StreamRequest): AsyncGenerator<StreamChunk> {
-  const lite = model.includes('lite')
   const res = await fetch(`${ENDPOINT}/${model}:streamGenerateContent?alt=sse`, {
     method: 'POST',
     signal: req.signal,
@@ -158,12 +157,16 @@ export async function* streamGemini(apiKey: string, model: string, req: StreamRe
       systemInstruction: { parts: [{ text: req.system }] },
       contents: req.contents.map((c) => ({ role: c.role, parts: [{ text: c.text }] })),
       ...(req.webSearch && { tools: [{ google_search: {} }] }),
-      // Pas de « réflexion » préalable : la réponse doit commencer tout de suite
-      generationConfig: { temperature: req.temperature ?? 0.3, maxOutputTokens: 1200, ...(!lite && { thinkingConfig: { thinkingBudget: 0 } }) },
+      generationConfig: { temperature: req.temperature ?? 0.3, maxOutputTokens: 1200 },
     }),
   })
   if (res.status === 429) throw new QuotaAiError(`Quota atteint pour ${model}`, /per ?day|PerDay/i.test(await res.text()))
-  if (res.status === 404 || res.status === 400) throw new ModelUnavailableError(`Modèle indisponible : ${model} (${(await res.text()).slice(0, 200)})`)
+  if (res.status === 404) throw new ModelUnavailableError(`Modèle indisponible : ${model}`)
+  if (res.status === 400) {
+    const body = (await res.text()).slice(0, 300)
+    if (/not (found|supported)|unsupported|is not available/i.test(body)) throw new ModelUnavailableError(`Modèle indisponible : ${model}`)
+    throw new Error(`Requête refusée par Google (400, ${model}) : ${body}`)
+  }
   if (res.status === 401 || res.status === 403) throw new Error(`La clé Gemini est refusée par Google (${res.status}) : vérifie GEMINI_API_KEY sur Netlify.`)
   if (!res.ok || !res.body) throw new RetryableAiError(`Service IA indisponible (${res.status})`, 0)
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()

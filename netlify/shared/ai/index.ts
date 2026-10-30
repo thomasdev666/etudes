@@ -679,10 +679,22 @@ async function* streamFast(req: StreamRequest): AsyncGenerator<StreamChunk> {
   throw last instanceof Error ? last : new Error('GIRAFA n’a pas pu répondre.')
 }
 
-const toContents = (history: ChatTurn[], last: string) => [
-  ...history.slice(-8).map((t) => ({ role: (t.from === 'me' ? 'user' : 'model') as 'user' | 'model', text: t.text.slice(0, 1500) })),
-  { role: 'user' as const, text: last },
-]
+// Historique pour Gemini : commence par l'étudiant et alterne étudiant / GIRAFA (deux messages
+// à la suite du même côté sont fusionnés)
+export function toContents(history: ChatTurn[], last: string) {
+  const turns = [
+    ...history.slice(-8).map((t) => ({ role: (t.from === 'me' ? 'user' : 'model') as 'user' | 'model', text: t.text.slice(0, 1500) })),
+    { role: 'user' as const, text: last },
+  ].filter((t) => t.text.trim())
+  while (turns.length && turns[0].role !== 'user') turns.shift()
+  const out: typeof turns = []
+  for (const t of turns) {
+    const prev = out[out.length - 1]
+    if (prev && prev.role === t.role) prev.text += '\n\n' + t.text
+    else out.push({ ...t })
+  }
+  return out
+}
 
 // Réponse de GIRAFA : d'après les cours si possible, sinon d'après Internet ; ou bascule vers un document
 export async function* girafaAnswer(opts: { question: string; history: ChatTurn[]; passages: string; titles: string[]; signal?: AbortSignal }): AsyncGenerator<GirafaEvent> {

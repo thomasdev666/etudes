@@ -574,6 +574,7 @@ export const EN4: Record<string, string> = {
   'Je m’en occupe !': 'On it!',
   'La réponse a été interrompue. Réessaie dans un instant.': 'The answer was interrupted. Try again in a moment.',
   'GIRAFA n’est pas encore disponible sur ce site (fonction serveur non déployée).': 'GIRAFA isn’t available on this site yet (server function not deployed).',
+  '… (réponse coupée en route : repose ta question pour la suite)': '… (answer cut off: ask again for the rest)',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',
