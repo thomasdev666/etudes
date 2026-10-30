@@ -1,4 +1,5 @@
 import { CheckCircle2, ChevronDown, Loader2, Sparkles, X, XCircle } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cx, ProgressBar } from '@/components/ui'
@@ -26,11 +27,17 @@ type JobsState = {
   jobs: TrackedJob[]
   start: (kind: AiJob['kind'], params: Record<string, unknown>, meta: JobMeta) => Promise<string>
   find: (pred: (j: TrackedJob) => boolean) => TrackedJob | undefined
+  // Annule une génération lancée par erreur (le quota est rendu)
+  cancel: (id: string) => Promise<void>
   // Tâche de fond côté appareil, suivie dans le même panneau que les générations
   runLocal: (meta: JobMeta, task: (report: (phase: string, progress: number) => void) => Promise<void>) => void
 }
 
 const Ctx = createContext<JobsState | null>(null)
+
+// Générations qu'on peut annuler en cours de route
+const CANCELLABLE: TrackedJob['kind'][] = ['quiz', 'flashcards', 'mindmap', 'sheet', 'assistant']
+const canCancel = (j: TrackedJob) => CANCELLABLE.includes(j.kind) && (j.status === 'pending' || j.status === 'running')
 
 const AFFECTS: Record<AiJob['kind'], Table[]> = {
   quiz: ['quizzes'],
@@ -63,6 +70,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const toast = useToast()
   const navigate = useNavigate()
   const invalidate = useInvalidate()
+  const qc = useQueryClient()
   const [jobs, setJobs] = useState<TrackedJob[]>([])
   const [, tick] = useState(0)
   const jobsRef = useRef(jobs)
@@ -161,6 +169,32 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     }
   }, [activeCount])
 
+  const cancel = useCallback<JobsState['cancel']>(
+    async (id) => {
+      const j = jobsRef.current.find((x) => x.id === id)
+      if (!j || !canCancel(j)) return
+      const { error } = await supabase.rpc('cancel_ai_job', { p_job: id })
+      if (error) {
+        // Base pas encore à jour : on arrête la tâche sans rendre le quota
+        if (error.code === 'PGRST202') await supabase.from('ai_jobs').update({ status: 'error', error: 'Annulé' }).eq('id', id).in('status', ['pending', 'running'])
+        else {
+          toast({ message: error.message, tone: 'error' })
+          return
+        }
+      }
+      // Les éléments vides préparés pour le résultat sont retirés
+      const p = j.params as { note_id?: string; output_id?: string; quiz_id?: string }
+      if ((j.kind === 'sheet' || j.kind === 'assistant') && p.note_id) await supabase.from('notes').delete().eq('id', p.note_id)
+      if (j.kind === 'mindmap' && p.output_id) await supabase.from('note_outputs').delete().eq('id', p.output_id)
+      if (j.kind === 'quiz' && p.quiz_id) await supabase.from('quizzes').delete().eq('id', p.quiz_id)
+      setJobs((cur) => cur.map((x) => (x.id === id ? { ...x, status: 'error', error: 'Annulé', dismissed: true } : x)))
+      invalidate(...AFFECTS[j.kind as AiJob['kind']])
+      qc.invalidateQueries({ queryKey: ['usage'] })
+      toast({ message: `${j.meta.label} : annulé` })
+    },
+    [invalidate, qc, toast],
+  )
+
   const find = useCallback<JobsState['find']>((pred) => [...jobsRef.current].reverse().find(pred), [])
 
   const runLocal = useCallback<JobsState['runLocal']>((meta, task) => {
@@ -200,9 +234,9 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   }, [doneIds, dismiss])
 
   return (
-    <Ctx.Provider value={{ jobs, start, find, runLocal }}>
+    <Ctx.Provider value={{ jobs, start, find, cancel, runLocal }}>
       {children}
-      {visible.length > 0 && <JobsPanel jobs={visible} dismiss={dismiss} navigate={navigate} />}
+      {visible.length > 0 && <JobsPanel jobs={visible} dismiss={dismiss} cancel={cancel} navigate={navigate} />}
     </Ctx.Provider>
   )
 }
@@ -222,14 +256,30 @@ function JobStatusIcon({ j }: { j: TrackedJob }) {
 }
 
 // Une tâche : titre, progression, phase ou résultat
-function JobRow({ j, dismiss, navigate, compact }: { j: TrackedJob; dismiss: (id: string) => void; navigate: (to: string) => void; compact?: boolean }) {
+type RowActions = { dismiss: (id: string) => void; cancel: (id: string) => Promise<void>; navigate: (to: string) => void }
+
+function JobRow({ j, dismiss, cancel, navigate, compact }: RowActions & { j: TrackedJob; compact?: boolean }) {
   const running = isRunning(j)
+  const [cancelling, setCancelling] = useState(false)
   return (
     <div className={compact ? 'py-2' : ''}>
       <div className="flex items-center gap-2">
         <JobStatusIcon j={j} />
         <p className="min-w-0 flex-1 truncate text-sm font-medium">{j.meta.label}</p>
         <span className="text-xs tabular-nums text-muted">{running ? `${Math.round(jobProgress(j))} %` : ''}</span>
+        {canCancel(j) && (
+          <button
+            type="button"
+            disabled={cancelling}
+            onClick={async () => {
+              setCancelling(true)
+              await cancel(j.id).finally(() => setCancelling(false))
+            }}
+            className="rounded-lg px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-danger disabled:opacity-50"
+          >
+            {cancelling ? 'Annulation…' : 'Annuler'}
+          </button>
+        )}
         {!running && (
           <button type="button" aria-label="Fermer" onClick={() => dismiss(j.id)} className="rounded-lg p-1 text-muted hover:bg-surface-2">
             <X className="size-4" />
@@ -270,7 +320,7 @@ function JobRow({ j, dismiss, navigate, compact }: { j: TrackedJob; dismiss: (id
 
 // Panneau unique : une tâche s'affiche en entier ; plusieurs tâches sont regroupées
 // en une seule barre, avec le détail à déplier.
-function JobsPanel({ jobs, dismiss, navigate }: { jobs: TrackedJob[]; dismiss: (id: string) => void; navigate: (to: string) => void }) {
+function JobsPanel({ jobs, dismiss, cancel, navigate }: RowActions & { jobs: TrackedJob[] }) {
   const [open, setOpen] = useState(false)
   const running = jobs.filter(isRunning)
   const failed = jobs.filter((j) => j.status === 'error')
@@ -283,7 +333,7 @@ function JobsPanel({ jobs, dismiss, navigate }: { jobs: TrackedJob[]; dismiss: (
     >
       <div className="anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg">
         {jobs.length === 1 ? (
-          <JobRow j={jobs[0]} dismiss={dismiss} navigate={navigate} />
+          <JobRow j={jobs[0]} dismiss={dismiss} cancel={cancel} navigate={navigate} />
         ) : (
           <>
             <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
@@ -301,11 +351,11 @@ function JobsPanel({ jobs, dismiss, navigate }: { jobs: TrackedJob[]; dismiss: (
             {open ? (
               <div className="mt-2 flex max-h-[50dvh] flex-col divide-y divide-border overflow-y-auto">
                 {jobs.map((j) => (
-                  <JobRow key={j.id} j={j} dismiss={dismiss} navigate={navigate} compact />
+                  <JobRow key={j.id} j={j} dismiss={dismiss} cancel={cancel} navigate={navigate} compact />
                 ))}
               </div>
             ) : (
-              <p className="mt-1 text-xs text-muted">Touche pour voir le détail. Tu peux continuer à utiliser l’appli.</p>
+              <p className="mt-1 text-xs text-muted">Touche pour voir le détail ou annuler. Tu peux continuer à utiliser l’appli.</p>
             )}
           </>
         )}

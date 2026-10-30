@@ -131,8 +131,16 @@ export default async (req: Request) => {
   // Une transcription longue se relance elle-même pour continuer (status déjà « running »)
   const resuming = resume === true && job?.kind === 'transcription' && job.status === 'running'
   if (!job || (job.status !== 'pending' && !resuming)) return
-  if (!resuming)
-    await db.from('ai_jobs').update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } }).eq('id', job_id)
+  if (!resuming) {
+    // Seulement si elle est toujours en attente : elle a pu être annulée entre-temps
+    const { data: started } = await db
+      .from('ai_jobs')
+      .update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } })
+      .eq('id', job_id)
+      .eq('status', 'pending')
+      .select('id')
+    if (!started?.length) return
+  }
 
   const progress: Progress = async (value, phase) => {
     await db.from('ai_jobs').update({ result: { progress: value, phase } }).eq('id', job_id)
@@ -184,6 +192,11 @@ export default async (req: Request) => {
       default:
         return null
     }
+  }
+  // Annulée par l'utilisateur pendant la rédaction : on n'enregistre rien
+  const ensureWanted = async () => {
+    const { data } = await db.from('ai_jobs').select('status').eq('id', job_id).single()
+    if (data?.status !== 'running') throw new Error('Annulé')
   }
   const run = async () => {
     if (!resuming) {
@@ -238,6 +251,7 @@ export default async (req: Request) => {
       try {
         const source = await prepare(p)
         const questions = await generateQuiz({ source, count: p.count, difficulty: p.difficulty, qtype: p.qtype })
+        await ensureWanted()
         // En cas de relance, on repart d'un QCM vide
         await db.from('quiz_questions').delete().eq('quiz_id', p.quiz_id)
         const { error } = await db.from('quiz_questions').insert(
@@ -268,6 +282,7 @@ export default async (req: Request) => {
       const p = job.params as CardsParams
       const source = await prepare(p)
       const cards = await generateFlashcards({ source, count: p.count })
+      await ensureWanted()
       const { error } = await db.from('flashcards').insert(
         cards.map((c) => ({
           space_id: job.space_id,
@@ -293,6 +308,7 @@ export default async (req: Request) => {
       try {
         const source = await prepare(p)
         const result = await generateCustomDoc({ source, instruction: p.instruction })
+        await ensureWanted()
         const { doc, text } = customToDoc(result)
         const { error } = await db.from('notes').update({ title: result.title, content: doc, content_text: text }).eq('id', p.note_id)
         if (error) throw error
@@ -306,6 +322,7 @@ export default async (req: Request) => {
       try {
         const source = await prepare(p)
         const { doc, text } = sheetToDoc(await generateSheet({ source, title: p.title }))
+        await ensureWanted()
         const { error } = await db.from('notes').update({ content: doc, content_text: text }).eq('id', p.note_id)
         if (error) throw error
         await db.from('ai_jobs').update({ status: 'done', result: { count: 1 } }).eq('id', job_id)
@@ -319,6 +336,7 @@ export default async (req: Request) => {
       try {
         const source = await prepare(p)
         const root = await generateMindmap({ source, title: p.title })
+        await ensureWanted()
         const dates: string[] = []
         if (p.note_ids?.length) {
           const { data } = await db.from('notes').select('updated_at').in('id', p.note_ids)

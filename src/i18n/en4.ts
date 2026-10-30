@@ -432,7 +432,7 @@ export const EN4: Record<string, string> = {
   'Tâches terminées': 'Tasks finished',
   '· {0} en échec': '· {0} failed',
   'Progression des tâches': 'Task progress',
-  'Touche pour voir le détail. Tu peux continuer à utiliser l’appli.': 'Tap to see details. You can keep using the app.',
+  'Touche pour voir le détail ou annuler. Tu peux continuer à utiliser l’appli.': 'Tap to see details or cancel. You can keep using the app.',
   // Assistant flottant
   'Salut, moi c’est GIRAFA ! Je prépare des documents de révision à partir de tes cours. Qu’est-ce que je fais pour toi ?': 'Hi, I’m GIRAFA! I make revision documents from your courses. What can I do for you?',
   'Une fiche de révision complète': 'A complete revision sheet',
@@ -513,6 +513,9 @@ export const EN4: Record<string, string> = {
   'Formules bien écrites, plus de zones noires, et les pages ne coupent plus une ligne, un schéma ou un encadré en deux.': 'Properly written formulas, no more black areas, and pages no longer cut a line, diagram or box in half.',
   'Bientôt : les questions ouvertes': 'Coming soon: open questions',
   'Tu rédigeras ta réponse avec tes mots, et l’IA la corrigera en te disant ce qui manque.': 'You’ll write your answer in your own words, and the AI will mark it and tell you what’s missing.',
+  'Annulation…': 'Cancelling…',
+  'Annulé': 'Cancelled',
+  '{0} : annulé': '{0}: cancelled',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',
