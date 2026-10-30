@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react'
-import { ArrowLeft, Download, FileDown, FileText, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Workflow, X, FileDown, FileText, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
@@ -12,9 +12,10 @@ import { useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
 import { useToast } from '@/context/toast'
 import { fmt } from '@/lib/dates'
-import { useInvalidate, useSubjects, useTrash } from '@/lib/data'
+import { useCourses, useInvalidate, useNotesList, useSubjects, useTrash } from '@/lib/data'
 import { noteToDocx, safeFilename, saveBlob } from '@/lib/exportNote'
 import { noteToPdf } from '@/lib/pdfExport'
+import { oldSheetSource } from '@/lib/sheetRefresh'
 import { signedUrl, STORAGE_PREFIX, uploadNoteFile } from '@/lib/storage'
 import { must, supabase } from '@/lib/supabase'
 import { useStudyTimer } from '@/lib/studyTimer'
@@ -59,6 +60,84 @@ function Versions({ noteId, open, onClose, onRestore }: { noteId: string; open: 
 export default function NoteEditorPage() {
   const { id = '' } = useParams()
   return <NoteEditor key={id} id={id} />
+}
+
+// Bandeau sur une fiche faite avant les fiches visuelles : la refaire (l'ancienne est gardée)
+const DISMISSED_KEY = 'regulya.sheet-refresh-dismissed'
+function readDismissed(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+function RefreshSheetBanner({ note }: { note: Note }) {
+  const { data: courses = [] } = useCourses()
+  const { data: notes = [] } = useNotesList()
+  const { generate } = useGenerateSheet()
+  const [hidden, setHidden] = useState(() => readDismissed().includes(note.id))
+  const [busy, setBusy] = useState(false)
+  const [newId, setNewId] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const source = oldSheetSource(note, courses, notes)
+  if (hidden || !source) return null
+  const dismiss = () => {
+    setHidden(true)
+    try {
+      localStorage.setItem(DISMISSED_KEY, JSON.stringify([...readDismissed(), note.id].slice(-200)))
+    } catch {
+      /* stockage indisponible : le bandeau reviendra, sans gravité */
+    }
+  }
+  return (
+    <div className="mb-3 flex flex-wrap items-start gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3">
+      <Workflow className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />
+      <div className="min-w-[min(100%,14rem)] flex-1 text-sm">
+        {newId ? (
+          <>
+            <p className="font-semibold text-accent-ink">Ta nouvelle fiche est en préparation ✨</p>
+            <p className="mt-0.5 text-muted">Elle arrive dans tes notes d’ici une minute ; celle-ci reste telle quelle.</p>
+            <Link to={`/notes/${newId}`} className="mt-1 inline-block font-medium text-accent-ink hover:underline">
+              Ouvrir la nouvelle fiche →
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="font-semibold">Les fiches sont maintenant beaucoup plus visuelles</p>
+            <p className="mt-0.5 text-muted">Schémas, tableaux, encadrés « à retenir » et exemples. Refais cette fiche pour en profiter : celle-ci est gardée, rien n’est perdu.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                icon={<Sparkles className="size-4" />}
+                loading={busy}
+                onClick={async () => {
+                  setBusy(true)
+                  setError(null)
+                  try {
+                    setNewId(await generate({ subjectId: note.subject_id, title: source.title, courseIds: source.courseIds, noteIds: source.noteIds }))
+                  } catch (e) {
+                    setError(e)
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                Refaire ma fiche
+              </Button>
+              <Button size="sm" variant="ghost" onClick={dismiss}>
+                Non merci
+              </Button>
+            </div>
+            <ErrorBox error={error} />
+          </>
+        )}
+      </div>
+      <IconButton label="Fermer" onClick={dismiss} className="-mr-2 -mt-2 size-8">
+        <X className="size-4" />
+      </IconButton>
+    </div>
+  )
 }
 
 function NoteEditor({ id }: { id: string }) {
@@ -340,6 +419,7 @@ function NoteEditor({ id }: { id: string }) {
       </div>
 
       {tour}
+      {note && <RefreshSheetBanner note={note} />}
       <div className="border-y border-border bg-surface sm:rounded-[var(--radius-card)] sm:border">
         <div data-tour="note-toolbar" className="sticky top-[57px] z-10 border-b border-border bg-surface/95 px-2 py-1 backdrop-blur sm:rounded-t-[var(--radius-card)] lg:top-0">
           {editor && <Toolbar editor={editor} onImage={() => imageInput.current?.click()} onAttach={() => fileInput.current?.click()} />}

@@ -1,4 +1,4 @@
-import { Calculator, Layers, ListChecks, Smartphone, Target, Workflow } from 'lucide-react'
+import { Calculator, FileDown, Layers, ListChecks, PenLine, Smartphone, Target, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Mascot } from './AssistantWidget'
@@ -23,7 +23,7 @@ const ITEMS: Item[] = [
   {
     icon: <Workflow className="size-5" />,
     title: 'Des fiches beaucoup plus visuelles',
-    text: 'Schémas en étapes, cycles, cartes autour d’une notion, tableaux comparatifs et encadrés colorés : moins de texte, plus de repères.',
+    text: 'Schémas en étapes, cycles, cartes autour d’une notion, tableaux comparatifs et encadrés colorés. Tu as déjà des fiches ? Ouvre-en une : un bouton te propose de la refaire, l’ancienne est gardée.',
   },
   {
     icon: <ListChecks className="size-5" />,
@@ -36,6 +36,11 @@ const ITEMS: Item[] = [
     text: 'Dans les questions, les réponses et la correction, les formules sont écrites proprement, seules ou avec une phrase.',
   },
   {
+    icon: <FileDown className="size-5" />,
+    title: 'Export PDF impeccable',
+    text: 'Formules bien écrites, plus de zones noires, et les pages ne coupent plus une ligne, un schéma ou un encadré en deux.',
+  },
+  {
     icon: <Layers className="size-5" />,
     title: 'Une seule barre de chargement',
     text: 'Plusieurs générations en même temps ? Une barre regroupée, le détail si tu veux, et chaque tâche terminée se ferme toute seule.',
@@ -44,6 +49,11 @@ const ITEMS: Item[] = [
     icon: <Smartphone className="size-5" />,
     title: 'Plus confortable sur téléphone',
     text: 'Les textes ne sont plus écrasés à côté des boutons, sur toutes les pages.',
+  },
+  {
+    icon: <PenLine className="size-5" />,
+    title: 'Bientôt : les questions ouvertes',
+    text: 'Tu rédigeras ta réponse avec tes mots, et l’IA la corrigera en te disant ce qui manque.',
   },
 ]
 

@@ -1,8 +1,8 @@
-import { Sparkles } from 'lucide-react'
+import { PenLine, Sparkles } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { SourcePicker, useGenerateQuiz } from '@/components/Generate'
-import { Button, Card, ErrorBox, Field, Input, PageHeader, Select, Tabs } from '@/components/ui'
+import { Badge, Button, Card, ErrorBox, Field, Input, PageHeader, Select, Tabs } from '@/components/ui'
 import { useCourses, useNotesList, useSubjects } from '@/lib/data'
 import type { Quiz } from '@/lib/types'
 
@@ -94,6 +94,13 @@ export default function QuizNewPage() {
               { value: 'truefalse', label: 'Vrai ou faux' },
             ]}
           />
+          <div className="mt-1 flex items-start gap-2.5 rounded-2xl border border-dashed border-border px-3 py-2.5 text-sm">
+            <PenLine className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+            <p className="min-w-0 flex-1 text-muted">
+              <span className="font-medium text-text">Questions ouvertes</span> : tu rédiges ta réponse avec tes mots, l’IA la corrige et te dit ce qui manque.
+            </p>
+            <Badge tone="muted">Bientôt</Badge>
+          </div>
         </div>
         <Field label="Titre (optionnel)" id="qtitle">
           <Input id="qtitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={defaultTitle()} />
