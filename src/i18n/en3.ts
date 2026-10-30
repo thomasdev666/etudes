@@ -46,7 +46,6 @@ export const EN3: Record<string, string> = {
   Journée: 'Day',
   '· à rendre': '· due',
   'Séance faite': 'Session done',
-  de: 'of',
   révision: 'revision',
   'Semaine du {0}': 'Week of {0}',
   'À venir': 'Upcoming',

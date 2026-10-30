@@ -401,6 +401,9 @@ export const EN4: Record<string, string> = {
   'Les {0} carte{1} de cette matière repartent de zéro : elles seront à revoir aujourd’hui, et l’espacement recommence.': 'The {0} card{1} in this subject start from zero: they are due today, and the spacing starts again.',
   'Tes cartes et ton historique de révisions sont gardés.': 'Your cards and your review history are kept.',
   'Impossible de remettre les cartes à zéro. Réessaie dans un instant.': 'Could not reset the cards. Try again in a moment.',
+  'Recopier le lundi du mardi au vendredi': 'Copy Monday to Tuesday–Friday',
+  'Repos': 'Rest',
+  de: 'from',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

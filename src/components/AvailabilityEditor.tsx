@@ -16,32 +16,56 @@ export function availabilitySummary(a: Availability) {
 
 export function AvailabilityEditor({ value, onChange }: { value: Availability; onChange: (a: Availability) => void }) {
   const setDay = (i: number, patch: Partial<Availability['days'][number]>) => onChange({ ...value, days: value.days.map((d, j) => (j === i ? { ...d, ...patch } : d)) })
+  // Recopie le lundi sur le mardi au vendredi : le cas le plus courant
+  const copyMonday = () => onChange({ ...value, days: value.days.map((d, j) => (j > 0 && j < 5 ? { ...value.days[0] } : d)) })
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col divide-y divide-border rounded-2xl border border-border">
         {value.days.map((d, i) => (
-          <div key={i} className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-1 sm:grid-cols-[7rem_9rem_minmax(0,1fr)]">
-            <span className="text-sm font-medium">{DAYS[i]}</span>
-            <Select value={d.minutes} onChange={(e) => setDay(i, { minutes: Number(e.target.value) })} aria-label={`Temps de travail le ${DAYS[i].toLowerCase()}`} className="py-1.5 text-sm">
-              {MINUTES.map((m) => (
-                <option key={m} value={m}>
-                  {durationText(m)}
-                </option>
-              ))}
-            </Select>
-            <div className={`col-span-2 flex min-w-0 flex-wrap items-center gap-1.5 text-sm sm:col-span-1 sm:col-start-3 ${d.minutes ? '' : 'opacity-40'}`}>
-              <span className="text-muted">entre</span>
-              <input type="time" value={d.from} disabled={!d.minutes} onChange={(e) => setDay(i, { from: e.target.value })} aria-label={`Début le ${DAYS[i].toLowerCase()}`} className="w-[7.5rem] min-w-0 rounded-lg border border-border bg-surface px-2 py-1" />
-              <span className="text-muted">et</span>
-              <input type="time" value={d.to} disabled={!d.minutes} onChange={(e) => setDay(i, { to: e.target.value })} aria-label={`Fin le ${DAYS[i].toLowerCase()}`} className="w-[7.5rem] min-w-0 rounded-lg border border-border bg-surface px-2 py-1" />
+          <div key={i} className="flex flex-col gap-2 px-3 py-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-semibold">{DAYS[i]}</span>
+              <span className="text-sm text-muted">{d.minutes ? `${durationText(d.minutes)}` : 'Repos'}</span>
             </div>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={`Temps de travail le ${DAYS[i].toLowerCase()}`}>
+              {MINUTES.map((m) => {
+                const on = d.minutes === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setDay(i, { minutes: m })}
+                    className={`min-h-9 rounded-full border px-3 text-sm font-medium ${on ? 'border-accent bg-accent text-white' : 'border-border text-muted hover:bg-surface-2'}`}
+                  >
+                    {m === 0 ? 'Repos' : durationText(m)}
+                  </button>
+                )
+              })}
+            </div>
+            {d.minutes > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <label className="flex items-center gap-1.5">
+                  <span className="text-muted">de</span>
+                  <input type="time" value={d.from} onChange={(e) => setDay(i, { from: e.target.value })} aria-label={`Début le ${DAYS[i].toLowerCase()}`} className="min-h-9 rounded-lg border border-border bg-surface px-2" />
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <span className="text-muted">à</span>
+                  <input type="time" value={d.to} onChange={(e) => setDay(i, { to: e.target.value })} aria-label={`Fin le ${DAYS[i].toLowerCase()}`} className="min-h-9 rounded-lg border border-border bg-surface px-2" />
+                </label>
+              </div>
+            )}
           </div>
         ))}
       </div>
+      <button type="button" onClick={copyMonday} className="self-start text-sm font-medium text-accent-ink hover:underline">
+        Recopier le lundi du mardi au vendredi
+      </button>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Séance de travail au plus</span>
-          <Select value={value.sessionMax} onChange={(e) => onChange({ ...value, sessionMax: Number(e.target.value) })} className="py-1.5 text-sm">
+          <Select value={value.sessionMax} onChange={(e) => onChange({ ...value, sessionMax: Number(e.target.value) })} className="py-2 text-sm">
             {[30, 45, 60, 90, 120].map((m) => (
               <option key={m} value={m}>
                 {durationText(m)}
@@ -51,7 +75,7 @@ export function AvailabilityEditor({ value, onChange }: { value: Availability; o
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Pause après un cours</span>
-          <Select value={value.afterClass} onChange={(e) => onChange({ ...value, afterClass: Number(e.target.value) })} className="py-1.5 text-sm">
+          <Select value={value.afterClass} onChange={(e) => onChange({ ...value, afterClass: Number(e.target.value) })} className="py-2 text-sm">
             {[0, 15, 30, 45, 60].map((m) => (
               <option key={m} value={m}>
                 {m ? `${m} min` : 'Aucune'}
