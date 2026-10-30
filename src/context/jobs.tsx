@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, Sparkles, X, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Loader2, Sparkles, X, XCircle } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cx, ProgressBar } from '@/components/ui'
@@ -188,80 +188,21 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   }, [uploading])
 
   const visible = jobs.filter((j) => !j.dismissed)
-  const dismiss = (id: string) => setJobs((cur) => cur.map((j) => (j.id === id ? { ...j, dismissed: true } : j)))
+  const dismiss = useCallback((id: string) => setJobs((cur) => cur.map((j) => (j.id === id ? { ...j, dismissed: true } : j))), [])
+
+  // Une tâche terminée se ferme seule après quelques secondes (le message « terminé » reste
+  // dans la notification) ; une tâche en échec reste affichée jusqu'à ce qu'on la ferme.
+  const doneIds = jobs.filter((j) => j.status === 'done' && !j.dismissed).map((j) => j.id).join(',')
+  useEffect(() => {
+    if (!doneIds) return
+    const t = setTimeout(() => doneIds.split(',').forEach(dismiss), 6000)
+    return () => clearTimeout(t)
+  }, [doneIds, dismiss])
 
   return (
     <Ctx.Provider value={{ jobs, start, find, runLocal }}>
       {children}
-      {visible.length > 0 && (
-        <div
-          aria-live="polite"
-          className="fixed right-3 z-40 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col gap-2 lg:right-5"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset))' }}
-        >
-          {/* Sur mobile, seule la dernière tâche est détaillée */}
-          {visible.length > 1 && (
-            <p className="self-end rounded-full bg-surface px-3 py-1 text-xs text-muted shadow-card lg:hidden">
-              {visible.length} générations en cours
-            </p>
-          )}
-          {visible.map((j, i) => {
-            const running = j.status === 'pending' || j.status === 'running'
-            return (
-              <div
-                key={j.id}
-                className={cx('anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg', i < visible.length - 1 && 'hidden lg:block')}
-              >
-                <div className="flex items-center gap-2">
-                  {running ? (
-                    <Loader2 className="size-4 shrink-0 animate-spin text-accent-ink" aria-hidden />
-                  ) : j.status === 'done' ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
-                  ) : (
-                    <XCircle className="size-4 shrink-0 text-danger" aria-hidden />
-                  )}
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{j.meta.label}</p>
-                  <span className="text-xs tabular-nums text-muted">{running ? `${Math.round(jobProgress(j))} %` : ''}</span>
-                  {!running && (
-                    <button type="button" aria-label="Fermer" onClick={() => dismiss(j.id)} className="rounded-lg p-1 text-muted hover:bg-surface-2">
-                      <X className="size-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <ProgressBar value={jobProgress(j)} color={j.status === 'error' ? 'var(--danger)' : j.status === 'done' ? 'var(--success)' : undefined} label={j.meta.label} />
-                </div>
-                <div className={cx('mt-1.5 text-xs', j.status === 'error' ? 'text-danger' : 'text-muted')}>
-                  {running ? (
-                    (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.') +
-                    (j.kind === 'upload' ? ' · Garde l’appli ouverte.' : '')
-                  ) : j.status === 'error' ? (
-                    (j.error ?? 'La génération a échoué.')
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="size-3.5" aria-hidden />
-                      Terminé
-                      {j.result?.count !== undefined && j.kind !== 'mindmap' ? ` · ${j.result.count} élément${j.result.count > 1 ? 's' : ''}` : ''}
-                      {j.meta.link && (
-                        <button
-                          type="button"
-                          className="ml-auto font-semibold text-accent-ink hover:underline"
-                          onClick={() => {
-                            dismiss(j.id)
-                            navigate(j.meta.link!)
-                          }}
-                        >
-                          {j.meta.linkLabel ?? 'Voir'}
-                        </button>
-                      )}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {visible.length > 0 && <JobsPanel jobs={visible} dismiss={dismiss} navigate={navigate} />}
     </Ctx.Provider>
   )
 }
@@ -270,4 +211,105 @@ export function useJobs() {
   const v = useContext(Ctx)
   if (!v) throw new Error('JobsProvider manquant')
   return v
+}
+
+const isRunning = (j: TrackedJob) => j.status === 'pending' || j.status === 'running'
+
+function JobStatusIcon({ j }: { j: TrackedJob }) {
+  if (isRunning(j)) return <Loader2 className="size-4 shrink-0 animate-spin text-accent-ink" aria-hidden />
+  if (j.status === 'done') return <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+  return <XCircle className="size-4 shrink-0 text-danger" aria-hidden />
+}
+
+// Une tâche : titre, progression, phase ou résultat
+function JobRow({ j, dismiss, navigate, compact }: { j: TrackedJob; dismiss: (id: string) => void; navigate: (to: string) => void; compact?: boolean }) {
+  const running = isRunning(j)
+  return (
+    <div className={compact ? 'py-2' : ''}>
+      <div className="flex items-center gap-2">
+        <JobStatusIcon j={j} />
+        <p className="min-w-0 flex-1 truncate text-sm font-medium">{j.meta.label}</p>
+        <span className="text-xs tabular-nums text-muted">{running ? `${Math.round(jobProgress(j))} %` : ''}</span>
+        {!running && (
+          <button type="button" aria-label="Fermer" onClick={() => dismiss(j.id)} className="rounded-lg p-1 text-muted hover:bg-surface-2">
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      <div className="mt-1.5">
+        <ProgressBar value={jobProgress(j)} color={j.status === 'error' ? 'var(--danger)' : j.status === 'done' ? 'var(--success)' : undefined} label={j.meta.label} />
+      </div>
+      <div className={cx('mt-1 text-xs', j.status === 'error' ? 'text-danger' : 'text-muted')}>
+        {running ? (
+          (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.') + (j.kind === 'upload' ? ' · Garde l’appli ouverte.' : '')
+        ) : j.status === 'error' ? (
+          (j.error ?? 'La génération a échoué.')
+        ) : (
+          <span className="flex items-center gap-2">
+            <Sparkles className="size-3.5" aria-hidden />
+            Terminé
+            {j.result?.count !== undefined && j.kind !== 'mindmap' && j.kind !== 'upload' ? ` · ${j.result.count} élément${j.result.count > 1 ? 's' : ''}` : ''}
+            {j.meta.link && (
+              <button
+                type="button"
+                className="ml-auto font-semibold text-accent-ink hover:underline"
+                onClick={() => {
+                  dismiss(j.id)
+                  navigate(j.meta.link!)
+                }}
+              >
+                {j.meta.linkLabel ?? 'Voir'}
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Panneau unique : une tâche s'affiche en entier ; plusieurs tâches sont regroupées
+// en une seule barre, avec le détail à déplier.
+function JobsPanel({ jobs, dismiss, navigate }: { jobs: TrackedJob[]; dismiss: (id: string) => void; navigate: (to: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const running = jobs.filter(isRunning)
+  const failed = jobs.filter((j) => j.status === 'error')
+  const avg = jobs.reduce((n, j) => n + jobProgress(j), 0) / jobs.length
+  return (
+    <div
+      aria-live="polite"
+      className="fixed right-3 z-40 w-[min(22rem,calc(100vw-1.5rem))] lg:right-5"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset))' }}
+    >
+      <div className="anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg">
+        {jobs.length === 1 ? (
+          <JobRow j={jobs[0]} dismiss={dismiss} navigate={navigate} />
+        ) : (
+          <>
+            <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
+              {running.length ? <Loader2 className="size-4 shrink-0 animate-spin text-accent-ink" aria-hidden /> : failed.length ? <XCircle className="size-4 shrink-0 text-danger" aria-hidden /> : <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />}
+              <span className="min-w-0 flex-1 text-sm font-medium">
+                {running.length ? `${running.length} tâche${running.length > 1 ? 's' : ''} en cours` : 'Tâches terminées'}
+                {failed.length ? <span className="text-danger"> · {failed.length} en échec</span> : null}
+              </span>
+              <span className="text-xs tabular-nums text-muted">{running.length ? `${Math.round(avg)} %` : ''}</span>
+              <ChevronDown className={cx('size-4 shrink-0 text-muted motion-safe:transition-transform', open && 'rotate-180')} aria-hidden />
+            </button>
+            <div className="mt-2">
+              <ProgressBar value={avg} label="Progression des tâches" color={failed.length && !running.length ? 'var(--danger)' : undefined} />
+            </div>
+            {open ? (
+              <div className="mt-2 flex max-h-[50dvh] flex-col divide-y divide-border overflow-y-auto">
+                {jobs.map((j) => (
+                  <JobRow key={j.id} j={j} dismiss={dismiss} navigate={navigate} compact />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-muted">Touche pour voir le détail. Tu peux continuer à utiliser l’appli.</p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
 }

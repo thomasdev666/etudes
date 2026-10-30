@@ -428,6 +428,11 @@ export const EN4: Record<string, string> = {
   'Assistant — {0}': 'Assistant — {0}',
   'Assistant : « {0} »': 'Assistant: “{0}”',
   'L’assistant prépare ce document…': 'The assistant is preparing this document…',
+  '{0} tâche{1} en cours': '{0} task{1} in progress',
+  'Tâches terminées': 'Tasks finished',
+  '· {0} en échec': '· {0} failed',
+  'Progression des tâches': 'Task progress',
+  'Touche pour voir le détail. Tu peux continuer à utiliser l’appli.': 'Tap to see details. You can keep using the app.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',
