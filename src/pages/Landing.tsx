@@ -7,6 +7,7 @@ import { PlanChoice } from '@/components/PlanChoice'
 import { Button, cx } from '@/components/ui'
 import { ESSAI_JOURS } from '@/config/offers'
 import { SITE } from '@/config/site'
+import { MadeBy } from '@/components/MadeBy'
 import { isEn } from '@/i18n/lang'
 
 // Page de présentation publique : ce que fait l'appli, en quoi elle diffère des IA gratuites, les offres.
@@ -342,6 +343,9 @@ export default function LandingPage() {
             <Link to="/confidentialite" className="hover:underline">Confidentialité</Link>
             <Link to="/mentions-legales" className="hover:underline">Mentions légales</Link>
           </nav>
+        </div>
+        <div className="mx-auto max-w-5xl px-4 pb-24 sm:px-6 sm:pb-8">
+          <MadeBy />
         </div>
       </footer>
 

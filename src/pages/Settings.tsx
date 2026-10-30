@@ -18,6 +18,8 @@ import { exportEverything } from '@/lib/exportAll'
 import { saveBlob } from '@/lib/exportNote'
 import { useOnboarding } from '@/lib/onboarding'
 import { applyTheme, readTheme, type Theme } from '@/lib/theme'
+import { setGirafaHidden, useGirafaHidden } from '@/lib/assistantPref'
+import { MadeBy } from '@/components/MadeBy'
 import { authHeader, must, supabase } from '@/lib/supabase'
 
 // Que faire de l'audio une fois la transcription terminée (la transcription reste toujours)
@@ -325,6 +327,20 @@ function Account() {
   )
 }
 
+// Bouton flottant de GIRAFA : on peut le cacher s'il gêne (réglage de cet appareil)
+function GirafaSetting() {
+  const hidden = useGirafaHidden()
+  return (
+    <label className="mt-4 flex items-start gap-3 border-t border-border pt-4">
+      <input type="checkbox" checked={!hidden} onChange={(e) => setGirafaHidden(!e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]" />
+      <span className="min-w-0">
+        <span className="block font-medium">Afficher GIRAFA en bas de l’écran</span>
+        <span className="block text-sm text-muted">Si elle te gêne, cache-la : tu la retrouves à tout moment dans le menu (icône ✨ sur téléphone, « GIRAFA » sur ordinateur).</span>
+      </span>
+    </label>
+  )
+}
+
 export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>(readTheme)
   const [exporting, setExporting] = useState('')
@@ -381,6 +397,7 @@ export default function SettingsPage() {
           <span className="inline-flex items-center gap-1"><Sun className="size-3.5" aria-hidden /> clair</span>
           <span className="inline-flex items-center gap-1"><Moon className="size-3.5" aria-hidden /> sombre, reposant le soir</span>
         </p>
+        <GirafaSetting />
       </Section>
 
       <Section id="espaces" title="Espaces" description="Un espace par établissement. Les données d’un espace ne sont jamais visibles depuis un autre.">
@@ -452,6 +469,9 @@ export default function SettingsPage() {
       </Section>
       <p className="pt-2 text-center text-xs text-muted" aria-label="Version de l’appli">
         Regulya · version {__APP_VERSION__}
+      </p>
+      <p className="-mt-2 pb-2 text-center">
+        <MadeBy />
       </p>
     </div>
   )

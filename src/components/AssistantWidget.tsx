@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { useNavigate } from 'react-router-dom'
 import { useJobs } from '@/context/jobs'
 import { useCreateAssistantDoc } from '@/lib/assistant'
+import { useGirafaHidden } from '@/lib/assistantPref'
 import { useCourses, useNotesList, useSubjects } from '@/lib/data'
 import { useUsage } from '@/lib/plans'
 import { Button, cx, SubjectDot } from './ui'
@@ -415,11 +416,13 @@ function Conversation({ onClose }: { onClose: () => void }) {
 
 export function AssistantWidget() {
   const [open, setOpen] = useState(false)
+  // Caché dans les paramètres : GIRAFA reste accessible depuis le menu
+  const hidden = useGirafaHidden()
   // La conversation repart de zéro à chaque ouverture, sauf pendant une création
   const [key, setKey] = useState(0)
   return (
     <>
-      {!open && (
+      {!open && !hidden && (
         <button
           type="button"
           onClick={() => setOpen(true)}

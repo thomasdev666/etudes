@@ -516,6 +516,9 @@ export const EN4: Record<string, string> = {
   'Annulation…': 'Cancelling…',
   'Annulé': 'Cancelled',
   '{0} : annulé': '{0}: cancelled',
+  'Afficher GIRAFA en bas de l’écran': 'Show GIRAFA at the bottom of the screen',
+  'Si elle te gêne, cache-la : tu la retrouves à tout moment dans le menu (icône ✨ sur téléphone, « GIRAFA » sur ordinateur).': 'If it gets in the way, hide it: you can always find it in the menu (✨ icon on phone, “GIRAFA” on computer).',
+  'Site réalisé par': 'Website by',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

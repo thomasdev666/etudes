@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 
 import { SITE } from '@/config/site'
 import { isEn } from '@/i18n/lang'
+import { MadeBy } from '@/components/MadeBy'
 import { euros, ESSAI_JOURS, OFFERS } from '@/config/offers'
 
 // Les informations de l'éditeur se complètent dans src/config/site.ts
@@ -143,6 +144,7 @@ export default function LegalPage({ path }: { path: string }) {
         <Link to="/cgu" className="hover:underline">CGU</Link>
         <Link to="/confidentialite" className="hover:underline">Confidentialité</Link>
         <Link to="/mentions-legales" className="hover:underline">Mentions légales</Link>
+        <MadeBy className="sm:ml-auto" />
       </nav>
     </div>
   )

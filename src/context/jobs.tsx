@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useNavigate } from 'react-router-dom'
 import { cx, ProgressBar } from '@/components/ui'
 import { createAiJob, type JobMeta } from '@/lib/ai'
+import { useGirafaHidden } from '@/lib/assistantPref'
 import { useInvalidate, type Table } from '@/lib/data'
 import { must, supabase } from '@/lib/supabase'
 import type { AiJob } from '@/lib/types'
@@ -322,6 +323,8 @@ function JobRow({ j, dismiss, cancel, navigate, compact }: RowActions & { j: Tra
 // en une seule barre, avec le détail à déplier.
 function JobsPanel({ jobs, dismiss, cancel, navigate }: RowActions & { jobs: TrackedJob[] }) {
   const [open, setOpen] = useState(false)
+  // Au-dessus du bouton de GIRAFA, ou à sa place s'il est caché
+  const girafaHidden = useGirafaHidden()
   const running = jobs.filter(isRunning)
   const failed = jobs.filter((j) => j.status === 'error')
   const avg = jobs.reduce((n, j) => n + jobProgress(j), 0) / jobs.length
@@ -329,7 +332,7 @@ function JobsPanel({ jobs, dismiss, cancel, navigate }: RowActions & { jobs: Tra
     <div
       aria-live="polite"
       className="fixed right-3 z-40 w-[min(22rem,calc(100vw-1.5rem))] lg:right-5"
-      style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--jobs-offset) + 4.25rem)' }}
+      style={{ bottom: `calc(env(safe-area-inset-bottom) + var(--jobs-offset) + ${girafaHidden ? '0rem' : '4.25rem'})` }}
     >
       <div className="anim-pop rounded-2xl border border-border bg-surface p-3 shadow-lg">
         {jobs.length === 1 ? (

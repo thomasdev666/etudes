@@ -10,6 +10,8 @@ export const SITE = {
   siret: '[numéro SIRET à compléter]',
   // Région de l'instance Supabase (Project Settings → General → Region)
   dataRegion: 'Union européenne (à confirmer dans Supabase)',
+  // Crédit en bas du site, avec un lien vers le site du créateur
+  madeBy: { name: 'Orphée X', url: 'https://orpheex.fr' },
 }
 
 // Champs encore à compléter : affichés comme avertissement dans l'appli de l'éditeur
