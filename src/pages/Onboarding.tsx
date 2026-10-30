@@ -1,13 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
-import { OfferStep } from '@/pages/Guide'
+import { OfferStep } from '@/components/OfferStep'
 import { supabase } from '@/lib/supabase'
 
 export function Onboarding() {
   const qc = useQueryClient()
   const [step, setStep] = useState<'offre' | 'espace'>('offre')
-  const [name, setName] = useState('TBS')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -42,11 +42,11 @@ export function Onboarding() {
       <Card className="w-full max-w-sm p-6">
         <h1 className="text-xl font-bold">Bienvenue 👋</h1>
         <p className="mt-1 text-muted">
-          Crée ton premier espace. Un espace = un établissement (TBS, puis Hull…). Les données d’un espace restent séparées des autres.
+          Crée ton premier espace : ton école. Si tu changes d’établissement (échange, master…), tu créeras un autre espace, et les données de chacun restent séparées.
         </p>
         <form onSubmit={submit} className="mt-5 flex flex-col gap-4">
           <Field label="Nom de l’espace" id="space">
-            <Input id="space" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+            <Input id="space" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. : EDHEC, KEDGE, NEOMA, IAE de Lyon…" autoFocus />
           </Field>
           <ErrorBox error={error} />
           <Button type="submit" loading={busy}>

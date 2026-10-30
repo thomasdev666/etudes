@@ -223,7 +223,7 @@ function Spaces() {
           setName('')
         }}
       >
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nouvel espace (ex. Hull)" aria-label="Nom du nouvel espace" />
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nouvel espace (ex. : échange à l’étranger)" aria-label="Nom du nouvel espace" />
         <Button type="submit" disabled={!name.trim()}>
           Créer
         </Button>

@@ -129,7 +129,7 @@ export function RecordModal({ open, onClose, subjectId }: { open: boolean; onClo
     >
       <div className="flex flex-col gap-4">
         {busy && <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">Un enregistrement est déjà en cours.</p>}
-        {free && <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm">La transcription est réservée à l’offre Premium. <Link to="/abonnement" className="font-medium text-accent-ink underline">Voir les offres</Link></p>}
+        {free && <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm">La transcription est réservée à l’offre Premium. <Link to="/abonnement" className="font-medium text-accent-ink underline">Essaie-la gratuitement 7 jours</Link></p>}
         <Field label="Titre" id="rtitle">
           <Input id="rtitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={defaultTitle} />
         </Field>

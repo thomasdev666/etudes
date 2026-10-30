@@ -56,7 +56,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
     {
       target: 'space',
       title: 'Tes espaces',
-      body: 'Un espace par école (TBS, puis Hull). Change d’espace ici : les données de chacun restent séparées.',
+      body: 'Un espace par école ou établissement (par exemple ton école, puis ton échange à l’étranger). Change d’espace ici : les données de chacun restent séparées.',
     },
     {
       target: 'nav-settings',

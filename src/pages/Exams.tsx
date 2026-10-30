@@ -139,6 +139,14 @@ function ExamCard({ exam }: { exam: ExamId }) {
       >
         Examen blanc · {total} questions · {hours(fullMinutes(exam))}
       </Button>
+      {free && (
+        <p className="-mt-2 text-sm text-muted">
+          L’examen blanc complet est réservé à Premium.{' '}
+          <Link to="/abonnement" className="font-medium text-accent-ink underline">
+            Essaie-le gratuitement 7 jours
+          </Link>
+        </p>
+      )}
       <ErrorBox error={error} />
       <div>
         <p className="mb-2 text-sm font-medium text-muted">Ou s’entraîner sur une section :</p>

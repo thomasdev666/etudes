@@ -1,7 +1,6 @@
 import { CalendarCheck, Check, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PlanChoice } from '@/components/PlanChoice'
 import { Swatches } from '@/components/Swatches'
 import { TimetableImport } from '@/components/TimetableImport'
 import { Button, Card, cx, ErrorBox, Input, ProgressBar, Spinner } from '@/components/ui'
@@ -11,7 +10,6 @@ import { suggestSubjects, type SubjectSuggestion } from '@/lib/calendarSubjects'
 import { SUBJECT_PALETTE } from '@/lib/colors'
 import { useInvalidate, useSubjects, useTrash, useUpdate } from '@/lib/data'
 import { SETUP_ORDER, useOnboarding, type SetupStep } from '@/lib/onboarding'
-import { useRedeemCode } from '@/lib/plans'
 import { must, supabase } from '@/lib/supabase'
 import type { Subject } from '@/lib/types'
 
@@ -165,60 +163,6 @@ function SubjectsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
           Valider mes matières{chosen.length ? ` (${chosen.length + existing.length})` : ''}
         </Button>
       </div>
-    </div>
-  )
-}
-
-// Choix de l'offre à la création du compte : gratuit, code d'accès, ou Premium (paiement bientôt)
-export function OfferStep({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
-  const redeem = useRedeemCode()
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [info, setInfo] = useState('')
-  const [error, setError] = useState<unknown>(null)
-  return (
-    <div className="flex flex-col gap-6">
-      <PlanChoice
-        freeAction={
-          <Button className="w-full" variant="secondary" onClick={onDone}>
-            Continuer gratuitement
-          </Button>
-        }
-      />
-      <form
-        className="mx-auto flex w-full max-w-md flex-col gap-2 rounded-[24px] border border-dashed border-border bg-surface p-5"
-        onSubmit={async (e) => {
-          e.preventDefault()
-          setBusy(true)
-          setError(null)
-          try {
-            await redeem(code)
-            setInfo('Premium activé ✨')
-            setTimeout(onDone, 800)
-          } catch (err) {
-            setError(err)
-          } finally {
-            setBusy(false)
-          }
-        }}
-      >
-        <p className="font-semibold">J’ai un code d’accès</p>
-        <div className="flex gap-2">
-          <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ton code" aria-label="Code d’accès" className="flex-1" />
-          <Button type="submit" loading={busy} disabled={!code.trim()}>
-            Activer
-          </Button>
-        </div>
-        {info && <p className="text-sm text-success">{info}</p>}
-        <ErrorBox error={error} />
-      </form>
-      {onBack && (
-        <div className="flex justify-center">
-          <Button variant="ghost" onClick={onBack}>
-            Retour
-          </Button>
-        </div>
-      )}
     </div>
   )
 }
