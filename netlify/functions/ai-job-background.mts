@@ -1,7 +1,7 @@
 // Fonction d'arrière-plan Netlify (jusqu'à 15 min) : traite une tâche ai_jobs.
 // Le client crée la tâche, appelle cette fonction (réponse 202 immédiate),
 // puis suit le statut de la tâche dans la base.
-import { describeImages, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Density, type Difficulty, type QuizType } from '../shared/ai'
+import { describeImages, EXAM_REQUEST, examplesBlock, generateCustomDoc, generateFlashcards, generateMindmap, generateQuiz, generateSheet, type Density, type Difficulty, type PastExam, type QuizType } from '../shared/ai'
 import { customToDoc, sheetToDoc } from '../shared/sheetDoc'
 import { noteToText } from '../shared/noteText'
 import { userClient } from '../shared/supabase'
@@ -16,6 +16,8 @@ type QuizParams = {
   count: number
   difficulty: Difficulty
   qtype: QuizType
+  // false : ne pas s'inspirer des anciens partiels de la matière
+  use_exams?: boolean
 }
 type CardsParams = {
   subject_id: string
@@ -27,7 +29,7 @@ type CardsParams = {
 
 type ImagesParams = { course_id: string; images: { path: string; label: string; marker: string }[] }
 type SheetParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; title: string; density?: Density }
-type AssistantParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; instruction: string }
+type AssistantParams = { note_id: string; course_ids?: string[]; note_ids?: string[]; instruction: string; use_exams?: boolean }
 type MindmapParams = { output_id: string; course_ids?: string[]; note_ids?: string[]; title: string }
 
 const IMAGE_BATCH = 10
@@ -114,6 +116,21 @@ async function loadSource(db: SupabaseClient, p: { course_ids?: string[]; note_i
   const source = parts.join('\n\n').trim()
   if (source.length < 80) throw new Error('Le contenu choisi est presque vide : écris un peu plus dans ta note ou ajoute un cours.')
   return source
+}
+
+// Anciens partiels d'une matière, du plus récent au plus ancien. Sans la mise à jour 0020
+// (table absente) ou en cas d'erreur, la génération continue simplement sans modèles.
+async function loadExamples(db: SupabaseClient, subjectId: string | null | undefined) {
+  if (!subjectId) return ''
+  const { data, error } = await db
+    .from('past_exams')
+    .select('title, session, content')
+    .eq('subject_id', subjectId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(8)
+  if (error || !data) return ''
+  return examplesBlock(data as PastExam[])
 }
 
 export default async (req: Request) => {
@@ -250,7 +267,12 @@ export default async (req: Request) => {
       const p = job.params as QuizParams
       try {
         const source = await prepare(p)
-        const questions = await generateQuiz({ source, count: p.count, difficulty: p.difficulty, qtype: p.qtype })
+        let examples = ''
+        if (p.use_exams !== false) {
+          const { data: quiz } = await db.from('quizzes').select('subject_id').eq('id', p.quiz_id).maybeSingle()
+          examples = await loadExamples(db, quiz?.subject_id)
+        }
+        const questions = await generateQuiz({ source, count: p.count, difficulty: p.difficulty, qtype: p.qtype, examples })
         await ensureWanted()
         // En cas de relance, on repart d'un QCM vide
         await db.from('quiz_questions').delete().eq('quiz_id', p.quiz_id)
@@ -307,7 +329,12 @@ export default async (req: Request) => {
       const p = job.params as AssistantParams
       try {
         const source = await prepare(p)
-        const result = await generateCustomDoc({ source, instruction: p.instruction })
+        let examples = ''
+        if (p.use_exams !== false && EXAM_REQUEST.test(p.instruction)) {
+          const { data: note } = await db.from('notes').select('subject_id').eq('id', p.note_id).maybeSingle()
+          examples = await loadExamples(db, note?.subject_id)
+        }
+        const result = await generateCustomDoc({ source, instruction: p.instruction, examples })
         await ensureWanted()
         const { doc, text } = customToDoc(result)
         const { error } = await db.from('notes').update({ title: result.title, content: doc, content_text: text }).eq('id', p.note_id)

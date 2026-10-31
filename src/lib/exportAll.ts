@@ -52,7 +52,7 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
     data[t] = await fetchAll(t)
   }
   // Tables des mises à jour récentes : absentes si la mise à jour n'a pas été lancée
-  for (const t of ['recordings', 'imported_events']) {
+  for (const t of ['recordings', 'imported_events', 'past_exams']) {
     onProgress(`Lecture : ${t}`)
     data[t] = await fetchAll(t).catch(() => [])
   }
@@ -98,6 +98,9 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
   for (const c of data.courses.filter(live))
     zip.file(unique(`${dir(c)}/${transcribed.has(c.id) ? 'transcriptions' : 'cours'}/${safeFilename(String(c.title))}.txt`), String(c.content ?? ''))
 
+  for (const e of data.past_exams.filter(live))
+    zip.file(unique(`${dir(e)}/anciens-partiels/${safeFilename(String(e.title))}${e.session ? ` (${safeFilename(String(e.session))})` : ''}.txt`), String(e.content ?? ''))
+
   for (const s of data.subjects.filter(live)) {
     const cards = data.flashcards.filter((f) => f.subject_id === s.id && live(f))
     if (cards.length) zip.file(`${dir({ ...s, subject_id: s.id })}/flashcards.csv`, csv([['Recto', 'Verso'], ...cards.map((f) => [f.front as string, f.back as string])]))
@@ -127,6 +130,7 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
   const paths = [
     ...data.files.map((f) => ({ path: String(f.path), name: String(f.name), row: f })),
     ...data.courses.filter((c) => c.file_path).map((c) => ({ path: String(c.file_path), name: String(c.file_name ?? 'fichier'), row: c })),
+    ...data.past_exams.filter((e) => e.file_path).map((e) => ({ path: String(e.file_path), name: String(e.file_name ?? 'partiel'), row: e })),
   ]
   for (const [i, f] of paths.entries()) {
     onProgress(`Fichiers ${i + 1} / ${paths.length}`)
@@ -143,7 +147,7 @@ export async function exportEverything(onProgress: (msg: string) => void): Promi
       'Export complet — Regulya',
       `Créé le ${new Date().toLocaleString('fr')}`,
       '',
-      'lisible/       Notes (.html), cours et transcriptions (.txt), cartes mentales (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',
+      'lisible/       Notes (.html), cours, transcriptions et anciens partiels (.txt), cartes mentales (.txt), QCM avec corrigés (.txt), flash cards (.csv, importables dans Anki ou Quizlet), devoirs (.csv)',
       'fichiers/      Fichiers originaux (PDF de cours, images et pièces jointes des notes, audios gardés)',
       'donnees-json/  Toutes les données brutes, table par table',
       '',

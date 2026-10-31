@@ -8,6 +8,7 @@ import { CourseImport } from '@/components/CourseImport'
 import { AudioImportModal, RecordingsPanel, RecordModal } from '@/components/Recording'
 import { ResourcesPanel } from '@/components/Resources'
 import { PlansPanel } from '@/components/Plans'
+import { PastExamsPanel } from '@/components/PastExams'
 import { QuizExamButton } from '@/components/QuizExamMode'
 import { ShareButton } from '@/components/ShareButton'
 import { SubjectForm } from '@/components/SubjectForm'
@@ -30,11 +31,12 @@ import {
   useSubjects,
   useTrash,
 } from '@/lib/data'
+import { usePastExams } from '@/lib/pastExams'
 import { startErrorSession, startQuizSession } from '@/lib/quiz'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
 
-type Tab = 'cours' | 'notes' | 'fiches' | 'qcm' | 'cartes' | 'mentales' | 'ressources' | 'plans' | 'erreurs'
+type Tab = 'cours' | 'notes' | 'fiches' | 'qcm' | 'partiels' | 'cartes' | 'mentales' | 'ressources' | 'plans' | 'erreurs'
 
 const DIFF = { easy: 'Facile', medium: 'Moyen', hard: 'Difficile' }
 
@@ -178,7 +180,7 @@ export default function SubjectPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const TABS: Tab[] = ['cours', 'notes', 'fiches', 'qcm', 'cartes', 'mentales', 'ressources', 'plans', 'erreurs']
+  const TABS: Tab[] = ['cours', 'notes', 'fiches', 'qcm', 'partiels', 'cartes', 'mentales', 'ressources', 'plans', 'erreurs']
   // Onglet inconnu (ancien lien) : on revient aux cours plutôt que d'afficher une page vide
   const tab: Tab = TABS.includes(params.get('onglet') as Tab) ? (params.get('onglet') as Tab) : 'cours'
   const { spaceId } = useSpace()
@@ -188,6 +190,7 @@ export default function SubjectPage() {
   const { data: cards = [] } = useFlashcards()
   const { data: errors = [] } = useErrorItems()
   const { data: recordings = [] } = useRecordings()
+  const { data: pastExams } = usePastExams()
   const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs', 'recordings', 'resources'])
   const [edit, setEdit] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -207,6 +210,7 @@ export default function SubjectPage() {
   const sn = notes.filter((n) => n.subject_id === id && !isSheet(n))
   const sf = notes.filter((n) => n.subject_id === id && isSheet(n))
   const due = cards.filter((c) => c.subject_id === id && new Date(c.due_at) <= new Date()).length
+  const pastCount = (pastExams ?? []).filter((e) => e.subject_id === id).length
   const errs = errors.filter((e) => e.subject_id === id && !e.resolved_at).length
   const exam = subject.exam_date ? countdown(subject.exam_date + 'T08:00:00') : null
 
@@ -259,6 +263,7 @@ export default function SubjectPage() {
           { value: 'notes', label: 'Notes', count: sn.length },
           { value: 'fiches', label: 'Fiches', count: sf.length },
           { value: 'qcm', label: 'QCM' },
+          { value: 'partiels', label: 'Anciens partiels', count: pastCount || undefined },
           { value: 'cartes', label: 'Flash cards', count: due },
           { value: 'mentales', label: 'Cartes mentales' },
           { value: 'ressources', label: 'Ressources' },
@@ -354,6 +359,7 @@ export default function SubjectPage() {
           </div>
         )}
         {tab === 'qcm' && <QuizList subjectId={id} />}
+        {tab === 'partiels' && <PastExamsPanel subjectId={id} />}
         {tab === 'cartes' && <CardsPanel subject={subject} />}
         {tab === 'mentales' && <MindmapsPanel subjectId={id} />}
         {tab === 'ressources' && <ResourcesPanel subjectId={id} />}

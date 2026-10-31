@@ -1,6 +1,6 @@
 import { BookOpen, NotebookPen, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Card, cx, ErrorBox, PageHeader, Select, Textarea } from '@/components/ui'
 import { useCreateAssistantDoc } from '@/lib/assistant'
 import { useCourses, useNotesList, useSubjectMap, useSubjects } from '@/lib/data'
@@ -14,6 +14,7 @@ const SUGGESTIONS = [
   'Les définitions à connaître par cœur, classées par chapitre',
   'Un résumé d’une page de l’essentiel',
   '15 questions probables à l’examen, avec leurs réponses',
+  'Un partiel blanc corrigé, dans le même format que mes anciens partiels',
   'Les pièges et erreurs fréquentes à éviter le jour de l’examen',
   'Les méthodes de calcul, étape par étape, avec un exemple chiffré',
 ]
@@ -31,9 +32,11 @@ export default function AssistantPage() {
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useNotesList()
   const { data: usage = [] } = useUsage()
-  const [subject, setSubject] = useState(subjects[0]?.id ?? '')
+  // Lien depuis une matière (« Partiel blanc avec GIRAFA ») : matière et demande pré-remplies
+  const [params] = useSearchParams()
+  const [subject, setSubject] = useState(params.get('matiere') ?? subjects[0]?.id ?? '')
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
-  const [instruction, setInstruction] = useState('')
+  const [instruction, setInstruction] = useState(params.get('demande') ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
 

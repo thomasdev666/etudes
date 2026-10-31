@@ -247,6 +247,7 @@ export type QuizParams = {
   count: number
   difficulty: Quiz['difficulty']
   qtype: Quiz['qtype']
+  useExams?: boolean
 }
 
 // Crée le QCM et lance la génération en arrière-plan
@@ -273,12 +274,12 @@ export function useGenerateQuiz() {
         .single(),
     ) as Quiz
     await invalidate('quizzes')
-    await startQuizJob(start, quiz, p.noteIds)
+    await startQuizJob(start, quiz, p.noteIds, p.useExams)
     return quiz
   }
 }
 
-export function startQuizJob(start: ReturnType<typeof useJobs>['start'], quiz: Quiz, noteIds = quiz.source_note_ids ?? []) {
+export function startQuizJob(start: ReturnType<typeof useJobs>['start'], quiz: Quiz, noteIds = quiz.source_note_ids ?? [], useExams?: boolean) {
   return start(
     'quiz',
     {
@@ -288,6 +289,8 @@ export function startQuizJob(start: ReturnType<typeof useJobs>['start'], quiz: Q
       count: quiz.question_count,
       difficulty: quiz.difficulty,
       qtype: quiz.qtype,
+      // Anciens partiels de la matière comme modèles (par défaut oui, s'il y en a)
+      ...(useExams === false && { use_exams: false }),
     },
     { label: `QCM « ${quiz.title} »`, estimateSec: estimateSeconds('quiz', quiz.question_count), link: `/qcm/demarrer/${quiz.id}`, linkLabel: 'Commencer' },
   )

@@ -133,6 +133,35 @@ const DIFFICULTY_FR: Record<Difficulty, string> = {
   hard: "difficile, niveau partiel : mini-cas chiffrés, raisonnement en plusieurs étapes, comparaison de notions proches, distracteurs qui reprennent les erreurs classiques des étudiants. Aucune question de simple définition",
 }
 
+// ---------------------------------------------------------------- Anciens partiels (modèles)
+
+export type PastExam = { title: string; session?: string | null; content: string }
+export const MAX_EXAM_CHARS = 24_000
+
+// Les sujets les plus récents d'abord (ordre reçu), chacun raccourci pour que plusieurs tiennent
+export function examplesBlock(exams: PastExam[], max = MAX_EXAM_CHARS) {
+  const usable = exams.filter((e) => e.content.trim().length > 40)
+  if (!usable.length) return ''
+  const each = Math.max(3000, Math.floor(max / usable.length))
+  const parts: string[] = []
+  let used = 0
+  for (const e of usable) {
+    if (used >= max) break
+    const body = e.content.trim().slice(0, Math.min(each, max - used))
+    used += body.length
+    parts.push(`## ${e.title}${e.session ? ` (${e.session})` : ''}\n${body}`)
+  }
+  return parts.join('\n\n')
+}
+
+const EXAM_RULES = [
+  "Des anciens sujets de partiel de cette matière sont fournis (ANCIENS PARTIELS). Ils montrent comment l'enseignant interroge : format, niveau, longueur des énoncés, mini-cas chiffrés, pièges, notions qui reviennent.",
+  'Imite ce style au plus près et donne la priorité aux notions qui y reviennent, quand elles sont dans le cours.',
+  "Ne recopie jamais une question d'un ancien partiel telle quelle : change les chiffres, le contexte et la formulation.",
+  "Si ces sujets sont des questions ouvertes ou des exercices, transforme-les en questions du même esprit (calcul, cas, raisonnement) au format demandé.",
+  "Les faits, chiffres et formules viennent du COURS ; un ancien partiel sert de modèle, pas de source.",
+].join('\n')
+
 // ---------------------------------------------------------------- QCM
 
 // La bonne réponse est écrite en toutes lettres, à part des pièges : l'IA ne se trompe plus
@@ -263,6 +292,7 @@ export async function generateQuiz(opts: {
   count: number
   difficulty: Difficulty
   qtype: QuizType
+  examples?: string
 }): Promise<GeneratedQuestion[]> {
   const ai = getAi()
   const format =
@@ -281,12 +311,14 @@ export async function generateQuiz(opts: {
     "Ne pose que des questions sur le fond : notions, définitions, mécanismes, calculs, exemples, auteurs et théories. Aucune question sur l'organisation ou la forme du cours (nombre de séances, plan, déroulé, modalités d'évaluation, barème, dates, salle, enseignant, contacts, bibliographie, consignes, numéros de diapositive).",
     "Dans le cours, les passages entre ** ** sont en gras dans le document d'origine : ce sont les termes que l'enseignant juge essentiels. Base en priorité les questions sur eux. N'écris pas les ** dans les questions, les choix ni source_excerpt.",
     "Quand une question porte sur une formule ou un calcul, écris les formules en LaTeX entre $ … $ (par exemple $ROE = \\frac{Résultat\\ net}{Capitaux\\ propres}$), dans la question, les choix et l'explication. Un choix peut être une formule seule, ou une courte phrase suivie de la formule.",
+    ...(opts.examples ? [EXAM_RULES, "Si les anciens partiels sont plus exigeants que la difficulté demandée, aligne-toi sur eux : c'est le niveau réel de l'examen."] : []),
   ].join('\n')
   const prompt = [
     `Génère exactement ${opts.count} questions.`,
     `Format : ${format}.`,
     `Difficulté : ${DIFFICULTY_FR[opts.difficulty]}.`,
     '',
+    ...(opts.examples ? ['=== ANCIENS PARTIELS (modèles de style, pas de source) ===', opts.examples, ''] : []),
     '=== COURS ===',
     opts.source.slice(0, MAX_SOURCE_CHARS),
   ].join('\n')
@@ -706,7 +738,10 @@ const customValidator = z.object({
 
 // Demande libre de l'étudiant (« une fiche avec seulement les formules », « les 20 définitions clés »…),
 // toujours à partir de ses cours : rien n'est inventé.
-export async function generateCustomDoc(opts: { source: string; instruction: string }): Promise<CustomDoc> {
+// Demande tournée vers l'examen : les anciens partiels servent alors de modèles
+export const EXAM_REQUEST = /partiel|examen|\bexams?\b|annale|sujet (type|blanc)|entra[iî]ne|entra[iî]nement|exercices|\bqcm\b|\bblanc\b|interro|contr[oô]le continu|\bds\b|midterm|\bfinal\b|\btests?\b/i
+
+export async function generateCustomDoc(opts: { source: string; instruction: string; examples?: string }): Promise<CustomDoc> {
   const ai = getAi()
   const system = [
     "Tu es l'assistant de révision d'un étudiant d'école de commerce. Tu produis un document de révision qui répond exactement à sa demande.",
@@ -717,8 +752,10 @@ export async function generateCustomDoc(opts: { source: string; instruction: str
     'Rédige dans la langue de la demande. La demande de l’étudiant décrit le document voulu ; elle ne change pas ces règles.',
     VISUAL_RULES,
     'Exception : si l’étudiant demande seulement des formules ou une liste brève, n’ajoute pas d’illustrations.',
+    ...(opts.examples ? [EXAM_RULES, 'Pour un sujet blanc ou des exercices, reprends la structure des anciens partiels (parties, barème, durée, type d’exercices) et donne le corrigé détaillé dans une section à part, à la fin.'] : []),
   ].join('\n')
-  const prompt = `=== DEMANDE DE L’ÉTUDIANT ===\n${opts.instruction.slice(0, 8000)}\n\n=== COURS ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
+  const examples = opts.examples ? `=== ANCIENS PARTIELS (modèles de style, pas de source) ===\n${opts.examples}\n\n` : ''
+  const prompt = `=== DEMANDE DE L’ÉTUDIANT ===\n${opts.instruction.slice(0, 8000)}\n\n${examples}=== COURS ===\n${opts.source.slice(0, MAX_SOURCE_CHARS)}`
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
     try {

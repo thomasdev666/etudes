@@ -131,3 +131,27 @@ describe('QCM : bonne réponse écrite en toutes lettres, place tirée au sort',
     expect(cleanExplanation(ok)).toBe("L'indice de sécurité mesure la marge de baisse possible du CA.")
   })
 })
+
+describe('anciens partiels', () => {
+  it('assemble plusieurs sujets sans dépasser la limite', async () => {
+    const { examplesBlock } = await import('./index')
+    const exams = [
+      { title: 'Partiel 2024', session: 'Janvier', content: 'A'.repeat(30_000) },
+      { title: 'Partiel 2023', session: '', content: 'B'.repeat(30_000) },
+      { title: 'Vide', session: '', content: '   ' },
+    ]
+    const block = examplesBlock(exams, 20_000)
+    expect(block).toContain('## Partiel 2024 (Janvier)')
+    expect(block).toContain('## Partiel 2023')
+    expect(block).not.toContain('Vide')
+    expect(block.replace(/[^AB]/g, '').length).toBeLessThanOrEqual(20_000)
+    expect(examplesBlock([])).toBe('')
+  })
+  it('reconnaît une demande tournée vers l’examen, pas le vocabulaire du cours', async () => {
+    const { EXAM_REQUEST } = await import('./index')
+    for (const q of ['Fais-moi un partiel blanc', 'des exercices type examen', 'un QCM sur le chapitre 2', 'prépare-moi pour le midterm'])
+      expect(EXAM_REQUEST.test(q)).toBe(true)
+    for (const q of ['une fiche sur l’exercice comptable', 'les formules du contrôle de gestion', 'résumé du chapitre sur la trésorerie'])
+      expect(EXAM_REQUEST.test(q)).toBe(false)
+  })
+})
