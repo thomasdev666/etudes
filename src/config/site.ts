@@ -4,8 +4,8 @@ export const SITE = {
   name: 'Regulya',
   owner: 'Jade Caruana, micro-entrepreneure',
   publisher: 'Jade Caruana',
-  // À remplacer par contact@regulya.fr une fois le domaine acheté
-  contact: 'veloceofficiel@gmail.com',
+  // Adresse de contact affichée sur le site (accueil, mentions légales, CGU, confidentialité)
+  contact: 'contact@orpheex.fr',
   address: '[adresse postale à compléter]',
   siret: '[numéro SIRET à compléter]',
   // Région de l'instance Supabase (Project Settings → General → Region)
