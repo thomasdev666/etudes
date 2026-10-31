@@ -23,7 +23,8 @@ export function CourseImport({ open, onClose, subjectId }: { open: boolean; onCl
   const [file, setFile] = useState<File | null>(null)
   const [extracted, setExtracted] = useState<Extracted | null>(null)
   const [readImages, setReadImages] = useState(true)
-  const [makeSheet, setMakeSheet] = useState(true)
+  // Désactivée par défaut : la fiche se crée seulement si on coche la case
+  const [makeSheet, setMakeSheet] = useState(false)
   const sheet = useGenerateSheet()
   const [progress, setProgress] = useState('')
   const [error, setError] = useState<unknown>(null)
