@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Button, ErrorBox, Modal } from '@/components/ui'
 import { shareUrl, useShare, type ShareKind } from '@/lib/share'
 
-const WHAT: Record<ShareKind, string> = { note: 'cette note', mindmap: 'cette carte mentale', deck: 'ce paquet de flash cards' }
+const WHAT: Record<ShareKind, string> = { note: 'cette note', mindmap: 'cette carte mentale', deck: 'ce paquet de flash cards', quiz: 'ce QCM' }
 
 // Bouton « Partager » : crée, copie ou désactive un lien en lecture seule
 export function ShareButton({ kind, targetId, size = 'sm' }: { kind: ShareKind; targetId: string; size?: 'sm' | 'md' }) {
@@ -50,7 +50,11 @@ function ShareModal({ kind, targetId, onClose }: { kind: ShareKind; targetId: st
   return (
     <Modal open onClose={onClose} title={`Partager ${WHAT[kind]}`}>
       <div className="flex flex-col gap-4 text-sm">
-        <p className="text-muted">Toute personne qui a le lien peut lire {WHAT[kind]}, sans compte et sans pouvoir le modifier. Tu peux désactiver le lien à tout moment.</p>
+        <p className="text-muted">
+          {kind === 'quiz'
+            ? 'Toute personne qui a le lien peut faire ce QCM en ligne, sans compte, avec la correction à la fin. Elle ne peut pas le modifier et ne voit pas tes résultats. Tu peux désactiver le lien à tout moment.'
+            : `Toute personne qui a le lien peut lire ${WHAT[kind]}, sans compte et sans pouvoir le modifier. Tu peux désactiver le lien à tout moment.`}
+        </p>
         {loading ? null : share ? (
           <>
             <div className="flex gap-2">

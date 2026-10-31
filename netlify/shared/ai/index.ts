@@ -135,6 +135,8 @@ const DIFFICULTY_FR: Record<Difficulty, string> = {
 
 // ---------------------------------------------------------------- QCM
 
+// La bonne réponse est écrite en toutes lettres, à part des pièges : l'IA ne se trompe plus
+// d'indice, et c'est le serveur qui tire au sort sa place (A, B, C ou D)
 const quizSchema: JsonSchema = {
   type: 'object',
   properties: {
@@ -144,13 +146,13 @@ const quizSchema: JsonSchema = {
         type: 'object',
         properties: {
           question: { type: 'string' },
-          choices: { type: 'array', items: { type: 'string' } },
-          correct_index: { type: 'integer' },
+          correct_answer: { type: 'string', description: 'Le texte exact de la bonne réponse' },
+          wrong_answers: { type: 'array', items: { type: 'string' }, description: 'Les réponses fausses (pièges)' },
           explanation: { type: 'string' },
           notion: { type: 'string', description: 'Notion du cours évaluée, en 2 à 5 mots' },
           source_excerpt: { type: 'string', description: 'Phrase du cours, recopiée mot pour mot, qui justifie la bonne réponse (300 caractères au plus)' },
         },
-        required: ['question', 'choices', 'correct_index', 'explanation', 'notion', 'source_excerpt'],
+        required: ['question', 'correct_answer', 'wrong_answers', 'explanation', 'notion', 'source_excerpt'],
       },
     },
   },
@@ -160,33 +162,95 @@ const quizSchema: JsonSchema = {
 // Marques de gras (**…**) du texte extrait : utiles à l'IA, pas à l'affichage
 export const stripBold = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*\*/g, '')
 
-const questionValidator = (qtype: QuizType) =>
-  z
-    .object({
-      question: z.string().trim().min(5),
-      choices: z.array(z.string().trim().min(1)).length(qtype === 'mcq' ? 4 : 2),
-      correct_index: z.number().int().min(0).max(qtype === 'mcq' ? 3 : 1),
-      explanation: z.string().trim().min(1),
-      notion: z.string().trim().min(1).max(120),
-      source_excerpt: z
-        .string()
-        .trim()
-        .optional()
-        .transform((v) => (v ? stripBold(v).slice(0, 400) : '')),
-    })
-    .transform((q) => ({ ...q, question: stripBold(q.question), choices: q.choices.map(stripBold), explanation: stripBold(q.explanation) }))
-    .refine((q) => new Set(q.choices.map((c) => c.toLowerCase())).size === q.choices.length, {
-      message: 'Choix en double',
-    })
+// L'IA laisse parfois sa réflexion dans l'explication (« Note : l'index de cette réponse est 2…
+// Attendez, … ») : ces phrases sont retirées, et les renvois à une lettre n'ont plus de sens
+// une fois les choix mélangés
+const META = /(\bcorrect_index\b|\b(index|indice) (de (cette|la) (bonne )?réponse|[0-9]\b)|\battendez\b|\bvérifions\b|\bverifions\b|\bje (me suis tromp|corrige|vérifie|reprends)|\blet me\b|\bwait,|\bre-?check|\bréponse [A-D]\b|\boption [A-D1-4]\b|\bchoix [A-D1-4]\b|\blettre [A-D]\b)/i
+export function cleanExplanation(text: string) {
+  const t = text.replace(/\s+/g, ' ').trim()
+  // Une note ajoutée après coup est coupée entière
+  const cut = t.search(/\s(Note|NB|N\.B\.|Remarque)\s?:\s.*\b(index|indice|ordre|vérifions|attendez)/i)
+  const base = cut > 0 ? t.slice(0, cut) : t
+  const sentences = base.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [base]
+  const kept = sentences.filter((x) => !META.test(x)).join('').trim()
+  return kept.length >= 20 ? kept : base.trim()
+}
 
-export type GeneratedQuestion = z.infer<ReturnType<typeof questionValidator>>
+const shuffled = <T,>(a: T[], rand = Math.random) => {
+  const r = [...a]
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[r[i], r[j]] = [r[j], r[i]]
+  }
+  return r
+}
 
-export function validateQuiz(raw: unknown, qtype: QuizType, count: number, minCount: number) {
+const TRUE_WORDS = /^(vrai|true)\b/i
+
+const rawQuestion = z.object({
+  question: z.string().trim().min(5),
+  correct_answer: z.string().trim().min(1).optional(),
+  wrong_answers: z.array(z.string().trim().min(1)).optional(),
+  // Ancien format, encore accepté si un modèle le renvoie
+  choices: z.array(z.string().trim().min(1)).optional(),
+  correct_index: z.number().int().optional(),
+  explanation: z.string().trim().min(1),
+  notion: z.string().trim().min(1).max(120),
+  source_excerpt: z.string().trim().optional(),
+})
+
+export type GeneratedQuestion = {
+  question: string
+  choices: string[]
+  correct_index: number
+  explanation: string
+  notion: string
+  source_excerpt: string
+}
+
+export function normalizeQuestion(raw: unknown, qtype: QuizType, rand = Math.random): GeneratedQuestion | null {
+  const r = rawQuestion.safeParse(raw)
+  if (!r.success) return null
+  const q = r.data
+  let correct = q.correct_answer
+  let wrong = q.wrong_answers
+  if ((!correct || !wrong) && q.choices && q.correct_index !== undefined && q.choices[q.correct_index]) {
+    correct = q.choices[q.correct_index]
+    wrong = q.choices.filter((_, i) => i !== q.correct_index)
+  }
+  if (!correct || !wrong) return null
+  correct = stripBold(correct)
+  const seen = new Set([correct.toLowerCase()])
+  wrong = wrong.map(stripBold).filter((w) => !seen.has(w.toLowerCase()) && (seen.add(w.toLowerCase()), true))
+  let choices: string[]
+  let correct_index: number
+  if (qtype === 'truefalse') {
+    if (!/^(vrai|faux|true|false)\b/i.test(correct)) return null
+    // Vrai ou faux : toujours dans cet ordre, la bonne réponse dit laquelle
+    const english = /^(true|false)\b/i.test(correct)
+    choices = english ? ['True', 'False'] : ['Vrai', 'Faux']
+    correct_index = TRUE_WORDS.test(correct) ? 0 : 1
+  } else {
+    if (wrong.length < 3) return null
+    choices = shuffled([correct, ...wrong.slice(0, 3)], rand)
+    correct_index = choices.indexOf(correct)
+  }
+  return {
+    question: stripBold(q.question),
+    choices,
+    correct_index,
+    explanation: cleanExplanation(stripBold(q.explanation)),
+    notion: q.notion,
+    source_excerpt: q.source_excerpt ? stripBold(q.source_excerpt).slice(0, 400) : '',
+  }
+}
+
+export function validateQuiz(raw: unknown, qtype: QuizType, count: number, minCount: number, rand = Math.random) {
   const parsed = z.object({ questions: z.array(z.unknown()) }).parse(raw)
   const valid: GeneratedQuestion[] = []
   for (const q of parsed.questions) {
-    const r = questionValidator(qtype).safeParse(q)
-    if (r.success) valid.push(r.data)
+    const n = normalizeQuestion(q, qtype, rand)
+    if (n) valid.push(n)
   }
   if (valid.length < minCount) {
     throw new Error(`Seulement ${valid.length} questions valides sur ${count} demandées`)
@@ -203,8 +267,8 @@ export async function generateQuiz(opts: {
   const ai = getAi()
   const format =
     opts.qtype === 'mcq'
-      ? 'QCM à 4 choix, une seule bonne réponse, distracteurs plausibles et de longueur comparable'
-      : 'Vrai ou faux : choices vaut exactement ["Vrai", "Faux"] (ou ["True", "False"] si le cours est en anglais), correct_index 0 pour vrai et 1 pour faux'
+      ? 'QCM à 4 choix : une bonne réponse (correct_answer) et exactement 3 pièges (wrong_answers), plausibles et de longueur comparable à la bonne réponse'
+      : 'Vrai ou faux : une affirmation dans question ; correct_answer vaut exactement "Vrai" ou "Faux" (ou "True" / "False" si le cours est en anglais) et wrong_answers contient l’autre mot. Équilibre les affirmations vraies et fausses'
   const system = [
     "Tu es un enseignant d'école de commerce qui prépare ses étudiants aux examens.",
     'Tu crées des questions qui testent la compréhension réelle, uniquement à partir du cours fourni.',
@@ -212,7 +276,8 @@ export async function generateQuiz(opts: {
     'Rédige questions, choix et explications dans la langue du cours.',
     "L'explication dit pourquoi la bonne réponse est juste et pourquoi le piège principal est faux.",
     'Pour chaque question, recopie mot pour mot la phrase du cours qui justifie la bonne réponse (source_excerpt). Si aucune phrase ne la justifie, ne pose pas cette question.',
-    'Varie la position de la bonne réponse et couvre tout le cours, pas seulement le début.',
+    'Couvre tout le cours, pas seulement le début.',
+    "L'explication s'adresse à l'étudiant et ne parle que du fond : jamais de lettre (A, B…), de numéro de choix, d'indice, de note sur ton propre raisonnement ni de vérification. Écris-la directement juste du premier coup.",
     "Ne pose que des questions sur le fond : notions, définitions, mécanismes, calculs, exemples, auteurs et théories. Aucune question sur l'organisation ou la forme du cours (nombre de séances, plan, déroulé, modalités d'évaluation, barème, dates, salle, enseignant, contacts, bibliographie, consignes, numéros de diapositive).",
     "Dans le cours, les passages entre ** ** sont en gras dans le document d'origine : ce sont les termes que l'enseignant juge essentiels. Base en priorité les questions sur eux. N'écris pas les ** dans les questions, les choix ni source_excerpt.",
     "Quand une question porte sur une formule ou un calcul, écris les formules en LaTeX entre $ … $ (par exemple $ROE = \\frac{Résultat\\ net}{Capitaux\\ propres}$), dans la question, les choix et l'explication. Un choix peut être une formule seule, ou une courte phrase suivie de la formule.",

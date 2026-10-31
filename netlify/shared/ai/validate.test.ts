@@ -76,3 +76,58 @@ describe('entraînements : questions générées', () => {
     expect(validateExamBatch({ items: [{ passage: long, questions: [q, q, q] }] }, { key: 'part7', choices: 4, perPassage: 3 })).toHaveLength(1)
   })
 })
+
+describe('QCM : bonne réponse écrite en toutes lettres, place tirée au sort', () => {
+  const nq = (over: Record<string, unknown> = {}) => ({
+    question: 'Que regroupe le capital économique ?',
+    correct_answer: 'Le montant des besoins à financer',
+    wrong_answers: ['Les capitaux propres', 'Le total des dettes', 'La somme des résultats'],
+    explanation: 'Le capital économique regroupe les besoins de financement de l’outil productif.',
+    notion: 'Capital économique',
+    source_excerpt: 'Le CE représente les besoins à financer.',
+    ...over,
+  })
+  it('place la bonne réponse à un endroit différent selon le tirage, et l’indice suit', async () => {
+    const { validateQuiz } = await import('./index')
+    const positions = new Set<number>()
+    for (let k = 0; k < 4; k++) {
+      const rand = () => (k + 0.5) / 4
+      const [q] = validateQuiz({ questions: [nq()] }, 'mcq', 1, 1, rand)
+      expect(q.choices).toHaveLength(4)
+      expect(q.choices[q.correct_index]).toBe('Le montant des besoins à financer')
+      positions.add(q.correct_index)
+    }
+    expect(positions.size).toBeGreaterThan(1)
+  })
+  it('répartit les bonnes réponses sur A, B, C et D', async () => {
+    const { validateQuiz } = await import('./index')
+    const qs = validateQuiz({ questions: Array.from({ length: 400 }, () => nq()) }, 'mcq', 400, 400)
+    const counts = [0, 0, 0, 0]
+    for (const q of qs) counts[q.correct_index]++
+    for (const c of counts) expect(c).toBeGreaterThan(60)
+  })
+  it('refuse une question sans 3 pièges distincts', async () => {
+    const { validateQuiz } = await import('./index')
+    expect(() => validateQuiz({ questions: [nq({ wrong_answers: ['Le total des dettes', 'le total des dettes', 'Le montant des besoins à financer'] })] }, 'mcq', 1, 1)).toThrow()
+  })
+  it('vrai/faux : ordre fixe, la bonne réponse dit laquelle', async () => {
+    const { validateQuiz } = await import('./index')
+    const [f] = validateQuiz({ questions: [nq({ correct_answer: 'Faux', wrong_answers: ['Vrai'] })] }, 'truefalse', 1, 1)
+    expect(f.choices).toEqual(['Vrai', 'Faux'])
+    expect(f.correct_index).toBe(1)
+    const [t] = validateQuiz({ questions: [nq({ correct_answer: 'True', wrong_answers: ['False'] })] }, 'truefalse', 1, 1)
+    expect(t.choices).toEqual(['True', 'False'])
+    expect(t.correct_index).toBe(0)
+  })
+  it('retire la réflexion de l’IA laissée dans l’explication', async () => {
+    const { cleanExplanation } = await import('./index')
+    const raw =
+      "Le capital économique regroupe l'ensemble des besoins de financement nécessaires pour faire fonctionner l'outil productif (immobilisations, BFR et trésorerie positive). Note : L'index de cette réponse est 2 dans ce choix, mais vérifions l'ordre : 0: capitaux propres, 1: montant des besoins..., 2: total des dettes, 3: somme... Attendez, la bonne réponse est 'Le montant en euros des besoins à financer...' qui correspond à l'index 1."
+    expect(cleanExplanation(raw)).toBe(
+      "Le capital économique regroupe l'ensemble des besoins de financement nécessaires pour faire fonctionner l'outil productif (immobilisations, BFR et trésorerie positive).",
+    )
+    // Le vocabulaire du cours n'est pas touché
+    const ok = "L'indice de sécurité mesure la marge de baisse possible du CA. La réponse B est un piège classique."
+    expect(cleanExplanation(ok)).toBe("L'indice de sécurité mesure la marge de baisse possible du CA.")
+  })
+})

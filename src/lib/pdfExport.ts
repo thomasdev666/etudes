@@ -63,6 +63,14 @@ function frenchSpacing(root: HTMLElement) {
 // Pas de coupe juste avant cet élément : il reste sur la même page que celui qui le précède
 // (titre puis contenu, nom d'une formule puis la formule, formule puis son explication)
 function keepsWithPrevious(el: Element) {
+  // Ligne de tableau : l'en-tête garde au moins ses deux premières lignes, et la dernière
+  // ligne ne part pas seule sur la page suivante (un petit tableau n'est donc jamais coupé)
+  if (el.tagName === 'TR') {
+    const rows = [...(el.closest('table')?.querySelectorAll('tr') ?? [])]
+    const i = rows.indexOf(el as HTMLTableRowElement)
+    // (la première ligne suit la règle du tableau lui-même : elle reste avec le titre qui l'annonce)
+    return i <= 2 || i === rows.length - 1
+  }
   const prev = el.previousElementSibling
   if (!prev) return false
   if (/^H[1-3]$/.test(prev.tagName)) return true

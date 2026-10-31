@@ -1,9 +1,9 @@
-// Partage par lien en lecture seule (notes et fiches, cartes mentales, paquets de flash cards)
+// Partage par lien en lecture seule (notes et fiches, cartes mentales, paquets de flash cards, QCM)
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSpace } from '@/context/space'
 import { must, supabase } from './supabase'
 
-export type ShareKind = 'note' | 'mindmap' | 'deck'
+export type ShareKind = 'note' | 'mindmap' | 'deck' | 'quiz'
 export type Share = { id: string; token: string; views: number; created_at: string }
 
 export const shareUrl = (token: string) => `${window.location.origin}/partage/${token}`
@@ -21,7 +21,9 @@ export function useShare(kind: ShareKind, targetId: string) {
     },
   })
   const create = async () => {
-    const row = must(await supabase.from('shares').insert({ space_id: spaceId, kind, target_id: targetId }).select('id, token, views, created_at').single()) as Share
+    const res = await supabase.from('shares').insert({ space_id: spaceId, kind, target_id: targetId }).select('id, token, views, created_at').single()
+    if (res.error && /shares_kind_check/.test(res.error.message)) throw new Error('Le partage des QCM demande la mise à jour 0019_share_quiz.sql dans Supabase.')
+    const row = must(res) as Share
     qc.setQueryData(key, row)
     return row
   }
@@ -40,7 +42,10 @@ export type SharedContent = {
   updated_at: string
   content?: unknown
   cards?: { front: string; back: string }[]
+  questions?: SharedQuestion[]
 }
+
+export type SharedQuestion = { question: string; choices: string[]; correct_index: number; explanation: string; notion: string }
 
 export async function fetchShare(token: string) {
   const { data, error } = await supabase.rpc('get_share', { p_token: token })

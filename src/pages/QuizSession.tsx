@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, RotateCcw, Sparkles, Timer, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CircleHelp, RotateCcw, Sparkles, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MathText } from '@/components/MathText'
 import { ReportQuestion } from '@/components/ReportQuestion'
+import { ShareButton } from '@/components/ShareButton'
 import { Badge, Button, Card, cx, ErrorBox, IconButton, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
 import { celebrate } from '@/lib/confetti'
@@ -90,6 +91,7 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
   const navigate = useNavigate()
   const subjects = useSubjectMap()
   const subject = subjects.get(session.subject_id)
+  const unknown = new Set((session.progress ?? []).filter((a) => a.dont_know).map((a) => a.question_id))
   const score = corrections.filter((c) => c.is_correct).length
   const pct = corrections.length ? (score / corrections.length) * 100 : 0
   const celebrated = useRef(false)
@@ -130,6 +132,9 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
         <p className="mt-1 text-muted">
           {score} bonne{score > 1 ? 's' : ''} réponse{score > 1 ? 's' : ''} sur {corrections.length}
         </p>
+        {unknown.size > 0 && (
+          <p className="mt-0.5 text-sm text-muted">{`${unknown.size} question${unknown.size > 1 ? 's' : ''} que tu ne savais pas du tout`}</p>
+        )}
         {session.time_limit_sec && (
           <p className="mt-1 text-sm text-muted">
             Mode examen · temps utilisé{' '}
@@ -159,6 +164,7 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
           <Button variant="secondary" icon={<RotateCcw className="size-4" />} onClick={again}>
             {session.kind === 'errors' ? 'Revoir les erreurs restantes' : 'Refaire ce QCM'}
           </Button>
+          {session.quiz_id && <ShareButton kind="quiz" targetId={session.quiz_id} size="md" />}
           <Link to={subject ? `/matieres/${subject.id}?onglet=qcm` : '/reviser'}>
             <Button>Terminer</Button>
           </Link>
@@ -193,7 +199,9 @@ function Results({ session, corrections }: { session: QuizSession; corrections: 
                 {j === c.chosen_index && <span className="ml-1 text-xs">(ta réponse)</span>}
               </li>
             ))}
-            {c.chosen_index === null && <li className="text-sm text-muted">Pas de réponse</li>}
+            {c.chosen_index === null && (
+              <li className="text-sm text-muted">{unknown.has(c.question_id) ? 'Tu ne savais pas : la question est ajoutée à tes erreurs pour la revoir.' : 'Pas de réponse'}</li>
+            )}
           </ul>
           <p className="mt-3 text-sm leading-relaxed">
             <MathText text={c.explanation} />
@@ -274,15 +282,29 @@ export default function QuizSessionPage() {
   const q = questions[index]
   const current = answers.find((a) => a.question_id === q?.id)
 
-  function choose(choice: number) {
+  // choice null : « Je ne sais pas » (comptée fausse, la question part dans la session « Erreurs »)
+  function choose(choice: number | null) {
     if (!q) return
     const elapsed = Date.now() - shownAt.current
-    setAnswers((all) => {
-      const prev = all.find((a) => a.question_id === q.id)
-      const rest = all.filter((a) => a.question_id !== q.id)
-      return [...rest, { question_id: q.id, chosen_index: choice, time_ms: (prev?.time_ms ?? 0) + elapsed }]
-    })
+    const prev = answers.find((a) => a.question_id === q.id)
+    const entry = { question_id: q.id, chosen_index: choice, time_ms: (prev?.time_ms ?? 0) + elapsed, ...(choice === null && { dont_know: true }) }
+    const list = [...answers.filter((a) => a.question_id !== q.id), entry]
+    setAnswers(list)
     shownAt.current = Date.now()
+    return list
+  }
+
+  // « Je ne sais pas » passe directement à la question suivante
+  async function dontKnow() {
+    if (Date.now() < lockUntil.current || finishing) return
+    const list = choose(null)
+    if (!list) return
+    if (index < questions.length - 1) {
+      lockUntil.current = Date.now() + 500
+      setIndex(index + 1)
+      shownAt.current = Date.now()
+      persist(index + 1, list)
+    }
   }
 
   async function persist(nextIndex: number, list = answers) {
@@ -308,7 +330,7 @@ export default function QuizSessionPage() {
       await persist(index)
       const corr = must(await supabase.rpc('finish_quiz_session', { p_session_id: id })) as Correction[]
       setCorrections(corr)
-      qc.setQueryData(['quiz_session', id], (old: typeof data) => (old ? { ...old, session: { ...old.session, finished_at: new Date().toISOString() }, corr } : old))
+      qc.setQueryData(['quiz_session', id], (old: typeof data) => (old ? { ...old, session: { ...old.session, progress: answers, finished_at: new Date().toISOString() }, corr } : old))
       invalidate('quiz_sessions', 'error_items')
       window.scrollTo({ top: 0 })
     } catch (e) {
@@ -325,6 +347,7 @@ export default function QuizSessionPage() {
       const k = e.key.toLowerCase()
       const n = ['1', '2', '3', '4'].indexOf(k) >= 0 ? Number(k) - 1 : ['a', 'b', 'c', 'd'].indexOf(k)
       if (n >= 0 && n < q.choices.length) choose(n)
+      if (k === '?' || k === '0') dontKnow()
       if (e.key === 'Enter' && current) next()
     }
     window.addEventListener('keydown', onKey)
@@ -398,8 +421,20 @@ export default function QuizSessionPage() {
                 )
               })}
             </div>
+            <button
+              type="button"
+              onClick={dontKnow}
+              aria-pressed={!!current?.dont_know}
+              className={cx(
+                'flex items-center justify-center gap-2 self-center rounded-full border px-4 py-2 text-sm transition-colors duration-150',
+                current?.dont_know ? 'border-accent bg-accent-soft font-medium text-accent-ink' : 'border-dashed border-border text-muted hover:border-accent/50 hover:text-text',
+              )}
+            >
+              <CircleHelp className="size-4" aria-hidden />
+              {current?.dont_know ? 'Noté : tu ne savais pas' : 'Je ne sais pas du tout'}
+            </button>
             <ErrorBox error={error} />
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Button
                 variant="ghost"
                 icon={<ArrowLeft className="size-4" />}
@@ -415,7 +450,7 @@ export default function QuizSessionPage() {
                 {index === questions.length - 1 ? 'Terminer et voir la correction' : 'Suivante'}
               </Button>
             </div>
-            <p className="hidden text-center text-xs text-muted sm:block">Raccourcis : touches 1 à 4 pour répondre, Entrée pour continuer.</p>
+            <p className="hidden text-center text-xs text-muted sm:block">Raccourcis : touches 1 à 4 pour répondre, 0 si tu ne sais pas, Entrée pour continuer.</p>
           </div>
         ) : (
           <ErrorBox error="Aucune question dans cette session." />

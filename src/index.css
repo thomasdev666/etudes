@@ -251,9 +251,19 @@ h3,
 .prose-note .diagram-cycle li { display: flex; align-items: center; counter-increment: step; font-size: 0.92em; line-height: 1.35; }
 .prose-note .diagram-flow li > span,
 .prose-note .diagram-cycle li > span {
-  display: flex; align-items: center; gap: 0.45em; max-width: 14em; padding: 0.45em 0.75em;
+  display: flex; align-items: center; gap: 0.45em; flex: 1 1 auto; min-width: 0; padding: 0.45em 0.7em;
   border-radius: 12px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-card);
 }
+/* Jusqu'à 5 étapes, tout tient sur une ligne : les cases se partagent la largeur */
+.prose-note .diagram-flow ol,
+.prose-note .diagram-cycle ol { flex-wrap: nowrap; align-items: stretch; }
+.prose-note .diagram-flow li,
+.prose-note .diagram-cycle li { flex: 1 1 0; min-width: 0; }
+/* Au-delà, retour à la ligne par rangées de 3 */
+.prose-note .diagram-flow ol:has(> li:nth-child(6)),
+.prose-note .diagram-cycle ol:has(> li:nth-child(6)) { flex-wrap: wrap; }
+.prose-note .diagram-flow ol:has(> li:nth-child(6)) > li,
+.prose-note .diagram-cycle ol:has(> li:nth-child(6)) > li { flex: 0 1 33%; }
 .prose-note .diagram-flow li > span::before,
 .prose-note .diagram-cycle li > span::before {
   content: counter(step); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -267,8 +277,12 @@ h3,
 .prose-note .diagram-cycle li:first-child::before { content: '↻'; margin-left: 0; }
 /* Sur téléphone, les étapes se lisent de haut en bas */
 @media (max-width: 640px) {
-  .prose-note .diagram-flow ol { flex-direction: column; flex-wrap: nowrap; }
-  .prose-note .diagram-flow li { flex-direction: column; }
+  .prose-note .diagram-flow ol,
+  .prose-note .diagram-flow ol:has(> li:nth-child(6)) { flex-direction: column; flex-wrap: nowrap; align-items: center; }
+  .prose-note .diagram-flow li,
+  .prose-note .diagram-flow ol:has(> li:nth-child(6)) > li { flex-direction: column; flex: none; max-width: 100%; }
+  .prose-note .diagram-cycle ol { flex-wrap: wrap; }
+  .prose-note .diagram-cycle li { flex: 0 1 45%; }
   .prose-note .diagram-flow li + li::before { content: '↓'; margin: 0.15em 0; }
 }
 .prose-note .diagram-tree .diagram-title {

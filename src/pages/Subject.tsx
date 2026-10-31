@@ -9,6 +9,7 @@ import { AudioImportModal, RecordingsPanel, RecordModal } from '@/components/Rec
 import { ResourcesPanel } from '@/components/Resources'
 import { PlansPanel } from '@/components/Plans'
 import { QuizExamButton } from '@/components/QuizExamMode'
+import { ShareButton } from '@/components/ShareButton'
 import { SubjectForm } from '@/components/SubjectForm'
 import { Badge, Button, Card, EmptyState, ErrorBox, IconButton, Spinner, Tabs } from '@/components/ui'
 import { useSpace } from '@/context/space'
@@ -110,6 +111,7 @@ function QuizList({ subjectId }: { subjectId: string }) {
                   Réessayer
                 </Button>
               )}
+              {q.status === 'ready' && <ShareButton kind="quiz" targetId={q.id} />}
               {q.status === 'ready' &&
                 (open ? (
                   <Link to={`/qcm/session/${open.id}`}>
