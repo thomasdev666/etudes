@@ -329,7 +329,7 @@ export const EN4: Record<string, string> = {
   jour: 'day',
   'Supprimer définitivement': 'Delete permanently',
   // Messages du serveur (base de données et fonctions)
-  'Cette fonction est réservée à l’offre Premium. Tu peux l’essayer gratuitement pendant 7 jours.': 'This feature is for Premium. You can try it free for 7 days.',
+  'Cette fonction est réservée à l’offre Premium. Tu peux l’essayer gratuitement pendant 3 jours.': 'This feature is for Premium. You can try it free for 3 days.',
   'Limite de la semaine atteinte ({0}/{1}). Une place se libère le {2}, ou passe en Premium.': 'Weekly limit reached ({0}/{1}). A slot frees up on {2}, or switch to Premium.',
   'Ce code n’existe pas ou n’est plus valable.': 'This code doesn’t exist or is no longer valid.',
   'Ce code a déjà été utilisé le nombre de fois prévu.': 'This code has already been used the maximum number of times.',
@@ -361,7 +361,7 @@ export const EN4: Record<string, string> = {
   'C’est parti': 'Let’s go',
   'Voir les nouveautés': 'See what’s new',
   'Une grosse mise à jour, construite à partir de vos retours. Voici ce qui change pour toi.': 'A big update, built from your feedback. Here’s what changes for you.',
-  'Essaie Premium 7 jours, gratuitement': 'Try Premium free for 7 days',
+  'Essaie Premium 3 jours, gratuitement': 'Try Premium free for 3 days',
   'Sans carte bancaire : transcription de tes cours, examens blancs complets et 30 générations par semaine. Les prix baissent aussi : 2,99 € par mois, ou 14,99 € le semestre.':
     'No card needed: class transcription, full mock exams and 30 generations per week. Prices are lower too: €2.99 per month, or €14.99 per semester.',
   'Voir les offres': 'See the plans',

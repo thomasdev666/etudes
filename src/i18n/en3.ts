@@ -173,7 +173,7 @@ export const EN3: Record<string, string> = {
   'Examen blanc ·': 'Mock exam ·',
   'questions ·': 'questions ·',
   'L’examen blanc complet est réservé à Premium.': 'The full mock exam is a Premium feature.',
-  'Essaie-le gratuitement 7 jours': 'Try it free for 7 days',
+  'Essaie-le gratuitement 3 jours': 'Try it free for 3 days',
   'Ou s’entraîner sur une section :': 'Or practise one section:',
   Préparation: 'Preparation',
   'Préparation des questions…': 'Preparing questions…',

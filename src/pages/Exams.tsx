@@ -143,7 +143,7 @@ function ExamCard({ exam }: { exam: ExamId }) {
         <p className="-mt-2 text-sm text-muted">
           L’examen blanc complet est réservé à Premium.{' '}
           <Link to="/abonnement" className="font-medium text-accent-ink underline">
-            Essaie-le gratuitement 7 jours
+            Essaie-le gratuitement 3 jours
           </Link>
         </p>
       )}

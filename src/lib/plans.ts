@@ -86,7 +86,7 @@ async function refreshPlan(qc: ReturnType<typeof useQueryClient>, userId: string
   for (const key of ['plan', 'plan_details', 'usage']) await qc.invalidateQueries({ queryKey: [key, userId] })
 }
 
-// Essai Premium de 7 jours : renvoie la date de fin
+// Essai Premium de 3 jours : renvoie la date de fin
 export function useStartTrial() {
   const userId = useUserId()
   const qc = useQueryClient()

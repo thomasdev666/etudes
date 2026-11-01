@@ -264,7 +264,7 @@ export const EN1: Record<string, string> = {
   Démarrer: 'Start',
   'Un enregistrement est déjà en cours.': 'A recording is already in progress.',
   'La transcription est réservée à l’offre Premium.': 'Transcription is a Premium feature.',
-  'Essaie-la gratuitement 7 jours': 'Try it free for 7 days',
+  'Essaie-la gratuitement 3 jours': 'Try it free for 3 days',
   'J’ai l’accord de l’enseignant pour enregistrer ce cours, et je respecte le règlement de mon établissement. L’enregistrement reste privé et n’est jamais diffusé.':
     'I have the teacher’s permission to record this class, and I follow my school’s rules. The recording stays private and is never shared.',
   'Pose ton téléphone ou ton ordinateur près de l’enseignant. L’écran reste allumé pendant l’enregistrement.': 'Place your phone or computer near the teacher. The screen stays on while recording.',

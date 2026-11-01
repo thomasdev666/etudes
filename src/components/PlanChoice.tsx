@@ -7,7 +7,7 @@ import { fmt } from '@/lib/dates'
 import { usePlanDetails, useStartTrial } from '@/lib/plans'
 
 // Choix de l'offre : Gratuit, ou Premium avec trois durées (mois, semestre, année).
-// Essai Premium gratuit de 7 jours, sans carte bancaire. Paiement Stripe quand il est activé.
+// Essai Premium gratuit de 3 jours, sans carte bancaire. Paiement Stripe quand il est activé.
 
 const FREE_ITEMS = ['Agenda, devoirs et planification', 'Matières, notes, ressources et recherche', 'Flash cards sans limite', 'QCM, fiches et cartes mentales : 10 la première semaine, puis 3 par semaine']
 const PREMIUM_ITEMS = ['30 QCM, fiches et cartes mentales par semaine', 'Transcription de tes cours : 5 h par semaine', 'Examens blancs TAGE MAGE et TOEIC complets', 'Statistiques détaillées et export complet']
