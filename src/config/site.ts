@@ -2,8 +2,8 @@
 // Tout ce qui apparaît dans les mentions légales, les CGU et les emails vient d'ici.
 export const SITE = {
   name: 'Regulya',
-  owner: 'Jade Caruana, micro-entrepreneure',
-  publisher: 'Jade Caruana',
+  owner: 'Thomas Faudou, micro-entrepreneur',
+  publisher: 'Thomas Faudou',
   // Adresse de contact affichée sur le site (accueil, mentions légales, CGU, confidentialité)
   contact: 'contact@orpheex.fr',
   address: '[adresse postale à compléter]',
