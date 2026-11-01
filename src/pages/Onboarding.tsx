@@ -1,19 +1,26 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
 import { OfferStep } from '@/components/OfferStep'
+import { usePlanDetails } from '@/lib/plans'
 import { signOutEverywhere } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
 
 export function Onboarding() {
   const qc = useQueryClient()
   const [step, setStep] = useState<'offre' | 'espace'>('offre')
+  // Retour de paiement, ou Premium déjà actif : pas de nouveau choix d'offre (sinon on repaierait)
+  const [params] = useSearchParams()
+  const { data: details } = usePlanDetails()
+  const paid = params.get('paiement') === 'ok' || details?.plan === 'premium'
+  const offerStep = step === 'offre' && !paid
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   // Premier écran après l'inscription : choisir son offre avant de créer l'espace
-  if (step === 'offre')
+  if (offerStep)
     return (
       <div className="flex min-h-dvh items-start justify-center px-4 py-10">
         <div className="w-full max-w-4xl">
@@ -45,6 +52,9 @@ export function Onboarding() {
         <p className="mt-1 text-muted">
           Crée ton premier espace : ton école. Si tu changes d’établissement (échange, master…), tu créeras un autre espace, et les données de chacun restent séparées.
         </p>
+        {paid && (
+          <p className="mt-4 rounded-2xl bg-success-soft px-4 py-3 text-sm text-success">Merci pour ton abonnement ! Ton Premium est activé : il ne reste qu’à créer ton espace.</p>
+        )}
         <form onSubmit={submit} className="mt-5 flex flex-col gap-4">
           <Field label="Nom de l’espace" id="space">
             <Input id="space" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. : EDHEC, KEDGE, NEOMA, IAE de Lyon…" autoFocus />

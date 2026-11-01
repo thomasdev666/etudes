@@ -22,6 +22,7 @@ import {
   useWorkBlocks,
 } from '@/lib/data'
 import { useOnboarding } from '@/lib/onboarding'
+import { ThanksForPayment } from '@/components/ThanksForPayment'
 import { MASTERED_DAYS } from '@/lib/sm2'
 import { useFirstTimeTour } from '@/lib/tours'
 import type { Assignment, WorkBlock } from '@/lib/types'
@@ -91,6 +92,7 @@ export function HomePage() {
     <>
       {tour}
       <WhatsNew open={!tour && showNews} onClose={closeNews} />
+      {params.get('paiement') === 'ok' && <ThanksForPayment onClose={() => setParams({}, { replace: true })} />}
       <div className="mb-5">
         <p className="text-muted">{capitalize(fmt(now, 'EEEE d MMMM'))}</p>
         <h1 className="text-2xl font-bold sm:text-3xl">{greeting()} 👋</h1>

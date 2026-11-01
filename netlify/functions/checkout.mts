@@ -29,8 +29,11 @@ export default async (req: Request) => {
       subscription_data: { metadata: { user_id: userId, billing } },
       allow_promotion_codes: 'true',
       locale: 'auto',
-      success_url: `${site}/abonnement?paiement=ok`,
+      // Retour direct sur l'accueil après paiement (merci + Premium), sans passer par le choix d'offre
+      success_url: `${site}/?paiement=ok`,
       cancel_url: `${site}/abonnement?paiement=annule`,
+      // Aucun numéro de téléphone demandé au client
+      phone_number_collection: { enabled: false },
     })
     return Response.json({ url: session.url })
   } catch (e) {
