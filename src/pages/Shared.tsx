@@ -104,11 +104,14 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
   const [done, setDone] = useState(false)
   // Correction à chaque question ou à la fin : choisi avant de commencer
   const [mode, setMode] = useState<RevealMode | null>(null)
+  // Questions validées (mode « à chaque question ») : leur correction est affichée
+  const [validated, setValidated] = useState<Set<number>>(new Set())
   if (!questions.length) return <p className="text-muted">Ce QCM est vide.</p>
   const q = questions[index]
   const current = answers[index]
-  // Mode « à chaque question » : une fois répondu, la correction s'affiche et la réponse est verrouillée
-  const revealed = mode === 'each' && current !== undefined
+  // Mode « à chaque question » : une fois la réponse validée, la correction s'affiche et la réponse est verrouillée
+  const revealed = mode === 'each' && validated.has(index)
+  const validate = () => setValidated((v) => new Set(v).add(index))
   const set = (v: number | null) => {
     if (revealed) return
     setAnswers((a) => Object.assign([...a], { [index]: v }))
@@ -116,6 +119,7 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
   const last = index === questions.length - 1
   const restart = () => {
     setMode(null)
+    setValidated(new Set())
     setAnswers([])
     setIndex(0)
     setDone(false)
@@ -253,8 +257,9 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
         type="button"
         onClick={() => {
           set(null)
-          // À chaque question : on montre la bonne réponse au lieu de passer à la suivante
-          if (!last && mode === 'end') setIndex(index + 1)
+          // À chaque question : « Je ne sais pas » vaut validation, on montre la bonne réponse
+          if (mode === 'each') validate()
+          else if (!last) setIndex(index + 1)
         }}
         aria-pressed={current === null}
         className={cx(
@@ -270,18 +275,24 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
         <Button variant="ghost" icon={<ArrowLeft className="size-4" />} disabled={index === 0} onClick={() => setIndex(index - 1)}>
           Précédente
         </Button>
-        <Button
-          disabled={current === undefined}
-          icon={last ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
-          onClick={() => {
-            if (last) {
-              setDone(true)
-              window.scrollTo({ top: 0 })
-            } else setIndex(index + 1)
-          }}
-        >
-          {last ? (mode === 'each' ? 'Terminer et voir mon score' : 'Terminer et voir la correction') : 'Suivante'}
-        </Button>
+        {mode === 'each' && !revealed ? (
+          <Button disabled={current === undefined} icon={<Check className="size-4" />} onClick={validate}>
+            Valider ma réponse
+          </Button>
+        ) : (
+          <Button
+            disabled={current === undefined}
+            icon={last ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+            onClick={() => {
+              if (last) {
+                setDone(true)
+                window.scrollTo({ top: 0 })
+              } else setIndex(index + 1)
+            }}
+          >
+            {last ? (mode === 'each' ? 'Terminer et voir mon score' : 'Terminer et voir la correction') : 'Suivante'}
+          </Button>
+        )}
       </div>
     </div>
   )

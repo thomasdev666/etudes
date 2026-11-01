@@ -659,6 +659,8 @@ export const EN4: Record<string, string> = {
   'Terminer et voir mon score': 'Finish and see my score',
   'Correction…': 'Checking…',
   'La correction de ce QCM s’affiche à la fin.': 'This quiz is corrected at the end.',
+  'Valider ma réponse': 'Check my answer',
+  'Raccourcis : touches 1 à 4 pour répondre, 0 si tu ne sais pas, Entrée pour valider ou continuer.': 'Shortcuts: keys 1 to 4 to answer, 0 if you don’t know, Enter to check or continue.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

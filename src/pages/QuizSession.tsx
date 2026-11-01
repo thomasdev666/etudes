@@ -351,9 +351,9 @@ export default function QuizSessionPage() {
     }
   }
 
-  // Retour sur une question déjà répondue (ou reprise de la session) : on réaffiche sa correction
+  // Retour sur une question déjà validée (ou reprise de la session) : on réaffiche sa correction
   useEffect(() => {
-    if (mode !== 'each' || !q || !current || feedback[q.id] || asked.current.has(q.id)) return
+    if (mode !== 'each' || !q || !current?.validated || feedback[q.id] || asked.current.has(q.id)) return
     void reveal(q.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, q?.id, current])
@@ -369,11 +369,18 @@ export default function QuizSessionPage() {
     const list = [...answers.filter((a) => a.question_id !== q.id), entry]
     setAnswers(list)
     shownAt.current = Date.now()
-    if (mode === 'each') {
-      // Réponse enregistrée avant d'afficher la correction
-      void persist(index, list).then(() => reveal(q.id))
-    }
     return list
+  }
+
+  // Mode « à chaque question » : la correction s'affiche seulement quand l'étudiant valide sa réponse
+  async function validate(list = answers) {
+    if (!q || mode !== 'each' || feedback[q.id] || checking) return
+    const entry = list.find((a) => a.question_id === q.id)
+    if (!entry) return
+    const next = list.map((a) => (a.question_id === q.id ? { ...a, validated: true } : a))
+    setAnswers(next)
+    await persist(index, next)
+    await reveal(q.id)
   }
 
   // « Je ne sais pas » passe directement à la question suivante
@@ -381,8 +388,8 @@ export default function QuizSessionPage() {
     if (Date.now() < lockUntil.current || finishing) return
     const list = choose(null)
     if (!list) return
-    // À chaque question : on montre la bonne réponse au lieu de passer à la suivante
-    if (mode === 'each') return
+    // À chaque question : « Je ne sais pas » vaut validation, on montre la bonne réponse
+    if (mode === 'each') return validate(list)
     if (index < questions.length - 1) {
       lockUntil.current = Date.now() + 500
       setIndex(index + 1)
@@ -436,7 +443,10 @@ export default function QuizSessionPage() {
       const n = ['1', '2', '3', '4'].indexOf(k) >= 0 ? Number(k) - 1 : ['a', 'b', 'c', 'd'].indexOf(k)
       if (n >= 0 && n < q.choices.length) choose(n)
       if (k === '?' || k === '0') dontKnow()
-      if (e.key === 'Enter' && current) next()
+      if (e.key === 'Enter' && current) {
+        if (mode === 'each') void validate()
+        else next()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -534,8 +544,6 @@ export default function QuizSessionPage() {
             </div>
             {revealed ? (
               <QuestionFeedback fb={revealed} chosen={current?.chosen_index ?? null} count={q.choices.length} />
-            ) : checking ? (
-              <p className="text-center text-sm text-muted">Correction…</p>
             ) : (
             <button
               type="button"
@@ -563,16 +571,22 @@ export default function QuizSessionPage() {
               >
                 Précédente
               </Button>
-              <Button
-                onClick={next}
-                disabled={(!current && remaining === null) || (mode === 'each' && !revealed)}
-                loading={finishing}
-                icon={index === questions.length - 1 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
-              >
-                {index === questions.length - 1 ? (mode === 'each' ? 'Terminer et voir mon score' : 'Terminer et voir la correction') : 'Suivante'}
-              </Button>
+              {mode === 'each' && !revealed ? (
+                <Button onClick={() => void validate()} disabled={!current} loading={checking} icon={<Check className="size-4" />}>
+                  Valider ma réponse
+                </Button>
+              ) : (
+                <Button
+                  onClick={next}
+                  disabled={!current && remaining === null}
+                  loading={finishing}
+                  icon={index === questions.length - 1 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+                >
+                  {index === questions.length - 1 ? (mode === 'each' ? 'Terminer et voir mon score' : 'Terminer et voir la correction') : 'Suivante'}
+                </Button>
+              )}
             </div>
-            <p className="hidden text-center text-xs text-muted sm:block">Raccourcis : touches 1 à 4 pour répondre, 0 si tu ne sais pas, Entrée pour continuer.</p>
+            <p className="hidden text-center text-xs text-muted sm:block">Raccourcis : touches 1 à 4 pour répondre, 0 si tu ne sais pas, Entrée pour valider ou continuer.</p>
           </div>
         ) : (
           <ErrorBox error="Aucune question dans cette session." />

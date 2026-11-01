@@ -127,7 +127,7 @@ export type QuizSession = Base & {
   kind: 'quiz' | 'errors'
   question_ids: string[]
   current_index: number
-  progress: { question_id: string; chosen_index: number | null; time_ms: number; dont_know?: boolean }[]
+  progress: { question_id: string; chosen_index: number | null; time_ms: number; dont_know?: boolean; validated?: boolean }[]
   started_at: string
   finished_at: string | null
   score: number | null
