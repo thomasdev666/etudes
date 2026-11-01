@@ -3,9 +3,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cx, ProgressBar } from '@/components/ui'
-import { createAiJob, type JobMeta } from '@/lib/ai'
+import { createAiJob, kickAiJob, type JobMeta } from '@/lib/ai'
 import { useGirafaHidden } from '@/lib/assistantPref'
 import { useInvalidate, type Table } from '@/lib/data'
+import { QUEUE_NOTICE, queueEta } from '@/lib/queue'
 import { must, supabase } from '@/lib/supabase'
 import type { AiJob } from '@/lib/types'
 import { useSpace } from './space'
@@ -22,6 +23,8 @@ type TrackedJob = {
   startedAt: number
   meta: JobMeta
   dismissed?: boolean
+  // Rang dans la file d'attente, quand la tâche attend son tour
+  queue?: { position: number; busy: boolean }
 }
 
 type JobsState = {
@@ -56,14 +59,17 @@ const AFFECTS: Record<AiJob['kind'], Table[]> = {
 // qui avance vite au début, ralentit, et ne dépasse pas 95 % avant la fin.
 export function jobProgress(j: TrackedJob, now = Date.now()) {
   if (j.status === 'done' || j.status === 'error') return 100
+  if (j.status === 'pending') return 0
   const t = (now - j.startedAt) / 1000
   const estimated = 95 * (1 - Math.exp((-2 * t) / j.meta.estimateSec))
   const real = j.result?.progress
   return real !== undefined ? Math.max(real * 100, Math.min(estimated, real * 100 + 15)) : estimated
 }
 
-// Sans démarrage côté serveur après ce délai, la génération est considérée bloquée
-const START_TIMEOUT_MS = 60_000
+// Attente maximale dans la file (le serveur fait le même contrôle)
+const QUEUE_MAX_MS = 70 * 60_000
+// Une tâche en attente est renvoyée au serveur à ce rythme jusqu'à son tour
+const KICK_EVERY_MS = 10_000
 // Le serveur s'arrête au bout de 15 min : au-delà, la génération est perdue
 export const STALE_MS = 16 * 60_000
 
@@ -76,6 +82,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<TrackedJob[]>([])
   const [, tick] = useState(0)
   const jobsRef = useRef(jobs)
+  // Dernier renvoi au serveur, par tâche en attente
+  const kickedAt = useRef<Record<string, number>>({})
   jobsRef.current = jobs
   // Références stables pour que le suivi ne redémarre pas à chaque rendu
   const deps = useRef({ invalidate, navigate, toast })
@@ -144,14 +152,25 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           else toast({ message: `${prev.meta.label} : échec`, tone: 'error' })
         }
       }
-      // Tâche jamais prise en charge par le serveur : on l'arrête avec un message clair
       const now = Date.now()
+      // File d'attente : une tâche en attente est relancée régulièrement, et son rang est affiché
+      const queued: Record<string, { position: number; busy: boolean }> = {}
+      for (const r of rows.filter((x) => x.status === 'pending')) {
+        if (now - (kickedAt.current[r.id] ?? 0) > KICK_EVERY_MS) {
+          kickedAt.current[r.id] = now
+          kickAiJob(r.id).catch(() => {})
+        }
+        const { data: q } = await supabase.rpc('ai_queue_position', { p_job: r.id })
+        const pos = q as { position: number; busy: boolean } | null
+        if (pos?.position) queued[r.id] = pos
+      }
       for (const j of jobsRef.current) {
         if (j.kind === 'upload') continue
         const r = rows.find((x) => x.id === j.id)
-        if (r?.status === 'pending' && now - j.startedAt > START_TIMEOUT_MS) {
+        if (r?.status === 'running' || r?.status === 'done' || r?.status === 'error') delete kickedAt.current[j.id]
+        if (r?.status === 'pending' && now - j.startedAt > QUEUE_MAX_MS) {
           r.status = 'error'
-          r.error = 'Le service de génération n’a pas démarré. Vérifie que le site est bien déployé depuis GitHub, puis réessaie.'
+          r.error = 'La génération est restée trop longtemps en file d’attente. Relance-la.'
           await supabase.from('ai_jobs').update({ status: 'error', error: r.error }).eq('id', j.id)
           toast({ message: `${j.meta.label} : échec`, tone: 'error' })
         }
@@ -165,7 +184,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           toast({ message: `${j.meta.label} : échec`, tone: 'error' })
         }
       }
-      setJobs((cur) => cur.map((j) => ({ ...j, ...(rows.find((r) => r.id === j.id) ?? {}) })))
+      setJobs((cur) => cur.map((j) => ({ ...j, ...(rows.find((r) => r.id === j.id) ?? {}), queue: queued[j.id] ?? j.queue })))
     }, 2500)
     return () => {
       clearInterval(anim)
@@ -294,7 +313,14 @@ function JobRow({ j, dismiss, cancel, navigate, compact }: RowActions & { j: Tra
         <ProgressBar value={jobProgress(j)} color={j.status === 'error' ? 'var(--danger)' : j.status === 'done' ? 'var(--success)' : undefined} label={j.meta.label} />
       </div>
       <div className={cx('mt-1 text-xs', j.status === 'error' ? 'text-danger' : 'text-muted')}>
-        {running ? (
+        {j.status === 'pending' ? (
+          <span className="block">
+            <strong className="text-text">
+              {j.queue ? `En file d’attente · tour n° ${j.queue.position}, ${queueEta(j.queue.position, j.queue.busy)}` : 'En file d’attente…'}
+            </strong>
+            <span className="mt-0.5 block">{QUEUE_NOTICE}</span>
+          </span>
+        ) : running ? (
           (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.') + (j.kind === 'upload' ? ' · Garde l’appli ouverte.' : '')
         ) : j.status === 'error' ? (
           (j.error ?? 'La génération a échoué.')

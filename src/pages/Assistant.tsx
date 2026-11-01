@@ -4,6 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Card, cx, ErrorBox, PageHeader, Select, Textarea } from '@/components/ui'
 import { useCreateAssistantDoc } from '@/lib/assistant'
 import { useCourses, useNotesList, useSubjectMap, useSubjects } from '@/lib/data'
+import { SessionMeter } from '@/components/SessionMeter'
+import { QUEUE_NOTICE } from '@/lib/queue'
 import { useUsage } from '@/lib/plans'
 
 // Assistant : une demande libre (« une fiche avec seulement les formules »…), traitée à partir
@@ -167,6 +169,8 @@ export default function AssistantPage() {
         </div>
 
         <ErrorBox error={error} />
+        <SessionMeter kind="gen" />
+        <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">{QUEUE_NOTICE}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Button icon={<Sparkles className="size-4" />} loading={busy} disabled={!instruction.trim() || !chosen.length || left === 0} onClick={run}>
             Créer le document

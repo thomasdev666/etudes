@@ -35,6 +35,16 @@ export function estimateSeconds(kind: AiJob['kind'], count = 0) {
   }
 }
 
+// Réveille la fonction serveur pour une tâche. Si la tâche attend son tour dans la file,
+// la fonction ne fait rien : l'appli la renvoie ici jusqu'à ce qu'elle démarre.
+export async function kickAiJob(jobId: string) {
+  return fetch('/.netlify/functions/ai-job-background', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ job_id: jobId }),
+  })
+}
+
 // Crée la tâche et réveille la fonction serveur (réponse immédiate).
 // La clé IA ne quitte jamais le serveur.
 export async function createAiJob(spaceId: string, kind: AiJob['kind'], params: Record<string, unknown>, meta: JobMeta): Promise<AiJob> {
@@ -45,11 +55,7 @@ export async function createAiJob(spaceId: string, kind: AiJob['kind'], params: 
       .select()
       .single(),
   ) as AiJob
-  const res = await fetch('/.netlify/functions/ai-job-background', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ job_id: job.id }),
-  })
+  const res = await kickAiJob(job.id)
   // Une fonction d'arrière-plan répond toujours 202. Un 200 signifie que la fonction
   // n'existe pas sur le site déployé (la page de l'appli est renvoyée à la place).
   if (res.status !== 202) {

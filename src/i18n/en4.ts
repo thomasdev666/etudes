@@ -621,6 +621,12 @@ export const EN4: Record<string, string> = {
   'Un partiel blanc corrigé, dans le même format que mes anciens partiels': 'A mock exam with answers, in the same format as my past exams',
   'Les anciens partiels demandent la mise à jour 0020_past_exams.sql dans Supabase.': 'Past exams require the 0020_past_exams.sql update in Supabase.',
   'Ancien format Office : enregistre le fichier en .pptx / .docx, ou exporte-le en PDF.': 'Old Office format: save the file as .pptx / .docx, or export it to PDF.',
+  // File d'attente et limites de session
+  'Regulya est encore en version de test : une seule génération tourne à la fois, pour que tout le monde ait sa place. Pour aller plus vite et m’aider à faire grandir le projet, passe en Premium à 2,99 €/mois.': 'Regulya is still in test version: only one generation runs at a time, so everyone gets their turn. To go faster and help the project grow, go Premium for €2.99/month.',
+  'En file d’attente…': 'Waiting in line…',
+  'Bientôt la limite de session': 'Session limit coming up',
+  'Limite de session atteinte. Elle se réinitialise vers {0}. Tu peux attendre, ou passer en Premium pour aller plus vite.': 'Session limit reached. It resets at {0}. You can wait, or go Premium to go faster.',
+  'Une question toutes les 5 secondes, pour que tout le monde ait sa place.': 'One question every 5 seconds, so everyone gets a turn.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

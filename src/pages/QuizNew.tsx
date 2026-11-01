@@ -5,6 +5,7 @@ import { SourcePicker, useGenerateQuiz } from '@/components/Generate'
 import { Badge, Button, Card, ErrorBox, Field, Input, PageHeader, Select, Tabs } from '@/components/ui'
 import { useCourses, useNotesList, useSubjects } from '@/lib/data'
 import { usePastExams } from '@/lib/pastExams'
+import { QueueNotice, SessionMeter } from '@/components/SessionMeter'
 import type { Quiz } from '@/lib/types'
 
 export default function QuizNewPage() {
@@ -142,6 +143,8 @@ export default function QuizNewPage() {
         </Field>
         <ErrorBox error={error} />
         <p className="text-sm text-muted">La génération continue en arrière-plan (environ 1 à 3 minutes) : tu peux naviguer, une barre de progression reste visible.</p>
+        <QueueNotice />
+        <SessionMeter kind="gen" />
         <Button size="lg" icon={<Sparkles className="size-5" />} loading={busy} disabled={!sid || (!courseIds.length && !noteIds.length)} onClick={go}>
           Générer le QCM
         </Button>

@@ -149,14 +149,10 @@ export default async (req: Request) => {
   const resuming = resume === true && job?.kind === 'transcription' && job.status === 'running'
   if (!job || (job.status !== 'pending' && !resuming)) return
   if (!resuming) {
-    // Seulement si elle est toujours en attente : elle a pu être annulée entre-temps
-    const { data: started } = await db
-      .from('ai_jobs')
-      .update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } })
-      .eq('id', job_id)
-      .eq('status', 'pending')
-      .select('id')
-    if (!started?.length) return
+    // File d'attente : une seule génération à la fois. Si ce n'est pas son tour, la tâche reste
+    // en attente ; l'appli la renvoie ici régulièrement jusqu'à ce qu'elle démarre.
+    const { data: claimed, error: claimError } = await db.rpc('start_ai_job', { p_job: job_id })
+    if (claimError || !claimed) return
   }
 
   const progress: Progress = async (value, phase) => {

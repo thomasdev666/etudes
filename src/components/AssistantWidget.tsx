@@ -1,6 +1,7 @@
 import { BookOpen, Check, NotebookPen, RotateCcw, Send, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { SessionMeter } from './SessionMeter'
 import { useJobs } from '@/context/jobs'
 import { MathText } from '@/components/MathText'
 import { useSpace } from '@/context/space'
@@ -574,6 +575,11 @@ function Conversation({ onClose }: { onClose: () => void }) {
         <div ref={end} />
       </div>
 
+      {(step === 'kind' || step === 'details' || step === 'done') && (
+        <div className="px-3">
+          <SessionMeter kind="chat" />
+        </div>
+      )}
       {(step === 'kind' || step === 'details' || step === 'done') && (
         <form
           onSubmit={(e) => {

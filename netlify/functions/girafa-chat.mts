@@ -2,7 +2,7 @@
 // Cours de l'étudiant d'abord, Internet sinon ; une demande de document renvoie vers le choix des matières.
 import { girafaAnswer, type ChatTurn } from '../shared/ai'
 import { errorResponse, HttpError, userClient } from '../shared/supabase'
-import { pickPassages, rankSubjects, type Doc } from '../../src/lib/relevance'
+import { isStudyQuestion, offTopicReply, pickPassages, rankSubjects, type Doc } from '../../src/lib/relevance'
 
 export default async (req: Request) => {
   try {
@@ -14,10 +14,6 @@ export default async (req: Request) => {
     const history = (Array.isArray(body.history) ? body.history : [])
       .filter((t): t is ChatTurn => !!t && (t.from === 'me' || t.from === 'bot') && typeof t.text === 'string')
       .slice(-8)
-
-    const { error: quotaError } = await db.rpc('consume_quota', { p_kind: 'chat', p_amount: 1 })
-    // Quota « chat » absent (mise à jour 18 de la base pas encore lancée) : on ne bloque pas GIRAFA
-    if (quotaError && !/pas reconnue/i.test(quotaError.message)) throw new HttpError(429, quotaError.message)
 
     // Cours et notes de l'espace (la sécurité de la base limite la lecture à l'étudiant)
     const [{ data: subjects }, { data: courses }, { data: notes }] = await Promise.all([
@@ -32,6 +28,27 @@ export default async (req: Request) => {
     // La question précédente aide pour les questions de suivi (« et pour le BFR ? »)
     const lastAsk = [...history].reverse().find((t) => t.from === 'me')?.text ?? ''
     const { text: passages, titles } = pickPassages(`${question} ${question} ${lastAsk}`, docs)
+
+    // Hors sujet (bavardage, message sans rapport avec les études) : réponse automatique,
+    // sans consommer la clé IA ni le quota
+    if (!isStudyQuestion(question, subjects ?? [], docs, !!passages)) {
+      const reply = offTopicReply(question).text
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        start(controller) {
+          const send = (o: unknown) => controller.enqueue(encoder.encode(JSON.stringify(o) + '\n'))
+          send({ t: 'meta', from: 'general', sources: [] })
+          send({ t: 'delta', text: reply })
+          send({ t: 'done' })
+          controller.close()
+        },
+      })
+      return new Response(stream, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' } })
+    }
+
+    const { error: quotaError } = await db.rpc('consume_quota', { p_kind: 'chat', p_amount: 1 })
+    // Quota « chat » absent (mise à jour 18 de la base pas encore lancée) : on ne bloque pas GIRAFA
+    if (quotaError && !/pas reconnue/i.test(quotaError.message)) throw new HttpError(429, quotaError.message)
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
