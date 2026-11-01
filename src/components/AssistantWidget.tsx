@@ -1,6 +1,7 @@
 import { BookOpen, Check, NotebookPen, RotateCcw, Send, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { SessionMeter } from './SessionMeter'
 import { useJobs } from '@/context/jobs'
 import { MathText } from '@/components/MathText'
@@ -217,6 +218,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
   const { data: notes = [] } = useNotesList()
   const { data: usage = [] } = useUsage()
   const { spaceId } = useSpace()
+  const qc = useQueryClient()
   const [step, setStep] = useState<Step>('kind')
   const [msgs, setMsgs] = useState<Msg[]>([
     { from: 'bot', text: 'Salut, moi c’est GIRAFA ! Pose-moi une question sur tes cours (« c’est quoi le fonds de roulement ? »), ou demande-moi un document de révision.' },
@@ -302,7 +304,10 @@ function Conversation({ onClose }: { onClose: () => void }) {
     setThinking(true)
     setLive(null)
     try {
-      const r = await streamGirafa(spaceId, question, turns, setLive)
+      const r = await streamGirafa(spaceId, question, turns, setLive).finally(() => {
+        // Une question consommée : compteur de session à jour
+        qc.invalidateQueries({ queryKey: ['session'] }).catch(() => {})
+      })
       if (r.kind === 'doc') {
         setTurns((cur) => [...cur, { from: 'me' as const, text: question }].slice(-12))
         say({ from: 'bot', text: 'Je m’en occupe !' })

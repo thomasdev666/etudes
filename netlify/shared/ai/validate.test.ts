@@ -151,7 +151,7 @@ describe('anciens partiels', () => {
     const { EXAM_REQUEST } = await import('./index')
     for (const q of ['Fais-moi un partiel blanc', 'des exercices type examen', 'un QCM sur le chapitre 2', 'prépare-moi pour le midterm'])
       expect(EXAM_REQUEST.test(q)).toBe(true)
-    for (const q of ['une fiche sur l’exercice comptable', 'les formules du contrôle de gestion', 'résumé du chapitre sur la trésorerie'])
+    for (const q of ['une fiche sur l’exercice comptable', 'les formules du contrôle de gestion', 'résumé du chapitre sur la trésorerie', 'une fiche sur les tests statistiques', 'le coût du produit final'])
       expect(EXAM_REQUEST.test(q)).toBe(false)
   })
 })

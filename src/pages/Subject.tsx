@@ -191,7 +191,7 @@ export default function SubjectPage() {
   const { data: errors = [] } = useErrorItems()
   const { data: recordings = [] } = useRecordings()
   const { data: pastExams } = usePastExams()
-  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs', 'recordings', 'resources'])
+  const trash = useTrash('subjects', ['courses', 'assignments', 'study_plans', 'flashcards', 'quizzes', 'notes', 'note_outputs', 'recordings', 'resources', 'past_exams'])
   const [edit, setEdit] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [recordOpen, setRecordOpen] = useState(false)

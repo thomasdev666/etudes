@@ -2,7 +2,7 @@
 // Utilisé par la page Assistant et par l'assistant flottant.
 import { useJobs } from '@/context/jobs'
 import { useSpace } from '@/context/space'
-import { estimateSeconds } from './ai'
+import { checkQuota, estimateSeconds } from './ai'
 import { insertSheetNote, useInvalidate } from './data'
 
 export type AssistantRequest = { subjectId: string | null; courseIds: string[]; noteIds: string[]; instruction: string; title?: string }
@@ -12,6 +12,7 @@ export function useCreateAssistantDoc() {
   const { start } = useJobs()
   const invalidate = useInvalidate()
   return async (r: AssistantRequest) => {
+    await checkQuota('assistant')
     const ask = r.instruction.trim()
     const short = r.title ?? (ask.length > 60 ? ask.slice(0, 57) + '…' : ask)
     const note = await insertSheetNote({

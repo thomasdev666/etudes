@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useSpace } from '@/context/space'
 import { useJobs } from '@/context/jobs'
-import { estimateSeconds } from '@/lib/ai'
+import { checkQuota, estimateSeconds } from '@/lib/ai'
 import { insertSheetNote, useCourses, useInvalidate, useNotesList, useSubjects } from '@/lib/data'
 import { must, supabase } from '@/lib/supabase'
 import type { Quiz } from '@/lib/types'
@@ -130,6 +130,7 @@ export function GenerateCardsModal(props: GenerateProps) {
 
   const go = () =>
     f.run(async () => {
+      await checkQuota('flashcards')
       await start(
         'flashcards',
         { subject_id: f.sid, course_ids: f.courseIds, note_ids: f.noteIds, count },
@@ -194,6 +195,7 @@ export function GenerateMindmapModal(props: GenerateProps) {
           [...((j.params.course_ids as string[]) ?? []), ...((j.params.note_ids as string[]) ?? [])].some((id) => ids.includes(id)),
       )
       if (busy) throw new Error('Une carte mentale est déjà en cours pour ce contenu : suis son avancement en bas de l’écran.')
+      await checkQuota('mindmap')
       const t = title.trim() || defaultTitle()
       const out = must(
         await supabase
@@ -256,6 +258,7 @@ export function useGenerateQuiz() {
   const { start } = useJobs()
   const invalidate = useInvalidate()
   return async (p: QuizParams) => {
+    await checkQuota('quiz')
     const quiz = must(
       await supabase
         .from('quizzes')
@@ -313,6 +316,7 @@ export function useGenerateSheet() {
   }
   const generate = async (o: { subjectId: string | null; title: string; courseIds?: string[]; noteIds?: string[]; density?: Density }) => {
     if (running(o)) throw new Error('Une fiche de révision est déjà en cours pour ce contenu. Attends qu’elle soit terminée.')
+    await checkQuota('sheet')
     const t = `Fiche — ${o.title}`
     const note = await insertSheetNote({
       space_id: spaceId,

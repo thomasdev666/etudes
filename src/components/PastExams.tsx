@@ -1,5 +1,5 @@
 import { Download, Eye, FileUp, GraduationCap, ListChecks, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useUserId } from '@/context/auth'
 import { useSpace } from '@/context/space'
@@ -150,11 +150,16 @@ function ExamImport({ open, onClose, subjectId }: { open: boolean; onClose: () =
 function ExamView({ exam, onClose }: { exam: PastExam; onClose: () => void }) {
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState<unknown>(null)
-  const started = useRef(false)
-  if (!started.current) {
-    started.current = true
-    pastExamContent(exam.id).then(setText, setError)
-  }
+  useEffect(() => {
+    let alive = true
+    pastExamContent(exam.id).then(
+      (t) => alive && setText(t),
+      (e) => alive && setError(e),
+    )
+    return () => {
+      alive = false
+    }
+  }, [exam.id])
   async function download() {
     if (!exam.file_path) return
     const { data } = await supabase.storage.from(BUCKET).createSignedUrl(exam.file_path, 60)

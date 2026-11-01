@@ -40,6 +40,7 @@ export type Table =
   | 'recordings'
   | 'resources'
   | 'exam_sessions'
+  | 'past_exams'
   | 'spaces'
 
 // Lecture de toutes les lignes actives d'une table dans l'espace courant

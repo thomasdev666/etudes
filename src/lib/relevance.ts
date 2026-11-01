@@ -106,7 +106,7 @@ export function rankSubjects(request: string, subjects: { id: string; name: stri
 // Mots du travail d'étudiant (français et anglais). Volontairement sans mots trop généraux
 // (« comment », « pourquoi », « note »…) : ils ouvriraient la porte à toutes les conversations.
 const STUDY_WORDS =
-  /(cours|r[ée]vis|examen|partiel|devoir|exercice|qcm|quiz|fiche|flash ?card|carte mentale|formule|d[ée]finition|d[ée]finir|chapitre|notion|concept|th[ée]orie|mod[èe]le|m[ée]thode|calcul|ratio|bilan|sujet|corrig|dissertation|r[ée]dig|expos[ée]|oral|\btd\b|\btp\b|bibliographi|auteur|apprendre|comprendre|expliqu|c.est quoi|qu.est.ce que|qu.est.ce qu|r[ée]sum|synth[èe]se|m[ée]mo|mati[èe]re|bachelor|mba|management|finance|compta|[ée]conom|marketing|gestion|strat[ée]gie|droit|statistique|excel|anglais|english|course|exam|study|homework|assignment|lecture|chapter|formula|theory|revis|summary|essay|mock|what is|explain|define|difference entre|diff[ée]rence entre)/i
+  /(cours|r[ée]vis|examen|partiel|devoir|exercice|qcm|quiz|fiche|flash ?card|carte mentale|formule|d[ée]finition|d[ée]finir|chapitre|notion|concept|th[ée]orie|mod[èe]le|m[ée]thode|calcul|ratio|bilan|sujet|corrig|dissertation|r[ée]dig|expos[ée]|oral|\btd\b|\btp\b|bibliographi|auteur|apprendre|comprendre|compris|expliqu|explication|exemple|signifie|veut dire|c.est quoi|qu.est.ce que|qu.est.ce qu|qui (est|était|a (cr[ée]{1,2}|invent|th[ée]oris|d[ée]velopp))|diff[ée]rence|avantage|inconv[ée]nient|limite[s]? d|r[ée]sum|synth[èe]se|m[ée]mo|mati[èe]re|bachelor|mba|management|finance|compta|[ée]conom|marketing|gestion|strat[ée]gie|droit|statistique|excel|anglais|english|traduis|translate|course|exam|study|homework|assignment|lecture|chapter|formula|theory|revis|summary|essay|mock|what is|who is|explain|define|example)/i
 
 // Bonjour, merci, petite conversation : une réponse aimable, sans IA
 const GREETING = /^\s*(salut|bonjour|bonsoir|hello|hey|coucou|yo|merci|thanks|ça va|ca va|hi)\b/i
@@ -116,8 +116,16 @@ const STRESS = /(stress|angoiss|panique|paniqu|flipp|peur|pas pr[êe]t|pas prete
 export type OffTopicReply = { text: string }
 
 // Vrai si la question concerne les études de l'étudiant : mots du travail, matière, ou passage trouvé dans ses cours
-export function isStudyQuestion(question: string, subjects: { id: string; name: string; keywords?: string[] | null }[], docs: Doc[], passagesFound: boolean) {
+export function isStudyQuestion(
+  question: string,
+  subjects: { id: string; name: string; keywords?: string[] | null }[],
+  docs: Doc[],
+  passagesFound: boolean,
+  // Question précédente de la conversation : une relance (« et pour le deuxième ? ») suit son sujet
+  previous = '',
+) {
   if (STUDY_WORDS.test(question) || STRESS.test(question)) return true
+  if (previous && !GREETING.test(previous) && (STUDY_WORDS.test(previous) || rankSubjects(previous, subjects, docs).length > 0)) return true
   if (passagesFound) return true
   return rankSubjects(question, subjects, docs).length > 0
 }

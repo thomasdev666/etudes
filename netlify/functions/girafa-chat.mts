@@ -31,13 +31,13 @@ export default async (req: Request) => {
 
     // Hors sujet (bavardage, message sans rapport avec les études) : réponse automatique,
     // sans consommer la clé IA ni le quota
-    if (!isStudyQuestion(question, subjects ?? [], docs, !!passages)) {
+    if (!isStudyQuestion(question, subjects ?? [], docs, !!passages, lastAsk)) {
       const reply = offTopicReply(question).text
       const encoder = new TextEncoder()
       const stream = new ReadableStream({
         start(controller) {
           const send = (o: unknown) => controller.enqueue(encoder.encode(JSON.stringify(o) + '\n'))
-          send({ t: 'meta', from: 'general', sources: [] })
+          // Pas de « meta » : ce n'est ni une réponse tirée des cours ni une réponse de culture générale
           send({ t: 'delta', text: reply })
           send({ t: 'done' })
           controller.close()

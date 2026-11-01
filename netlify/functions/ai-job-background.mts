@@ -147,21 +147,40 @@ export default async (req: Request) => {
   const { data: job } = await db.from('ai_jobs').select('*').eq('id', job_id).single()
   // Une transcription longue se relance elle-même pour continuer (status déjà « running »)
   const resuming = resume === true && job?.kind === 'transcription' && job.status === 'running'
-  if (!job || (job.status !== 'pending' && !resuming)) return
+  // Tâche dont le tour est arrivé : l'appli l'a réservée dans la file (marque claimed)
+  const reserved = job?.status === 'running' && (job.result as { claimed?: boolean } | null)?.claimed === true
+  if (!job || (job.status !== 'pending' && !resuming && !reserved)) return
   if (!resuming) {
-    // File d'attente : une seule génération à la fois. Si ce n'est pas son tour, la tâche reste
-    // en attente ; l'appli la renvoie ici régulièrement jusqu'à ce qu'elle démarre.
-    const { data: claimed, error: claimError } = await db.rpc('start_ai_job', { p_job: job_id })
-    if (claimError && /start_ai_job/i.test(claimError.message)) {
-      // Mise à jour 21 pas encore lancée dans la base : on démarre sans file, comme avant
-      const { data: started } = await db
+    const takeOver = reserved
+    if (!reserved) {
+      // Ancienne version de l'appli (encore en cache) : la fonction demande elle-même son tour
+      const { data: claimed, error: claimError } = await db.rpc('start_ai_job', { p_job: job_id })
+      if (claimError && /start_ai_job/i.test(claimError.message)) {
+        // File pas encore installée dans la base : on démarre sans file, comme avant
+        const { data: started } = await db
+          .from('ai_jobs')
+          .update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } })
+          .eq('id', job_id)
+          .eq('status', 'pending')
+          .select('id')
+        if (!started?.length) return
+      } else if (claimError || !claimed) return
+      else {
+        // Tour obtenu par la fonction elle-même : on retire la marque de réservation éventuelle
+        await db.from('ai_jobs').update({ result: { progress: 0.03, phase: 'Lecture du contenu…' } }).eq('id', job_id).eq('status', 'running')
+      }
+    }
+    if (takeOver) {
+      // Prise en charge une seule fois, même si la fonction est appelée deux fois
+      const { data: took } = await db
         .from('ai_jobs')
-        .update({ status: 'running', result: { progress: 0.03, phase: 'Lecture du contenu…' } })
+        .update({ result: { progress: 0.03, phase: 'Lecture du contenu…' } })
         .eq('id', job_id)
-        .eq('status', 'pending')
+        .eq('status', 'running')
+        .eq('result->>claimed', 'true')
         .select('id')
-      if (!started?.length) return
-    } else if (claimError || !claimed) return
+      if (!took?.length) return
+    }
   }
 
   const progress: Progress = async (value, phase) => {

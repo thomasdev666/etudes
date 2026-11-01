@@ -739,7 +739,7 @@ const customValidator = z.object({
 // Demande libre de l'étudiant (« une fiche avec seulement les formules », « les 20 définitions clés »…),
 // toujours à partir de ses cours : rien n'est inventé.
 // Demande tournée vers l'examen : les anciens partiels servent alors de modèles
-export const EXAM_REQUEST = /partiel|examen|\bexams?\b|annale|sujet (type|blanc)|entra[iî]ne|entra[iî]nement|exercices|\bqcm\b|\bblanc\b|interro|contr[oô]le continu|\bds\b|midterm|\bfinal\b|\btests?\b/i
+export const EXAM_REQUEST = /partiel|examen|\bexams?\b|annale|sujet (type|blanc)|entra[iî]ne|entra[iî]nement|exercices|\bqcm\b|\bblanc\b|interro|contr[oô]le continu|\bds\b|midterm|examen final|final exam|mock exam/i
 
 export async function generateCustomDoc(opts: { source: string; instruction: string; examples?: string }): Promise<CustomDoc> {
   const ai = getAi()

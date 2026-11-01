@@ -21,6 +21,9 @@ export function useSessionStatus() {
   })
 }
 
+const remainingLabel = (kind: 'gen' | 'chat', left: number) =>
+  kind === 'gen' ? (left === 1 ? 'plus qu’une génération' : `plus que ${left} générations`) : left === 1 ? 'plus qu’une question' : `plus que ${left} questions`
+
 const clock = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
 
 // Affiche la session restante, et prévient quand la limite approche
@@ -39,7 +42,7 @@ export function SessionMeter({ kind }: { kind: 'gen' | 'chat' }) {
   if (left <= soon)
     return (
       <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm" role="status">
-        <strong>Bientôt la limite de session</strong> : plus que {left} {kind === 'gen' ? `génération${left > 1 ? 's' : ''}` : `question${left > 1 ? 's' : ''}`} avant {clock(row.reset_at)}.
+        <strong>Bientôt la limite de session</strong> : {remainingLabel(kind, left)} · la session se réinitialise vers {clock(row.reset_at)}.
       </p>
     )
   if (row.used === 0) return null

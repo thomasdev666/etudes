@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cx, ProgressBar } from '@/components/ui'
-import { createAiJob, kickAiJob, type JobMeta } from '@/lib/ai'
+import { createAiJob, kickAiJob, reserveTurn, type JobMeta } from '@/lib/ai'
 import { useGirafaHidden } from '@/lib/assistantPref'
 import { useInvalidate, type Table } from '@/lib/data'
 import { QUEUE_NOTICE, queueEta } from '@/lib/queue'
@@ -68,8 +68,8 @@ export function jobProgress(j: TrackedJob, now = Date.now()) {
 
 // Attente maximale dans la file (le serveur fait le même contrôle)
 const QUEUE_MAX_MS = 70 * 60_000
-// Une tâche en attente est renvoyée au serveur à ce rythme jusqu'à son tour
-const KICK_EVERY_MS = 10_000
+// Une tâche en attente redemande son tour à ce rythme (signe de présence pour la file)
+const KICK_EVERY_MS = 5_000
 // Le serveur s'arrête au bout de 15 min : au-delà, la génération est perdue
 export const STALE_MS = 16 * 60_000
 
@@ -86,8 +86,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const kickedAt = useRef<Record<string, number>>({})
   jobsRef.current = jobs
   // Références stables pour que le suivi ne redémarre pas à chaque rendu
-  const deps = useRef({ invalidate, navigate, toast })
-  deps.current = { invalidate, navigate, toast }
+  const deps = useRef({ invalidate, navigate, toast, qc })
+  deps.current = { invalidate, navigate, toast, qc }
   const activeCount = jobs.filter((j) => j.status === 'pending' || j.status === 'running').length
 
   // Reprend le suivi des générations en cours après un rechargement de page
@@ -124,6 +124,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const start = useCallback<JobsState['start']>(
     async (kind, params, meta) => {
       const job = await createAiJob(spaceId, kind, params, meta)
+      // Le tour vient d'être demandé (et le serveur peut-être déjà appelé) : pas de relance immédiate
+      kickedAt.current[job.id] = Date.now()
       setJobs((cur) => [...cur, { id: job.id, kind, params, status: 'pending', error: null, result: null, startedAt: Date.now(), meta }])
       return job.id
     },
@@ -133,7 +135,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   // Suivi des tâches actives
   useEffect(() => {
     if (!activeCount) return
-    const { invalidate, navigate, toast } = deps.current
+    const { invalidate, navigate, toast, qc } = deps.current
     const anim = setInterval(() => tick((n) => n + 1), 500)
     const poll = setInterval(async () => {
       const ids = jobsRef.current.filter((j) => j.kind !== 'upload' && (j.status === 'pending' || j.status === 'running')).map((j) => j.id)
@@ -142,7 +144,10 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       for (const r of rows) {
         const prev = jobsRef.current.find((j) => j.id === r.id)
         if (!prev || prev.kind === 'upload' || prev.status === r.status) continue
+        // Le quota est consommé au démarrage : compteurs de session et de la semaine à jour
+        if (r.status !== 'pending') qc.invalidateQueries({ queryKey: ['session'] }).catch(() => {})
         if (r.status === 'done' || r.status === 'error') {
+          qc.invalidateQueries({ queryKey: ['usage'] }).catch(() => {})
           invalidate(...AFFECTS[prev.kind])
           if (r.status === 'done')
             toast({
@@ -156,18 +161,31 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       // File d'attente : une tâche en attente est relancée régulièrement, et son rang est affiché
       const queued: Record<string, { position: number; busy: boolean }> = {}
       for (const r of rows.filter((x) => x.status === 'pending')) {
+        // Demande son tour (et signale que l'étudiant est toujours là) ; la fonction serveur
+        // n'est appelée qu'une fois, quand le tour est arrivé
         if (now - (kickedAt.current[r.id] ?? 0) > KICK_EVERY_MS) {
           kickedAt.current[r.id] = now
-          kickAiJob(r.id).catch(() => {})
+          const turn = await reserveTurn(r.id)
+          if (turn !== 'wait') {
+            kickAiJob(r.id).catch(() => {})
+            continue
+          }
         }
         const { data: q } = await supabase.rpc('ai_queue_position', { p_job: r.id })
         const pos = q as { position: number; busy: boolean } | null
         if (pos?.position) queued[r.id] = pos
       }
+      // Tour réservé mais pas encore pris en charge par le serveur (appel perdu) : on le relance
+      for (const r of rows.filter((x) => x.status === 'running' && (x.result as { claimed?: boolean } | null)?.claimed)) {
+        if (now - (kickedAt.current[r.id] ?? 0) > 15_000) {
+          kickedAt.current[r.id] = now
+          kickAiJob(r.id).catch(() => {})
+        }
+      }
       for (const j of jobsRef.current) {
         if (j.kind === 'upload') continue
         const r = rows.find((x) => x.id === j.id)
-        if (r?.status === 'running' || r?.status === 'done' || r?.status === 'error') delete kickedAt.current[j.id]
+        if (r?.status === 'done' || r?.status === 'error') delete kickedAt.current[j.id]
         if (r?.status === 'pending' && now - j.startedAt > QUEUE_MAX_MS) {
           r.status = 'error'
           r.error = 'La génération est restée trop longtemps en file d’attente. Relance-la.'

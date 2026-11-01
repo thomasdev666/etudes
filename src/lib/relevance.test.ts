@@ -43,6 +43,16 @@ describe('GIRAFA : questions hors sujet', () => {
     expect(isStudyQuestion('fais-moi une fiche sur le marketing mix', subjects, docs, false)).toBe(true)
     expect(isStudyQuestion('je stresse pour mon partiel demain', subjects, docs, false)).toBe(true)
     expect(isStudyQuestion('explique la valorisation', subjects, docs, true)).toBe(true)
+    expect(isStudyQuestion('Qui est Keynes ?', subjects, docs, false)).toBe(true)
+    expect(isStudyQuestion('quelle est la différence entre FR et BFR', subjects, docs, false)).toBe(true)
+  })
+  it('suit une conversation d’études : les relances passent', async () => {
+    const { isStudyQuestion } = await import('./relevance')
+    expect(isStudyQuestion('donne-moi un exemple', subjects, docs, false)).toBe(true)
+    expect(isStudyQuestion('j’ai pas compris', subjects, docs, false)).toBe(true)
+    expect(isStudyQuestion('et le deuxième ?', subjects, docs, false, 'c’est quoi le WACC ?')).toBe(true)
+    expect(isStudyQuestion('et le deuxième ?', subjects, docs, false, 'salut')).toBe(false)
+    expect(isStudyQuestion('et le deuxième ?', subjects, docs, false)).toBe(false)
   })
   it('refuse le bavardage personnel et les messages sans rapport', async () => {
     const { isStudyQuestion } = await import('./relevance')
