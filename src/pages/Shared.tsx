@@ -7,6 +7,7 @@ import { Link, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
 import { Logo } from '@/components/Logo'
 import { MathText } from '@/components/MathText'
+import { RevealChooser, type RevealMode } from '@/components/RevealChooser'
 import { Button, Card, cx, ProgressBar, Spinner } from '@/components/ui'
 import { fmt } from '@/lib/dates'
 import { fetchShare, type SharedContent, type SharedQuestion } from '@/lib/share'
@@ -101,12 +102,20 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<(number | null | undefined)[]>([])
   const [done, setDone] = useState(false)
+  // Correction à chaque question ou à la fin : choisi avant de commencer
+  const [mode, setMode] = useState<RevealMode | null>(null)
   if (!questions.length) return <p className="text-muted">Ce QCM est vide.</p>
   const q = questions[index]
   const current = answers[index]
-  const set = (v: number | null) => setAnswers((a) => Object.assign([...a], { [index]: v }))
+  // Mode « à chaque question » : une fois répondu, la correction s'affiche et la réponse est verrouillée
+  const revealed = mode === 'each' && current !== undefined
+  const set = (v: number | null) => {
+    if (revealed) return
+    setAnswers((a) => Object.assign([...a], { [index]: v }))
+  }
   const last = index === questions.length - 1
   const restart = () => {
+    setMode(null)
     setAnswers([])
     setIndex(0)
     setDone(false)
@@ -170,6 +179,8 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
     )
   }
 
+  if (!mode) return <RevealChooser count={questions.length} onPick={setMode} />
+
   return (
     <div key={index} className="anim-pop flex flex-col gap-5">
       <div className="flex items-center gap-3">
@@ -186,19 +197,35 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
       <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Réponses">
         {q.choices.map((c, i) => {
           const selected = current === i
+          const good = revealed && i === q.correct_index
+          const bad = revealed && selected && !good
           return (
             <button
               key={i}
               type="button"
               role="radio"
               aria-checked={selected}
+              disabled={revealed}
               onClick={() => set(i)}
               className={cx(
-                'flex min-h-14 items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all duration-150',
-                selected ? 'border-accent bg-accent-soft' : 'border-border bg-surface hover:border-accent/50',
+                'flex min-h-14 items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all duration-150 disabled:cursor-default',
+                good
+                  ? 'border-success bg-success-soft'
+                  : bad
+                    ? 'border-danger bg-danger-soft'
+                    : revealed
+                      ? 'border-border bg-surface opacity-70'
+                      : selected
+                        ? 'border-accent bg-accent-soft'
+                        : 'border-border bg-surface hover:border-accent/50',
               )}
             >
-              <span className={cx('flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold', selected ? 'bg-accent text-white' : 'bg-surface-2 text-muted')}>
+              <span
+                className={cx(
+                  'flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold',
+                  good ? 'bg-success text-white' : bad ? 'bg-danger text-white' : selected && !revealed ? 'bg-accent text-white' : 'bg-surface-2 text-muted',
+                )}
+              >
                 {choiceLabel(q.choices.length, i)}
               </span>
               <MathText text={c} className="min-w-0 break-words" />
@@ -206,11 +233,28 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
           )
         })}
       </div>
+      {revealed ? (
+        <div role="status" className={cx('rounded-2xl border-l-4 px-4 py-3', current === q.correct_index ? 'border-l-success bg-success-soft' : 'border-l-danger bg-danger-soft')}>
+          <p className={cx('flex items-center gap-1.5 font-semibold', current === q.correct_index ? 'text-success' : 'text-danger')}>
+            {current === q.correct_index ? <Check className="size-4" aria-hidden /> : <X className="size-4" aria-hidden />}
+            {current === q.correct_index
+              ? 'Bonne réponse !'
+              : `${current === null ? 'La bonne réponse était' : 'Pas tout à fait : la bonne réponse est'} ${q.choices.length > 2 ? LETTERS[q.correct_index] : q.correct_index === 0 ? '« Vrai »' : '« Faux »'}`}
+          </p>
+          {q.explanation && (
+            <p className="mt-1.5 text-sm leading-relaxed">
+              <MathText text={q.explanation} />
+            </p>
+          )}
+          {q.notion && <p className="mt-1.5 text-xs text-muted">Notion : {q.notion}</p>}
+        </div>
+      ) : (
       <button
         type="button"
         onClick={() => {
           set(null)
-          if (!last) setIndex(index + 1)
+          // À chaque question : on montre la bonne réponse au lieu de passer à la suivante
+          if (!last && mode === 'end') setIndex(index + 1)
         }}
         aria-pressed={current === null}
         className={cx(
@@ -221,6 +265,7 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
         <CircleHelp className="size-4" aria-hidden />
         {current === null ? 'Noté : tu ne savais pas' : 'Je ne sais pas du tout'}
       </button>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" icon={<ArrowLeft className="size-4" />} disabled={index === 0} onClick={() => setIndex(index - 1)}>
           Précédente
@@ -235,7 +280,7 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
             } else setIndex(index + 1)
           }}
         >
-          {last ? 'Terminer et voir la correction' : 'Suivante'}
+          {last ? (mode === 'each' ? 'Terminer et voir mon score' : 'Terminer et voir la correction') : 'Suivante'}
         </Button>
       </div>
     </div>

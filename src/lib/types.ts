@@ -120,6 +120,8 @@ export const QUESTION_PUBLIC_COLUMNS = 'id, quiz_id, position, question, choices
 export type QuizSession = Base & {
   // mode examen : durée totale autorisée (secondes)
   time_limit_sec?: number | null
+  // correction : à chaque question ou à la fin (null : pas encore choisi ; absent sans la mise à jour 25)
+  reveal?: 'each' | 'end' | null
   subject_id: string
   quiz_id: string | null
   kind: 'quiz' | 'errors'

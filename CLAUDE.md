@@ -345,3 +345,4 @@ Ces choix remplacent les points correspondants plus haut.
 - **Notifications** : push web (échéances, cartes du jour) en plus des emails.
 - **Hors ligne** : données déjà chargées consultables, révisions de flash cards mises en file d'attente.
 - **Imports** : flash cards Anki, Quizlet, CSV ; notes Markdown (Notion), Word, texte.
+- **Correction des QCM** : au début de chaque QCM (le sien ou un QCM partagé), l'étudiant choisit « correction à chaque question » ou « correction à la fin ». Le mode examen chronométré reste corrigé à la fin. Remplace la règle « ne jamais montrer les réponses avant la fin de la session ».

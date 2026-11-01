@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MathText } from '@/components/MathText'
 import { ReportQuestion } from '@/components/ReportQuestion'
+import { RevealChooser, type RevealMode } from '@/components/RevealChooser'
 import { ShareButton } from '@/components/ShareButton'
 import { Badge, Button, Card, cx, ErrorBox, IconButton, ProgressBar, Spinner } from '@/components/ui'
 import { useSpace } from '@/context/space'
@@ -18,6 +19,33 @@ import { must, supabase } from '@/lib/supabase'
 import { QUESTION_PUBLIC_COLUMNS, type Correction, type QuizQuestionPublic, type QuizSession } from '@/lib/types'
 
 const LETTERS = ['A', 'B', 'C', 'D']
+
+type Feedback = { correct_index: number; explanation: string; notion: string; source_excerpt: string | null }
+
+// Correction affichée juste après la réponse (mode « à chaque question »)
+function QuestionFeedback({ fb, chosen, count }: { fb: Feedback; chosen: number | null; count: number }) {
+  const ok = chosen === fb.correct_index
+  const good = count > 2 ? LETTERS[fb.correct_index] : fb.correct_index === 0 ? '« Vrai »' : '« Faux »'
+  return (
+    <div role="status" className={cx('rounded-2xl border-l-4 px-4 py-3', ok ? 'border-l-success bg-success-soft' : 'border-l-danger bg-danger-soft')}>
+      <p className={cx('flex items-center gap-1.5 font-semibold', ok ? 'text-success' : 'text-danger')}>
+        {ok ? <Check className="size-4" aria-hidden /> : <X className="size-4" aria-hidden />}
+        {ok ? 'Bonne réponse !' : chosen === null ? `La bonne réponse était ${good}` : `Pas tout à fait : la bonne réponse est ${good}`}
+      </p>
+      {fb.explanation && (
+        <p className="mt-1.5 text-sm leading-relaxed text-text">
+          <MathText text={fb.explanation} />
+        </p>
+      )}
+      {fb.source_excerpt && (
+        <blockquote className="mt-2 border-l-4 border-border pl-3 text-sm italic text-muted">
+          <span className="mb-0.5 block text-xs font-semibold not-italic">Dans ton cours</span>« <MathText text={fb.source_excerpt} /> »
+        </blockquote>
+      )}
+      {!ok && <p className="mt-2 text-xs text-muted">Elle sera ajoutée à ta session « Erreurs » à la fin du QCM, pour la revoir.</p>}
+    </div>
+  )
+}
 
 // Fiche ciblée sur les questions ratées, préparée par l'assistant à partir des cours du QCM
 function MistakesSheet({ session, corrections }: { session: QuizSession; corrections: Correction[] }) {
@@ -233,6 +261,11 @@ export default function QuizSessionPage() {
   const shownAt = useRef(Date.now())
   // Un pavé tactile peut envoyer deux clics : pas deux questions d'un coup
   const lockUntil = useRef(0)
+  // Mode « correction à chaque question » : corrections déjà affichées, par question
+  const [feedback, setFeedback] = useState<Record<string, Feedback>>({})
+  const [checking, setChecking] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const asked = useRef(new Set<string>())
 
   const { data, isLoading, error: loadError } = useQuery({
     queryKey: ['quiz_session', id],
@@ -282,15 +315,64 @@ export default function QuizSessionPage() {
   const q = questions[index]
   const current = answers.find((a) => a.question_id === q?.id)
 
+  // Mode de correction : choisi au début (le mode examen est toujours corrigé à la fin)
+  const session = data?.session
+  const timed = !!session?.time_limit_sec
+  const supportsReveal = !!session && 'reveal' in session
+  const mode: RevealMode = session?.reveal === 'each' && !timed ? 'each' : 'end'
+  const needsChoice = supportsReveal && !timed && session?.reveal == null && answers.length === 0 && !corrections
+  const revealed = mode === 'each' && q ? feedback[q.id] : undefined
+
+  async function pickMode(m: RevealMode) {
+    setPicking(true)
+    setError(null)
+    try {
+      must(await supabase.from('quiz_sessions').update({ reveal: m }).eq('id', id))
+      qc.setQueryData(['quiz_session', id], (old: typeof data) => (old ? { ...old, session: { ...old.session, reveal: m } } : old))
+      shownAt.current = Date.now()
+    } catch (e) {
+      setError(e)
+    } finally {
+      setPicking(false)
+    }
+  }
+
+  async function reveal(questionId: string) {
+    asked.current.add(questionId)
+    setChecking(true)
+    setError(null)
+    try {
+      const fb = must(await supabase.rpc('check_quiz_answer', { p_session_id: id, p_question_id: questionId })) as Feedback
+      setFeedback((f) => ({ ...f, [questionId]: fb }))
+    } catch (e) {
+      setError(e)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  // Retour sur une question déjà répondue (ou reprise de la session) : on réaffiche sa correction
+  useEffect(() => {
+    if (mode !== 'each' || !q || !current || feedback[q.id] || asked.current.has(q.id)) return
+    void reveal(q.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, q?.id, current])
+
   // choice null : « Je ne sais pas » (comptée fausse, la question part dans la session « Erreurs »)
   function choose(choice: number | null) {
     if (!q) return
+    // Correction déjà affichée : la réponse est verrouillée
+    if (mode === 'each' && (feedback[q.id] || checking)) return
     const elapsed = Date.now() - shownAt.current
     const prev = answers.find((a) => a.question_id === q.id)
     const entry = { question_id: q.id, chosen_index: choice, time_ms: (prev?.time_ms ?? 0) + elapsed, ...(choice === null && { dont_know: true }) }
     const list = [...answers.filter((a) => a.question_id !== q.id), entry]
     setAnswers(list)
     shownAt.current = Date.now()
+    if (mode === 'each') {
+      // Réponse enregistrée avant d'afficher la correction
+      void persist(index, list).then(() => reveal(q.id))
+    }
     return list
   }
 
@@ -299,6 +381,8 @@ export default function QuizSessionPage() {
     if (Date.now() < lockUntil.current || finishing) return
     const list = choose(null)
     if (!list) return
+    // À chaque question : on montre la bonne réponse au lieu de passer à la suivante
+    if (mode === 'each') return
     if (index < questions.length - 1) {
       lockUntil.current = Date.now() + 500
       setIndex(index + 1)
@@ -343,7 +427,11 @@ export default function QuizSessionPage() {
   // Raccourcis clavier : 1-4 / A-D pour répondre, Entrée pour continuer
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (corrections || !q || e.target instanceof HTMLInputElement) return
+      if (corrections || !q || needsChoice || e.target instanceof HTMLInputElement) return
+      if (revealed) {
+        if (e.key === 'Enter') next()
+        return
+      }
       const k = e.key.toLowerCase()
       const n = ['1', '2', '3', '4'].indexOf(k) >= 0 ? Number(k) - 1 : ['a', 'b', 'c', 'd'].indexOf(k)
       if (n >= 0 && n < q.choices.length) choose(n)
@@ -389,6 +477,13 @@ export default function QuizSessionPage() {
       <main className="mx-auto max-w-2xl px-4 py-6 pb-safe">
         {corrections ? (
           <Results session={data.session} corrections={corrections} />
+        ) : needsChoice ? (
+          <>
+            <RevealChooser count={questions.length} busy={picking} onPick={pickMode} />
+            <div className="mt-3">
+              <ErrorBox error={error} />
+            </div>
+          </>
         ) : q ? (
           <div key={q.id} className="anim-pop flex flex-col gap-5">
             {data.session.kind === 'errors' && <Badge tone="warning">Révision des erreurs</Badge>}
@@ -401,19 +496,35 @@ export default function QuizSessionPage() {
             <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Réponses">
               {q.choices.map((c, i) => {
                 const selected = current?.chosen_index === i
+                const good = !!revealed && i === revealed.correct_index
+                const bad = !!revealed && selected && !good
                 return (
                   <button
                     key={i}
                     type="button"
                     role="radio"
                     aria-checked={selected}
+                    disabled={!!revealed || checking}
                     onClick={() => choose(i)}
                     className={cx(
-                      'flex min-h-14 items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all duration-150',
-                      selected ? 'border-accent bg-accent-soft' : 'border-border bg-surface hover:border-accent/50',
+                      'flex min-h-14 items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all duration-150 disabled:cursor-default',
+                      good
+                        ? 'border-success bg-success-soft'
+                        : bad
+                          ? 'border-danger bg-danger-soft'
+                          : revealed
+                            ? 'border-border bg-surface opacity-70'
+                            : selected
+                              ? 'border-accent bg-accent-soft'
+                              : 'border-border bg-surface hover:border-accent/50',
                     )}
                   >
-                    <span className={cx('flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold', selected ? 'bg-accent text-white' : 'bg-surface-2 text-muted')}>
+                    <span
+                      className={cx(
+                        'flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold',
+                        good ? 'bg-success text-white' : bad ? 'bg-danger text-white' : selected && !revealed ? 'bg-accent text-white' : 'bg-surface-2 text-muted',
+                      )}
+                    >
                       {q.choices.length > 2 ? LETTERS[i] : i === 0 ? 'V' : 'F'}
                     </span>
                     <MathText text={c} className="min-w-0 break-words" />
@@ -421,6 +532,11 @@ export default function QuizSessionPage() {
                 )
               })}
             </div>
+            {revealed ? (
+              <QuestionFeedback fb={revealed} chosen={current?.chosen_index ?? null} count={q.choices.length} />
+            ) : checking ? (
+              <p className="text-center text-sm text-muted">Correction…</p>
+            ) : (
             <button
               type="button"
               onClick={dontKnow}
@@ -433,6 +549,7 @@ export default function QuizSessionPage() {
               <CircleHelp className="size-4" aria-hidden />
               {current?.dont_know ? 'Noté : tu ne savais pas' : 'Je ne sais pas du tout'}
             </button>
+            )}
             <ErrorBox error={error} />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Button
@@ -446,8 +563,13 @@ export default function QuizSessionPage() {
               >
                 Précédente
               </Button>
-              <Button onClick={next} disabled={!current && remaining === null} loading={finishing} icon={index === questions.length - 1 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}>
-                {index === questions.length - 1 ? 'Terminer et voir la correction' : 'Suivante'}
+              <Button
+                onClick={next}
+                disabled={(!current && remaining === null) || (mode === 'each' && !revealed)}
+                loading={finishing}
+                icon={index === questions.length - 1 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+              >
+                {index === questions.length - 1 ? (mode === 'each' ? 'Terminer et voir mon score' : 'Terminer et voir la correction') : 'Suivante'}
               </Button>
             </div>
             <p className="hidden text-center text-xs text-muted sm:block">Raccourcis : touches 1 à 4 pour répondre, 0 si tu ne sais pas, Entrée pour continuer.</p>
