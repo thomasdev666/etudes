@@ -23,7 +23,7 @@ export default async () => {
     return
   }
   const now = new Date()
-  const appUrl = process.env.URL ?? 'https://jadecaruana.fr'
+  const appUrl = process.env.URL ?? 'https://regulya.fr'
   const { data: leaving } = await db.from('account_deletions').select('user_id')
   const gone = new Set((leaving ?? []).map((l) => l.user_id))
 

@@ -13,7 +13,7 @@ export default async (req: Request) => {
     if (!to) throw new HttpError(400, 'Adresse email introuvable')
     const tomorrow = new Date(Date.now() + 86_400_000)
     tomorrow.setUTCHours(16, 0, 0, 0)
-    const mail = reminderEmail([{ id: 'test', user_id: '', title: 'Exemple de devoir (email de test)', due_at: tomorrow.toISOString(), subject: null, space: '', days: 1 }], process.env.URL ?? 'https://jadecaruana.fr')
+    const mail = reminderEmail([{ id: 'test', user_id: '', title: 'Exemple de devoir (email de test)', due_at: tomorrow.toISOString(), subject: null, space: '', days: 1 }], process.env.URL ?? 'https://regulya.fr')
     const mailer = nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 587, secure: false, auth: { user: login, pass: key } })
     await mailer.sendMail({ from, to, ...mail, subject: `Test — ${mail.subject}` })
     return Response.json({ to })

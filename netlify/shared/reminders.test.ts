@@ -32,10 +32,10 @@ describe('rappels par email', () => {
   })
 
   it('écrit un message lisible', () => {
-    const mail = reminderEmail([{ ...items[0], days: 1 }], 'https://jadecaruana.fr')
+    const mail = reminderEmail([{ ...items[0], days: 1 }], 'https://regulya.fr')
     expect(mail.subject).toBe('À rendre demain : Dossier')
     expect(mail.text).toContain('Finance')
-    expect(mail.html).toContain('https://jadecaruana.fr/agenda')
+    expect(mail.html).toContain('https://regulya.fr/agenda')
   })
 })
 

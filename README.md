@@ -11,8 +11,8 @@ Stack : React + Vite + TypeScript + Tailwind, Supabase (base, authentification, 
 1. Ouvrir le projet Supabase, puis **SQL Editor → New query**.
 2. Coller tout le contenu de `supabase/migrations/0001_schema.sql` et cliquer sur **Run**, puis faire de même avec `0002_mindmaps_onboarding.sql`, `0003_imported_events.sql`, `0004_sessions_sheets.sql`, `0005_course_rename.sql`, `0006_search.sql`, `0007_recordings.sql`, `0008_resources_reminders.sql`, `0009_exams.sql`, `0010_planning.sql` et `0011_exam_mode_time.sql` (relançables sans danger).
 3. **Authentication → URL Configuration** :
-   - *Site URL* : l'adresse du site (par ex. `https://jadecaruana.fr`).
-   - *Redirect URLs* : ajouter `https://jadecaruana.fr/**` et l'adresse Netlify (`https://<nom>.netlify.app/**`).
+   - *Site URL* : l'adresse du site (par ex. `https://regulya.fr`).
+   - *Redirect URLs* : ajouter `https://regulya.fr/**` et l'adresse Netlify (`https://<nom>.netlify.app/**`).
 4. **Authentication → Providers → Email** : laisser « Confirm email » activé.
 
 ### 2. Clé IA gratuite (Google Gemini)
@@ -36,7 +36,7 @@ Stack : React + Vite + TypeScript + Tailwind, Supabase (base, authentification, 
 | `BREVO_SMTP_KEY` | *rappels par email* : clé SMTP Brevo |
 | `MAIL_FROM` | *rappels par email* : expéditeur validé dans Brevo, ex. `Regulya <adresse@exemple.fr>` |
 
-3. Redéployer. Pour le domaine : **Domain management → Add a domain → jadecaruana.fr**.
+3. Redéployer. Pour le domaine : **Domain management → Add a domain → regulya.fr**.
 
 ## Développement
 
