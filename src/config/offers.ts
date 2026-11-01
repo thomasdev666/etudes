@@ -8,7 +8,7 @@ export const OFFERS: Record<Billing, { price: number; months: number }> = {
   annual: { price: 24.99, months: 12 },
 }
 
-export const ESSAI_JOURS = 7
+export const ESSAI_JOURS = 3
 
 export const euros = (n: number) =>
   typeof navigator !== 'undefined' && document.documentElement.lang === 'en'
