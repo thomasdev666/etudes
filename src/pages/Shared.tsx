@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { generateHTML } from '@tiptap/core'
 import katex from 'katex'
-import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, CircleHelp, RotateCcw, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, CircleHelp, Layers, ListChecks, RotateCcw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { buildExtensions } from '@/components/editor/extensions'
@@ -242,6 +242,61 @@ function QuizPlay({ questions }: { questions: SharedQuestion[] }) {
   )
 }
 
+// Appel à créer un compte, en fin de page partagée : ce que l'on y gagne, un seul bouton clair
+const CTA_COPY: Record<SharedContent['kind'], { title: string; text: string }> = {
+  note: { title: 'Tu veux garder ce genre de fiche pour toi ?', text: 'Crée ta propre fiche à partir de tes cours : Regulya la prépare en quelques minutes.' },
+  mindmap: { title: 'Tu veux tes propres cartes mentales ?', text: 'Transforme tes cours en carte mentale, modifiable à volonté.' },
+  deck: { title: 'Tu veux réviser ce paquet à ton rythme ?', text: 'Regulya planifie tes révisions au bon moment, carte par carte.' },
+  quiz: { title: 'Tu veux t’entraîner comme à l’examen ?', text: 'Génère tes propres QCM à partir de tes cours, et garde ton score.' },
+}
+
+const PERKS = [
+  { icon: Sparkles, text: 'Des fiches et QCM créés à partir de tes propres cours' },
+  { icon: ListChecks, text: 'Tes erreurs reviennent jusqu’à ce que tu les maîtrises' },
+  { icon: Layers, text: 'Des flash cards qui reviennent au bon moment' },
+]
+
+function SignupCta({ kind }: { kind: SharedContent['kind'] }) {
+  const copy = CTA_COPY[kind]
+  return (
+    <section aria-labelledby="signup-cta" className="mt-12 overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
+      <div className="bg-accent-soft px-6 py-6 text-center sm:px-10">
+        <p className="text-sm font-semibold uppercase tracking-wide text-accent-ink">Regulya · gratuit</p>
+        <h2 id="signup-cta" className="mt-2 font-display text-2xl font-bold leading-snug sm:text-3xl">
+          {copy.title}
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-muted">{copy.text}</p>
+      </div>
+      <div className="flex flex-col gap-6 px-6 py-6 sm:px-10">
+        <ul className="grid gap-3 sm:grid-cols-3">
+          {PERKS.map(({ icon: Icon, text }) => (
+            <li key={text} className="flex items-start gap-2.5 text-sm">
+              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-ink" aria-hidden>
+                <Icon className="size-4" />
+              </span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col items-center gap-2">
+          <Link to="/connexion?mode=signup" className="w-full sm:w-auto">
+            <Button size="lg" className="w-full sm:w-auto" icon={<Check className="size-4" />}>
+              Créer mon compte gratuit
+            </Button>
+          </Link>
+          <p className="text-xs text-muted">Sans carte bancaire · 2 minutes · tes données restent à toi</p>
+          <p className="text-sm text-muted">
+            Déjà un compte ?{' '}
+            <Link to="/connexion" className="font-medium text-accent-ink hover:underline">
+              Connexion
+            </Link>
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 const KIND_LABEL = { note: 'Note', mindmap: 'Carte mentale', deck: 'Flash cards', quiz: 'QCM' }
 
 export default function SharedPage() {
@@ -285,14 +340,7 @@ export default function SharedPage() {
             )}
             {data.kind === 'deck' && <Deck cards={data.cards ?? []} />}
             {data.kind === 'quiz' && <QuizPlay questions={data.questions ?? []} />}
-            <Card className="mt-10 flex flex-col gap-3 bg-accent-soft sm:flex-row sm:items-center">
-              <p className="flex-1">
-                <strong>Partagé avec Regulya.</strong> Crée tes propres fiches, QCM et flash cards à partir de tes cours, et révise au bon moment.
-              </p>
-              <Link to="/connexion?mode=signup">
-                <Button>Essayer gratuitement</Button>
-              </Link>
-            </Card>
+            <SignupCta kind={data.kind} />
           </>
         )}
       </main>
