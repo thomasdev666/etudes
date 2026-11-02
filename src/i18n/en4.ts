@@ -661,7 +661,7 @@ export const EN4: Record<string, string> = {
   'La correction de ce QCM s’affiche à la fin.': 'This quiz is corrected at the end.',
   'Valider ma réponse': 'Check my answer',
   'Raccourcis : touches 1 à 4 pour répondre, 0 si tu ne sais pas, Entrée pour valider ou continuer.': 'Shortcuts: keys 1 to 4 to answer, 0 if you don’t know, Enter to check or continue.',
-  'Connexion au serveur impossible. Vérifie ta connexion internet. Sur le wifi d’une école, le réseau peut bloquer Regulya : essaie en 4G ou avec le partage de connexion de ton téléphone.': 'Can’t reach the server. Check your internet connection. On a school wifi, the network may block Regulya: try 4G or your phone’s hotspot.',
+  'Pour le moment, Regulya ne fonctionne pas sur le wifi de TBS : ce sera réglé d’ici une semaine. En attendant, connecte-toi avec le partage de connexion de ton téléphone.': 'For now, Regulya doesn’t work on the TBS wifi: this will be fixed within a week. In the meantime, use your phone’s hotspot.',
   // Langue
   Langue: 'Language',
   'Langue de l’interface. Tes cours, notes et cartes ne sont jamais traduits.': 'Interface language. Your courses, notes and cards are never translated.',

@@ -3,4 +3,13 @@ Allow: /$
 Allow: /cgu
 Allow: /confidentialite
 Allow: /mentions-legales
+# Icônes du site : Google en a besoin pour afficher le logo dans les résultats de recherche
+Allow: /favicon.ico
+Allow: /favicon.svg
+Allow: /favicon-48.png
+Allow: /favicon-96.png
+Allow: /icon-192.png
+Allow: /icon-512.png
+Allow: /apple-touch-icon.png
+Allow: /manifest.webmanifest
 Disallow: /
