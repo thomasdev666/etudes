@@ -12,4 +12,7 @@ Allow: /icon-192.png
 Allow: /icon-512.png
 Allow: /apple-touch-icon.png
 Allow: /manifest.webmanifest
+Allow: /sitemap.xml
 Disallow: /
+
+Sitemap: https://regulya.fr/sitemap.xml
