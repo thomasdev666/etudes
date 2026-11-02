@@ -1,4 +1,5 @@
 import { Check, Copy, Download, FileText, ImageIcon, ListChecks, Mic, Network, Sparkles, Trash2 } from 'lucide-react'
+import { errorMessage } from '@/lib/errors'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { GenerateCardsModal, GenerateMindmapModal, useGenerateSheet } from '@/components/Generate'
@@ -118,7 +119,7 @@ export default function CoursePage() {
             try {
               await sheet.generate({ subjectId: course.subject_id, title: course.title, courseIds: [course.id], density })
             } catch (e) {
-              toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+              toast({ message: errorMessage(e), tone: 'error' })
             } finally {
               setSheetBusy(false)
             }

@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { errorMessage } from '@/lib/errors'
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react'
 import { ArrowLeft, Download, NotebookPen, Workflow, X, FileDown, FileText, History, ListChecks, MoreHorizontal, Network, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -398,7 +399,7 @@ function NoteEditor({ id }: { id: string }) {
                   const density = await densityChoice.ask()
                   if (!density) return
                   await save()
-                  await sheet.generate({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id], density }).catch((e) => toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' }))
+                  await sheet.generate({ subjectId: subjectId || null, title: title.trim() || 'Note', noteIds: [id], density }).catch((e) => toast({ message: errorMessage(e), tone: 'error' }))
                 }}
               >
                 {sheet.running({ noteIds: [id] }) ? 'Fiche en cours de rédaction…' : 'Générer une fiche de révision'}

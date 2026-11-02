@@ -1,4 +1,5 @@
 import { Loader2, X } from 'lucide-react'
+import { errorMessage } from '@/lib/errors'
 import {
   forwardRef,
   useEffect,
@@ -204,7 +205,7 @@ export function EmptyState({ icon, title, children, action }: { icon?: ReactNode
 
 export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null
-  const msg = error instanceof Error ? error.message : String(error)
+  const msg = errorMessage(error)
   return (
     <div role="alert" className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
       {msg}

@@ -11,6 +11,7 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { Check, ChevronLeft, ChevronRight, Clock, MapPin, Pencil, Plus, Wand2 } from 'lucide-react'
+import { errorMessage } from '@/lib/errors'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AssignmentForm, STATUS_LABEL } from '@/components/AssignmentForm'
@@ -68,7 +69,7 @@ function CourseTitle({ title }: { title: string }) {
       await cal.refetch()
       setEditing(false)
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+      toast({ message: errorMessage(e), tone: 'error' })
     } finally {
       setBusy(false)
     }

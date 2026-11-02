@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { SessionMeter } from './SessionMeter'
+import { errorMessage } from '@/lib/errors'
 import { useJobs } from '@/context/jobs'
 import { MathText } from '@/components/MathText'
 import { useSpace } from '@/context/space'
@@ -324,7 +325,7 @@ function Conversation({ onClose }: { onClose: () => void }) {
         from: 'bot',
         text: (
           <>
-            {e instanceof Error ? e.message : 'Je n’ai pas pu répondre. Réessaie dans un instant.'}
+            {e instanceof Error ? errorMessage(e) : 'Je n’ai pas pu répondre. Réessaie dans un instant.'}
             <button
               type="button"
               onClick={() => void askQuestion(question)}

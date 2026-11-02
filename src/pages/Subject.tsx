@@ -1,4 +1,5 @@
 import { AlertTriangle, FileAudio, FileText, ListChecks, Mic, NotebookPen, Pencil, Play, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
+import { errorMessage } from '@/lib/errors'
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CardsPanel } from '@/components/Cards'
@@ -60,7 +61,7 @@ function QuizList({ subjectId }: { subjectId: string }) {
       await invalidate('quizzes')
       await startQuizJob(startJob, q)
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+      toast({ message: errorMessage(e), tone: 'error' })
     } finally {
       lock.current = false
     }
@@ -72,7 +73,7 @@ function QuizList({ subjectId }: { subjectId: string }) {
     try {
       navigate(`/qcm/session/${await startQuizSession(spaceId, q)}`)
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+      toast({ message: errorMessage(e), tone: 'error' })
       lock.current = false
     }
   }
