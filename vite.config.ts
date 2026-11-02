@@ -37,7 +37,9 @@ export default defineConfig({
         // Interface en cache pour un démarrage rapide ; les données restent en ligne.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/\.netlify\//],
+        // Fichiers servis tels quels (pas la page de l'appli) : fonctions serveur, plan du site,
+        // robots.txt, icônes et manifeste, même quand on tape leur adresse dans le navigateur
+        navigateFallbackDenylist: [/^\/\.netlify\//, /\.(xml|txt|ico|png|svg|webmanifest|json)$/],
         // Réception des notifications (public/push-sw.js)
         importScripts: ['push-sw.js'],
       },
