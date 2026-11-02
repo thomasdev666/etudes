@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useUserId } from '@/context/auth'
+import { usePlanDetails } from '@/lib/plans'
 import { QUEUE_NOTICE } from '@/lib/queue'
 import { supabase } from '@/lib/supabase'
 
@@ -54,6 +55,10 @@ export function SessionMeter({ kind }: { kind: 'gen' | 'chat' }) {
 }
 
 // Message de la file d'attente, affiché là où l'on lance une génération
-export function QueueNotice() {
+// Masqué pour un compte Premium : il n'a pas de file d'attente
+export function QueueNotice({ inline }: { inline?: boolean }) {
+  const { data: details } = usePlanDetails()
+  if (details?.plan === 'premium') return null
+  if (inline) return <span className="mt-0.5 block">{QUEUE_NOTICE}</span>
   return <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">{QUEUE_NOTICE}</p>
 }

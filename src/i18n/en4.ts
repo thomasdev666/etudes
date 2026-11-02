@@ -622,7 +622,7 @@ export const EN4: Record<string, string> = {
   'Les anciens partiels demandent la mise à jour 0020_past_exams.sql dans Supabase.': 'Past exams require the 0020_past_exams.sql update in Supabase.',
   'Ancien format Office : enregistre le fichier en .pptx / .docx, ou exporte-le en PDF.': 'Old Office format: save the file as .pptx / .docx, or export it to PDF.',
   // File d'attente et limites de session
-  'Regulya est encore en version de test : une seule génération tourne à la fois, pour que tout le monde ait sa place. Pour aller plus vite et m’aider à faire grandir le projet, passe en Premium à 2,99 €/mois.': 'Regulya is still in test version: only one generation runs at a time, so everyone gets their turn. To go faster and help the project grow, go Premium for €2.99/month.',
+  'Regulya est encore en version de test : le nombre de générations en même temps est limité, pour que tout le monde ait sa place. Pour ne jamais attendre et m’aider à faire grandir le projet, passe en Premium à 2,99 €/mois.': 'Regulya is still in test version: the number of simultaneous generations is limited, so everyone gets their turn. To never wait and help the project grow, go Premium for €2.99/month.',
   'En file d’attente…': 'Waiting in line…',
   'Bientôt la limite de session': 'Session limit coming up',
   'Limite de session atteinte. Elle se réinitialise vers {0}. Tu peux attendre, ou passer en Premium pour aller plus vite.': 'Session limit reached. It resets at {0}. You can wait, or go Premium to go faster.',

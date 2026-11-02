@@ -6,7 +6,8 @@ import { cx, ProgressBar } from '@/components/ui'
 import { createAiJob, kickAiJob, reserveTurn, type JobMeta } from '@/lib/ai'
 import { useGirafaHidden } from '@/lib/assistantPref'
 import { useInvalidate, type Table } from '@/lib/data'
-import { QUEUE_NOTICE, queueEta } from '@/lib/queue'
+import { queueEta } from '@/lib/queue'
+import { QueueNotice } from '@/components/SessionMeter'
 import { must, supabase } from '@/lib/supabase'
 import type { AiJob } from '@/lib/types'
 import { useSpace } from './space'
@@ -336,7 +337,7 @@ function JobRow({ j, dismiss, cancel, navigate, compact }: RowActions & { j: Tra
             <strong className="text-text">
               {j.queue ? `En file d’attente · tour n° ${j.queue.position}, ${queueEta(j.queue.position, j.queue.busy)}` : 'En file d’attente…'}
             </strong>
-            <span className="mt-0.5 block">{QUEUE_NOTICE}</span>
+            <QueueNotice inline />
           </span>
         ) : running ? (
           (j.result?.phase ?? 'Tu peux continuer à utiliser l’application pendant ce temps.') + (j.kind === 'upload' ? ' · Garde l’appli ouverte.' : '')
